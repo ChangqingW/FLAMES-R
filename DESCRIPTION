@@ -39,7 +39,6 @@ Imports:
     DropletUtils,
     GenomicRanges,
     GenomicFeatures,
-    txdbmaker,
     GenomicAlignments,
     GenomeInfoDb,
     ggplot2,
