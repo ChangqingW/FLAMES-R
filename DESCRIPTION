@@ -27,50 +27,7 @@ BugReports: https://github.com/mritchielab/FLAMES/issues
 License: GPL (>= 3)
 Encoding: UTF-8
 Imports: 
-    basilisk,
-    bambu,
-    Biostrings,
-    BiocGenerics,
-    circlize,
-    ComplexHeatmap,
-    cowplot,
-    dplyr,
-    DropletUtils,
-    GenomicRanges,
-    GenomicFeatures,
-    txdbmaker,
-    GenomicAlignments,
-    GenomeInfoDb,
-    ggplot2,
-    ggbio,
-    grid,
-    gridExtra,
-    igraph,
-    jsonlite,
-    magrittr,
-    Matrix,
-    MatrixGenerics,
-    parallel,
-    reticulate,
-    Rsamtools,
-    rtracklayer,
-    RColorBrewer,
-    SingleCellExperiment,
-    SummarizedExperiment,
-    scater,
-    S4Vectors,
-    scuttle,
-    stats,
-    scran,
-    stringr,
-    tidyr,
-    utils,
-    withr,
-    future,
-    methods,
-    tibble,
-    tidyselect,
-    IRanges
+    basilisk
 Suggests:
     BiocStyle,
     GEOquery,
@@ -82,7 +39,7 @@ Suggests:
     uwot,
     testthat (>= 3.0.0),
     xml2
-LinkingTo: Rcpp, Rhtslib, testthat
+LinkingTo: testthat
 SystemRequirements: GNU make, C++17, samtools (>= 1.19), minimap2 (>= 2.17)
 RoxygenNote: 7.3.2
 VignetteBuilder: knitr
