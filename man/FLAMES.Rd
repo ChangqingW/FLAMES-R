@@ -3,6 +3,12 @@
 \name{FLAMES}
 \alias{FLAMES}
 \title{FLAMES: full-length analysis of mutations and splicing}
+\usage{
+FLAMES()
+}
 \description{
 FLAMES: full-length analysis of mutations and splicing
+}
+\examples{
+basilisk::basiliskRun(env = FLAMES:::flames_env, fun = function(){})
 }
