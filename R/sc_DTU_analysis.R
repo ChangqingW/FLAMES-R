@@ -290,29 +290,30 @@ isoform_chisq_test <- function(sce, min_count = 15, threads = 1) {
 # a chisq.test wrapper for a gene matrix
 chisq_test_by_gene <- function(gene_mtx) {
 
-  warned <- FALSE
+  # warned <- FALSE
   fit <- withCallingHandlers(
     chisq.test(gene_mtx),
     warning = function(w) {
       if (w$message == "Chi-squared approximation may be incorrect") {
-        warned <<- TRUE
+        # warned <<- TRUE
         invokeRestart("muffleWarning")  # Suppress the warning output
       }
       # don't muffle other warnings
   })
 
-  if (nrow(gene_mtx) == 2) {
-    DTU_transcript <- names(sort(rowSums(gene_mtx), decreasing = TRUE)[1])
-  } else {
-    DTU_transcript <- names(sort(rowSums(fit$residuals^2), decreasing = TRUE)[1])
-  }
+  DTU_idx <- arrayInd(which.max(abs(fit$residuals^2)), dim(gene_mtx))
+  observed_pcts <- sweep(gene_mtx, 2, colSums(gene_mtx), "/")
+  expected_pcts <- rowSums(gene_mtx) / sum(gene_mtx)
+  pct_diff <- observed_pcts[DTU_idx[1], DTU_idx[2]] - expected_pcts[DTU_idx[1]]
 
   tibble(
     X_value = fit$statistic,
     df = fit$parameter,
-    DTU_tr = DTU_transcript,
-    DTU_group = names(sort(colSums(fit$residuals^2), decreasing = TRUE)[1]),
+    DTU_tr = rownames(gene_mtx)[DTU_idx[1]],
+    DTU_group = colnames(gene_mtx)[DTU_idx[2]],
     p_value = fit$p.value,
-    too_few = warned
+    expected_pct = expected_pcts[DTU_idx[1]],
+    observed_pct = observed_pcts[DTU_idx[1], DTU_idx[2]],
+    pct_diff = pct_diff
   )
 }
