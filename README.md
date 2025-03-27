@@ -34,7 +34,23 @@ Function references can be found [here](https://mritchielab.github.io/FLAMES/ref
 
 [IgniteRNAseq](https://github.com/ChangqingW/IgniteRNAseq) is a workflow package and its rendered vignette can be found [here](https://changqingw.github.io/IgniteRNAseq/articles/FLAMESWorkflow.html).
 
+A Long read single cell analysis tutorial using both single-sample and multi-sample modes is available [here](https://sefi196.github.io/FLAMESv2_LR_sc_tutorial/).
+
 ## Common issues
 
-- basilisk / reticulate errors  
-If you encounter errors from Python code execution, you could try adding `basilisk::setBasiliskFork(FALSE)` before running the FLAMES.
+- **basilisk / reticulate errors**  
+If you encounter errors from Python code execution, you could try adding `basilisk::setBasiliskFork(FALSE)` before running FLAMES.
+
+- **Isoform identification with bambu**
+If you encounter errors during isoform identification using Bambu, you can try troubleshooting by setting the '''bambu_verbose''' parameter to TRUE. We have found the following steps helpful in resolving issues:
+
+1. Remove supplementary alignments from the genome BAM file.
+
+2. Divide the BAM file into smaller sections for easier processing.
+
+3. Remove unnecessary contigs from the genome.fa file.
+
+4. Use the HongYhong_fix branch of Bambu, which is better equipped for handling large files. You can install this version in R with the following command: 
+```
+install_github("GoekeLab/bambu", ref="HongYhong_fix")
+```

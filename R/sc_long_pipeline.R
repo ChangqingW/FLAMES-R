@@ -292,17 +292,29 @@ sc_long_pipeline <- function(
     if (config$pipeline_parameters$do_gene_quantification) {
       infq_realign <- file.path(outdir, "matched_reads_dedup.fastq")
     } else {
+      cat("***Warning*** Ensure the FASTQ files you are using for transcriptome mapping are deduplicated\n")
+      cat("### The FASTQ file requires a CB tag for Oarfish quantification\n")
+      cat("### This can be added to the FASTQ file using the add_BC_UMI_to_fq.py script found on GitHub\n")
       infq_realign <- infq
     }
 
     # minimap2_realign looks for the transcript_assembly.fa file in the outdir
     # https://combine-lab.github.io/oarfish/
     if (config$pipeline_parameters$oarfish_quantification) {
+      threads <- config$pipeline_parameters$threads
+      minimap2_args <- paste("--eqx -N 100 -ax map-ont -y", "-t", threads)
+
+      cat("Running minimap2 with args:", minimap2_args, "\n")
+
       metadata$results <- c(metadata$results,
         list("minimap2_realign" =
-          minimap2_realign(config, infq_realign, outdir, minimap2,
-            prefix = NULL, threads = config$pipeline_parameters$threads,
-            minimap2_args = "--eqx -N 100 -ax map-ont -y", sort_by = "CB")
+          minimap2_realign(
+            config, infq_realign, outdir, minimap2,
+            prefix = NULL,
+            threads = threads,
+            minimap2_args = minimap2_args,
+            sort_by = "CB"
+          )
         )
       )
     } else {

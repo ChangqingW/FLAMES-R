@@ -284,9 +284,14 @@ sc_long_multisample_pipeline <- function(annotation, fastqs, outdir, genome_fa,
     quantify_gene(annotation, outdir, infqs, config$pipeline_parameters$threads,
       pipeline = "sc_multi_sample", samples = names(fastqs), random_seed = random_seed
     )
+    
+    cat(format(Sys.time(), "%X %a %b %d %Y"), "Gene quantification and UMI deduplication done!\n")
+  } else {
+    cat("#### Skip gene quantification and UMI deduplication\n")
   }
 
   # find isofroms
+  cat("#### testing sefi branch\n")
   if (config$pipeline_parameters$do_isoform_identification) {
     find_isoform(annotation, genome_fa, genome_bam, outdir, config)
   } else {
@@ -301,35 +306,53 @@ sc_long_multisample_pipeline <- function(annotation, fastqs, outdir, genome_fa,
 
 
 
-  # realign to transcript
-  if (config$pipeline_parameters$do_read_realignment) {
-    cat("#### Realign to transcript using minimap2\n")
-    if (config$pipeline_parameters$do_gene_quantification) {
-      infqs_realign <- file.path(outdir, paste(names(fastqs), "matched_reads_dedup.fastq", sep = "_"))
-    } else {
-      infqs_realign <- infqs
-    }
-    metadata$results[["read_realignment"]] <- list()
-    for (i in 1:length(names(fastqs))) {
-      cat(paste0(c("\tRealigning sample ", names(fastqs)[i], "...\n")))
-      if (config$pipeline_parameters$oarfish_quantification) {
-        metadata$results[["read_realignment"]][[names(fastqs)[i]]] <-
-          minimap2_realign(config, infqs_realign[i], outdir, minimap2,
-            prefix = names(fastqs)[i],
-            threads = config$pipeline_parameters$threads,
-            minimap2_args = "--eqx -N 100 -ax map-ont -y", sort_by = "CB"
-          )
-      } else {
-        metadata$results[["read_realignment"]][[names(fastqs)[i]]] <-
-          minimap2_realign(config, infqs_realign[i], outdir, minimap2,
-            prefix = names(fastqs)[i],
-            threads = config$pipeline_parameters$threads
-          )
-      }
-    }
+# realign to transcript
+if (config$pipeline_parameters$do_read_realignment) {
+  cat("#### Realign to transcript using minimap2\n")
+  
+  # Set file paths for realignment
+  if (config$pipeline_parameters$do_gene_quantification) {
+    cat("#### Realigning deduplicated reads to transcript using minimap2\n")
+    infqs_realign <- file.path(outdir, paste(names(fastqs), "matched_reads_dedup.fastq", sep = "_"))
   } else {
-    cat("#### Skip read realignment\n")
+      cat("***Warning*** Ensure the FASTQ files you are using for transcriptome mapping are deduplicated\n")
+      cat("### The FASTQ file requires a CB tag for Oarfish quantification\n")
+      cat("### This can be added to the FASTQ file using the add_BC_UMI_to_fq.py script found on GitHub\n")
+    infqs_realign <- fastqs # if no gene quantification, use the original fastqs
   }
+  
+  metadata$results[["read_realignment"]] <- list()
+
+  threads = config$pipeline_parameters$threads
+
+  # Loop over each sample
+  for (i in 1:length(names(fastqs))) {
+    cat(paste0(c("\tRealigning sample ", names(fastqs)[i], "...\n")))
+    
+    # Perform realignment using minimap2
+    if (config$pipeline_parameters$oarfish_quantification) {
+      
+      # Define minimap2 arguments inside the loop
+      minimap2_args <- paste("--eqx -N 100 -ax map-ont -y", "-t", threads)
+      metadata$results[["read_realignment"]][[names(fastqs)[i]]] <-
+        minimap2_realign(config, infqs_realign[i], outdir, minimap2,
+          prefix = names(fastqs)[i],
+          threads = threads,
+          minimap2_args = minimap2_args,
+          sort_by = "CB") 
+      cat("Running minimap2 with args:", minimap2_args, "\n")
+    } 
+    
+    else {
+      metadata$results[["read_realignment"]][[names(fastqs)[i]]] <-
+        minimap2_realign(config, infqs_realign[i], outdir, minimap2,
+          prefix = names(fastqs)[i],
+          threads = threads)
+    }
+  }
+} else {
+  cat("#### Skip read realignment\n")
+}
 
   # transcript quantification
   # TODO: implement filtering in R

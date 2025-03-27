@@ -74,7 +74,8 @@ find_isoform_bambu <- function(annotation, genome_fa, genome_bam, outdir, config
         TRUE,
         config$isoform_parameters$bambu_discovery),
       lowMemory = TRUE,
-      NDR = config$isoform_parameters$bambu_ndr
+      NDR = config$isoform_parameters$bambu_ndr,
+      verbose = config$isoform_parameters$bambu_verbose,
       # https://github.com/GoekeLab/bambu/issues/416#issuecomment-1987499886
       # ncore = config$pipeline_parameters$threads
   ))
