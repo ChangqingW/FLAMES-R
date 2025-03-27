@@ -291,7 +291,6 @@ sc_long_multisample_pipeline <- function(annotation, fastqs, outdir, genome_fa,
   }
 
   # find isofroms
-  cat("#### testing sefi branch\n")
   if (config$pipeline_parameters$do_isoform_identification) {
     find_isoform(annotation, genome_fa, genome_bam, outdir, config)
   } else {
@@ -315,9 +314,6 @@ if (config$pipeline_parameters$do_read_realignment) {
     cat("#### Realigning deduplicated reads to transcript using minimap2\n")
     infqs_realign <- file.path(outdir, paste(names(fastqs), "matched_reads_dedup.fastq", sep = "_"))
   } else {
-      cat("***Warning*** Ensure the FASTQ files you are using for transcriptome mapping are deduplicated\n")
-      cat("### The FASTQ file requires a CB tag for Oarfish quantification\n")
-      cat("### This can be added to the FASTQ file using the add_BC_UMI_to_fq.py script found on GitHub\n")
     infqs_realign <- fastqs # if no gene quantification, use the original fastqs
   }
   

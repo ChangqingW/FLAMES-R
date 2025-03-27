@@ -219,7 +219,13 @@ get_top_transcript_ids <- function(sce, gene_id, transcript_ids, n) {
 plot_isoforms <- function(sce, gene_id, transcript_ids, n = 4, format = "plot_grid",
   colors) {
   transcript_ids <- get_top_transcript_ids(sce, gene_id, transcript_ids, n)
-  sce <- sce[match(transcript_ids, rowData(sce)$transcript_id), ]
+  if (all(transcript_ids %in% rowData(sce)$transcript_id)) {
+    sce <- sce[match(transcript_ids, rowData(sce)$transcript_id), ]
+  } else if (all(transcript_ids %in% rownames(sce))) {
+    sce <- sce[transcript_ids, ]
+  } else {
+    stop("transcript_ids not found in rowData or rownames")
+  }
   transcripts <- rowRanges(sce)
   x_range <- c(
     min(min(start(transcripts))),
@@ -311,7 +317,13 @@ plot_isoform_heatmap <- function(
     sce, gene_id, transcript_ids, n = 4, isoform_legend_width = 7, col_low = "#313695",
   col_mid = "#FFFFBF", col_high = "#A50026", color_quantile = 1, cluster_palette, ...) {
   transcript_ids <- get_top_transcript_ids(sce, gene_id, transcript_ids, n)
-  sce <- sce[match(transcript_ids, rowData(sce)$transcript_id), ]
+  if (all(transcript_ids %in% rowData(sce)$transcript_id)) {
+    sce <- sce[match(transcript_ids, rowData(sce)$transcript_id), ]
+  } else if (all(transcript_ids %in% rownames(sce))) {
+    sce <- sce[transcript_ids, ]
+  } else {
+    stop("transcript_ids not found in rowData or rownames")
+  }
   legends_heatmap <- plot_isoforms(sce, gene_id, transcript_ids, n, format = "list")
 
   group_annotation <- function(x, cluster_palette) {

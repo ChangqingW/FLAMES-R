@@ -216,7 +216,7 @@ minimap2_realign <- function(config, fq_in, outdir, minimap2, samtools = NULL, p
     )
   } else if (is.character(sort_by)) {
     cat("Sorting by", sort_by, "for oarfish quantifaction", "\n")
-    cat(paste0("🔹 Sorting BAM file with ", threads, " threads...\n"))
+    cat(paste0("Sorting BAM file with ", threads, " threads...\n"))
     sort_status <- base::system2(
     command = samtools,
     args = c(

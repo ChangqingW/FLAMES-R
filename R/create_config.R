@@ -94,7 +94,8 @@ create_config <- function(outdir, type = "sc_3end", ...) {
 #' @importFrom Matrix tail
 #' @importFrom stringr str_split
 #' @importFrom jsonlite fromJSON
-check_arguments <- function(annotation, fastq, genome_bam,
+check_arguments <- function(
+    annotation, fastq, genome_bam,
     outdir, genome_fa, config_file) {
   if (!dir.exists(outdir)) {
     cat("Output directory does not exists: one is being created\n")
@@ -135,6 +136,15 @@ check_arguments <- function(annotation, fastq, genome_bam,
       stop("Bambu requires GTF format for annotation file.\n")
     }
   }
+
+  if (config$pipeline_parameters$do_transcript_quantification &&
+    config$pipeline_parameters$oarfish_quantification &&
+    !config$pipeline_parameters$do_gene_quantification) {
+    warning("You have set to use oarfish quantification without gene quantification. Oarfish currently does not collapse UMIs, and gene quantification performs UMI collapsing. You may want to set do_gene_quantification to TRUE for more accurate results.")
+  }
+
+  # Todo: add default values for missing parameters
+  # so adding new parameters could be backward compatible
 
   return(list(config = config))
 }

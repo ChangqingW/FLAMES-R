@@ -292,9 +292,6 @@ sc_long_pipeline <- function(
     if (config$pipeline_parameters$do_gene_quantification) {
       infq_realign <- file.path(outdir, "matched_reads_dedup.fastq")
     } else {
-      cat("***Warning*** Ensure the FASTQ files you are using for transcriptome mapping are deduplicated\n")
-      cat("### The FASTQ file requires a CB tag for Oarfish quantification\n")
-      cat("### This can be added to the FASTQ file using the add_BC_UMI_to_fq.py script found on GitHub\n")
       infq_realign <- infq
     }
 
