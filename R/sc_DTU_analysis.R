@@ -290,29 +290,162 @@ isoform_chisq_test <- function(sce, min_count = 15, threads = 1) {
 # a chisq.test wrapper for a gene matrix
 chisq_test_by_gene <- function(gene_mtx) {
 
-  warned <- FALSE
+  # warned <- FALSE
   fit <- withCallingHandlers(
     chisq.test(gene_mtx),
     warning = function(w) {
       if (w$message == "Chi-squared approximation may be incorrect") {
-        warned <<- TRUE
+        # warned <<- TRUE
         invokeRestart("muffleWarning")  # Suppress the warning output
       }
       # don't muffle other warnings
   })
 
-  if (nrow(gene_mtx) == 2) {
-    DTU_transcript <- names(sort(rowSums(gene_mtx), decreasing = TRUE)[1])
-  } else {
-    DTU_transcript <- names(sort(rowSums(fit$residuals^2), decreasing = TRUE)[1])
-  }
+  DTU_idx <- arrayInd(which.max(abs(fit$residuals^2)), dim(gene_mtx))
+  observed_pcts <- sweep(gene_mtx, 2, colSums(gene_mtx), "/")
+  expected_pcts <- rowSums(gene_mtx) / sum(gene_mtx)
+  pct_diff <- observed_pcts[DTU_idx[1], DTU_idx[2]] - expected_pcts[DTU_idx[1]]
 
   tibble(
     X_value = fit$statistic,
     df = fit$parameter,
-    DTU_tr = DTU_transcript,
-    DTU_group = names(sort(colSums(fit$residuals^2), decreasing = TRUE)[1]),
+    DTU_tr = rownames(gene_mtx)[DTU_idx[1]],
+    DTU_group = colnames(gene_mtx)[DTU_idx[2]],
     p_value = fit$p.value,
-    too_few = warned
+    expected_pct = expected_pcts[DTU_idx[1]],
+    observed_pct = observed_pcts[DTU_idx[1], DTU_idx[2]],
+    pct_diff = pct_diff
   )
+}
+
+
+# DTU via mean difference with permutation
+#' @importFrom MatrixGenerics rowSums
+#' @importFrom SingleCellExperiment counts rowData colData colLabels
+#' @importFrom dplyr summarise filter n bind_rows left_join mutate
+#' @importFrom BiocParallel bpmapply MulticoreParam
+#' @importFrom tibble tibble
+#' @importFrom tidyselect matches
+#' @importFrom stats ecdf
+#' @importFrom utils message
+#' @importFrom stats p.adjust
+DTU_mean_diff <- function(sce, gene_col = "gene_id", min_count = 50, threads = 1, permuations = 1000) {
+  message("Filtering for genes with at least 2 detected isforms ...")
+  sce <- sce[rowSums(SingleCellExperiment::counts(sce)) > min_count, ]
+  genes <- SummarizedExperiment::rowData(sce) |>
+    as.data.frame() |>
+    dplyr::summarise(n = n(), .by = eval(gene_col)) |>
+    dplyr::filter(n > 1)
+  sce <- sce[SummarizedExperiment::rowData(sce)[, gene_col] %in% genes[, gene_col], ]
+    # sce[SummarizedExperiment::rowData(sce)$gene_id %in% genes$gene_id, ]
+  message(sprintf("\t%d transcript(s) left.\n", nrow(sce)))
+
+  cell_labels <- SingleCellExperiment::colLabels(sce)
+  gene_ids <- SummarizedExperiment::rowData(sce)[, gene_col]
+  transcript_list <- split(rownames(sce), gene_ids)
+  # reduce multi-threading overhead by partitioning the job
+  job_list <- split(transcript_list, cut(seq_along(transcript_list), threads * 4))
+  job_list <- job_list[lapply(job_list, length) > 0] # incase of empty job from over partitioning
+  job_gene_list <- lapply(job_list, function(jbs) {
+    lapply(names(jbs), \(gene) rep(gene, length(jbs[[gene]]))) |>
+      do.call(what = c, args = _)
+  })
+  job_list <- lapply(job_list, unlist)
+
+
+  tb <- BiocParallel::bpmapply(
+    function(transcripts, genes) {
+      mtx <- SingleCellExperiment::counts(sce)[transcripts, ] |>
+        as("CsparseMatrix")
+      orig_diff_mtx <- mean_transcript_usage(mtx, cell_labels, genes)
+
+      # permute the labels and get the mean difference matrix
+      perm_diff_mtx_lst <- lapply(seq_len(permuations), \(x) {
+        perm_labels <- sample(cell_labels, length(cell_labels), replace = FALSE)
+        abs(mean_transcript_usage(mtx, perm_labels, genes, diff_only = TRUE))
+      })
+
+      args.grid <- expand.grid(
+        transcript = rownames(orig_diff_mtx),
+        cluster = colnames(orig_diff_mtx)
+      )
+      mapply(
+        function(i, j) {
+          permuted_diffs <- sapply(perm_diff_mtx_lst, \(mtx) mtx[i, j])
+          n_unique <- length(na.omit(unique(permuted_diffs)))
+          # in case of ties, get the lower bound of the quantile
+          imperical_quantile <- ecdf_lower(permuted_diffs, abs(orig_diff_mtx[i, j, "usage_difference"]))
+          p_value <- (1 - imperical_quantile) + (1 / n_unique) # percision at best is 1 / n_unique
+          permuted_var <- sum(permuted_diffs^2, na.rm = TRUE) / (sum(!is.na(permuted_diffs)) - 1)
+          # permuted_mean <- mean(permuted_diffs, na.rm = TRUE)
+          return(tibble::tibble(
+            transcript = i,
+            cluster = j,
+            transcript_usage = orig_diff_mtx[i, j, "transcript_usage"],
+            transcript_usage_elsewhere = orig_diff_mtx[i, j, "transcript_usage_elsewhere"],
+            usage_difference = orig_diff_mtx[i, j, "usage_difference"],
+            p.value = p_value,
+            # permuted_mean = permuted_mean,
+            permuted_var = permuted_var
+          ))
+        },
+        args.grid$transcript, args.grid$cluster,
+        SIMPLIFY = FALSE
+      ) |>
+        dplyr::bind_rows()
+    },
+    job_list, job_gene_list,
+    SIMPLIFY = FALSE,
+    BPPARAM = BiocParallel::MulticoreParam(workers = threads, progressbar = TRUE)
+  ) |>
+    dplyr::bind_rows()
+
+  # sanity check
+  stopifnot("Unexpected error" = nrow(tb) == (nrow(sce) * length(unique(cell_labels))))
+  rowdata <- SummarizedExperiment::rowData(sce) |>
+    as.data.frame() |>
+    tibble::as_tibble(rownames = "transcript") |>
+    dplyr::select(transcript, eval(gene_col), tidyselect::matches("gene_name"))
+  dplyr::mutate(tb, adj.p.value = p.adjust(p.value, method = "BH")) |>
+    dplyr::left_join(rowdata, by = c("transcript"))
+}
+
+ecdf_lower <- function(samples, x) {
+  sum(samples < x) / length(samples)
+}
+
+#' @importFrom DelayedArray colsum rowsum
+#' @importFrom MatrixGenerics rowSums
+#' @importFrom abind abind
+mean_transcript_usage <- function(mtx, cell_labels, genes, diff_only = FALSE) {
+  stopifnot("labels should be of the same length as the number of columns in mtx" = length(cell_labels) == ncol(mtx))
+
+  transcript_counts <- mtx |>
+    as("CsparseMatrix") |>
+    DelayedArray::colsum(group = cell_labels, reorder = TRUE)
+  if (missing(genes)) {
+    genes <- rep(1, nrow(mtx))
+  } else {
+    stopifnot("genes should be of the same length as the number of rows in mtx" = length(genes) == nrow(mtx))
+  }
+  gene_counts <- transcript_counts |>
+    DelayedArray::rowsum(group = genes, reorder = TRUE) |>
+    (\(mtx) mtx[genes, ])()
+  transcript_usage <- transcript_counts / gene_counts
+
+  # get the mean transcript usage of other clusters (ecxluding the current cluster)
+  transcript_usage_elsewhere <- (rowSums(transcript_counts) - transcript_counts) / (rowSums(gene_counts) - gene_counts)
+
+  usage_difference <- transcript_usage - transcript_usage_elsewhere
+  if (diff_only) {
+    return(usage_difference)
+  }
+
+  diff_mtx <- abind::abind(transcript_usage,
+    transcript_usage_elsewhere,
+    usage_difference,
+    along = 3
+  )
+  dimnames(diff_mtx)[[3]] <- c("transcript_usage", "transcript_usage_elsewhere", "usage_difference")
+  return(diff_mtx)
 }

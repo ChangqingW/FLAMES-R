@@ -21,11 +21,11 @@ as an \code{altExps} slot named \code{gene}.
 sce <- SingleCellExperiment::SingleCellExperiment(
   assays = list(counts = matrix(0, nrow = 10, ncol = 10))
 )
-colnames(sce) <- paste0('cell', 1:10)
+colnames(sce) <- paste0("cell", 1:10)
 # Set up a mock gene count file
 gene_count_file <- tempfile()
 gene_mtx <- matrix(1:10, nrow = 2, ncol = 5)
-colnames(gene_mtx) <- paste0('cell', 1:5)
+colnames(gene_mtx) <- paste0("cell", 1:5)
 rownames(gene_mtx) <- c("gene1", "gene2")
 write.csv(gene_mtx, gene_count_file)
 # Add gene counts to the SingleCellExperiment object

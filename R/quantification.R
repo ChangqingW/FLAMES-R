@@ -137,11 +137,11 @@ quantify_gene <- function(annotation, outdir, infq, n_process, pipeline = "sc_si
 #' sce <- SingleCellExperiment::SingleCellExperiment(
 #'   assays = list(counts = matrix(0, nrow = 10, ncol = 10))
 #' )
-#' colnames(sce) <- paste0('cell', 1:10)
+#' colnames(sce) <- paste0("cell", 1:10)
 #' # Set up a mock gene count file
 #' gene_count_file <- tempfile()
 #' gene_mtx <- matrix(1:10, nrow = 2, ncol = 5)
-#' colnames(gene_mtx) <- paste0('cell', 1:5)
+#' colnames(gene_mtx) <- paste0("cell", 1:5)
 #' rownames(gene_mtx) <- c("gene1", "gene2")
 #' write.csv(gene_mtx, gene_count_file)
 #' # Add gene counts to the SingleCellExperiment object
@@ -358,15 +358,20 @@ parse_oarfish_sc_output <- function(oarfish_out, annotation, outdir) {
   rowData(sce)$transcript_id <- rownames(sce)
 
   # add gene ID
-  gene_id_tb <- c(annotation, novel_annotation) |>
-    lapply(fake_stranded_gff) |>
-    lapply(txdbmaker::makeTxDbFromGFF) |>
-    lapply(\(x) GenomicFeatures::transcriptsBy(x, by = "gene")) %>%
-    do.call(c, .) |>
-    lapply(\(x) GenomicRanges::mcols(x)[, "tx_name", drop = FALSE]) |>
-    lapply(as.data.frame) |>
-    dplyr::bind_rows(.id = "gene_id")
-  rowData(sce)$gene_id <- gene_id_tb[match(rownames(sce), gene_id_tb$tx_name), "gene_id"]
+  SummarizedExperiment::rowData(sce)$gene_id <- tryCatch(
+    GenomicRanges::mcols(annotation_grl)[, "gene_id"],
+    error = function(e) {
+      sprintf("Error when adding gene ID: %s, trying again with txdbmaker...", e$message)
+      gene_id_tb <- c(annotation, novel_annotation) |>
+        lapply(fake_stranded_gff) |>
+        lapply(txdbmaker::makeTxDbFromGFF) |>
+        lapply(\(x) GenomicFeatures::transcripts(x, columns = c("gene_id", "tx_name"))) |>
+        lapply(\(x) GenomicRanges::mcols(x)) |>
+        do.call(rbind, args = _)
+      gene_id_tb[match(rownames(sce), gene_id_tb$tx_name), "gene_id"] |>
+        as.character()
+    }
+  )
 
   return(sce)
 }
