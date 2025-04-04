@@ -12,6 +12,9 @@ add_gene_counts(sce, gene_count_file)
 \item{gene_count_file}{The file path to the gene count file. If missing,
 the function will try to find the gene count file in the output directory.}
 }
+\value{
+A \code{SingleCellExperiment} object with gene counts added.
+}
 \description{
 Add gene counts to a \code{SingleCellExperiment} object
 as an \code{altExps} slot named \code{gene}.

@@ -130,6 +130,7 @@ quantify_gene <- function(annotation, outdir, infq, n_process, pipeline = "sc_si
 #' @param sce A \code{SingleCellExperiment} object.
 #' @param gene_count_file The file path to the gene count file. If missing,
 #' the function will try to find the gene count file in the output directory.
+#' @return A \code{SingleCellExperiment} object with gene counts added.
 #' @importFrom SingleCellExperiment SingleCellExperiment altExps
 #' @importFrom S4Vectors metadata
 #' @examples
@@ -379,7 +380,7 @@ parse_oarfish_sc_output <- function(oarfish_out, annotation, outdir) {
 #' @importFrom SummarizedExperiment SummarizedExperiment
 parse_oarfish_bulk_output <- function(oarfish_outs, sample_names) {
   mtx_list <- lapply(oarfish_outs, function(oarfish_out) {
-    read.delim(paste0(oarfish_out, ".quant"), header = TRUE, row.names = 1)[, "num_reads", drop = F]
+    read.delim(paste0(oarfish_out, ".quant"), header = TRUE, row.names = 1)[, "num_reads", drop = FALSE]
   })
   mtx <- do.call(cbind, mtx_list)
   colnames(mtx) <- sample_names

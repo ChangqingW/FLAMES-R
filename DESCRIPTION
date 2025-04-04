@@ -1,6 +1,6 @@
 Package: FLAMES
 Title: FLAMES: Full Length Analysis of Mutations and Splicing in long read RNA-seq data
-Version: 2.1.8
+Version: 2.1.9
 Date: 2023-03-27
 Authors@R: c(
        person("Luyi", "Tian", role=c("aut"),
@@ -37,7 +37,6 @@ Imports:
     ComplexHeatmap,
     cowplot,
     dplyr,
-    DelayedArray,
     DropletUtils,
     GenomicRanges,
     GenomicFeatures,
@@ -59,6 +58,7 @@ Imports:
     Rsamtools,
     rtracklayer,
     RColorBrewer,
+    SparseArray (>= 1.7.7),
     SingleCellExperiment,
     SummarizedExperiment,
     SpatialExperiment,

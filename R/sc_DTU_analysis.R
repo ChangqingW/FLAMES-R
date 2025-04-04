@@ -1,49 +1,51 @@
-# TODO:
-#       Add parameters
-#
-#
 #' FLAMES Differential Transcript Usage Analysis
 #'
-#' Chi-square based differential transcription usage analysis. This variant is meant for single cell data.
-#' Takes the \code{SingleCellExperiment} object from \code{sc_long_pipeline} as input.
-#' Alternatively, the path to the output folder could be provided instead of the SCE object.
-#'
+#' Differential transcription usage testing for single cell data, using
+#' \code{colLabels} as cluster labels.
 #'
 #' @details
-#' This function will search for genes that have at least two isoforms, each with more than \code{min_count} UMI counts.
-#' For each gene, the per cell transcript counts were merged by group to generate pseudo bulk samples.
-#' Grouping is specified by the \code{colLabels} of the SCE object.
-#' The top 2 highly expressed transcripts for each group were selected and a UMI count matrix where
-#' the rows are selected transcripts and columns are groups was used as input to a chi-square test of independence (chisq.test).
+#' Genes with more than 2 isoforms expressing more than \code{min_count} counts
+#' are selected for testing with one of the following methods:
+#' \describe{
+#'  \item{trascript usage permutation}{ Transcript usage are taken as the test statistic, cluster labels are permuted to generate a null distribution.}
+#'  \item{chisq}{ Chi-square test of the transcript count matrix for each gene. }
+#' }
 #' Adjusted P-values were calculated by Benjamini–Hochberg correction.
 #'
-#' @param sce The \code{SingleCellExperiment} object from \code{sc_long_pipeline},
-#' @param min_count The minimum UMI count threshold for filtering isoforms.
+#' @param sce The \code{SingleCellExperiment} object, with transcript counts
+#' in the \code{counts} slot and cluster labels in the \code{colLabels} slot.
+#' @param min_count The minimum total counts for a transcript to be tested.
+#' @param gene_col The column name in the \code{rowData} slot of \code{sce}
+#' that contains the gene ID / name. Default is \code{"gene_id"}.
+#' @param method The method to use for testing, listed in \code{details}.
+#' @param permuations Number of permutations for permutation methods.
 #' @param threads Number of threads to use for parallel processing.
 #'
-#' @return a \code{data.frame} containing the following columns:
+#' @return a \code{tibble} containing the following columns:
 #' \describe{
-#'  \item{gene_id}{ - differentially transcribed genes }
-#'  \item{X_value}{ - the X value for the DTU gene}
-#'  \item{df}{ - degrees of freedom of the approximate chi-squared distribution of the test statistic }
-#'  \item{DTU_tr}{ - the transcript_id with the highest squared residuals}
-#'  \item{DTU_group}{ - the cell group with the highest squared residuals}
-#'  \item{p_value}{ - the p-value for the test}
-#'  \item{adj_p}{ - the adjusted p-value (by Benjamini–Hochberg correction)}
+#'  \item{p.value}{ - the raw p-value }
+#'  \item{adj.p.value}{ - multiple testing adjusted p-value }
+#'  \item{cluster}{ - the cluster where DTU was observed }
+#'  \item{transcript}{ - rowname of \code{sce}, the DTU isoform }
+#'  \item{transcript_usage}{ - the transcript usage of the isoform in the cluster }
 #' }
-#' The table is sorted by decreasing P-values.
+#' Additional columns from \code{method = "trascript usage permutation"}:
+#' \describe{
+#'  \item{transcript_usage_elsewhere}{ - transcript usage in other clusters }
+#'  \item{usage_difference}{ - the difference between the two transcript usage }
+#'  \item{permuted_var}{ - the variance of usage difference in the permuted data }
+#' }
+#' Additional columns from \code{method = "chisq"}:
+#' \describe{
+#'  \item{X_value}{ - the test statistic }
+#'  \item{df}{ - the degrees of freedom }
+#'  \item{expected_usage}{ - the expected usage (mean across all clusters) }
+#'  \item{usage_difference}{ - the difference between the observed and expected usage }
+#' }
+#' The table is sorted by P-values.
 #'
-#' @importFrom dplyr group_by ungroup summarise_at top_n left_join summarise groups mutate filter_at any_vars select_if select all_of all_vars
-#' @importFrom tidyr gather pivot_wider as_tibble
-#' @importFrom magrittr "%>%"
-#' @importFrom S4Vectors DataFrame
-#' @importFrom SingleCellExperiment counts SingleCellExperiment colLabels colLabels<-
-#' @importFrom SummarizedExperiment rowData colData rowData<- colData<-
-#' @importFrom scuttle addPerCellQC addPerFeatureQC isOutlier
-#' @importFrom utils write.csv setTxtProgressBar
-#' @importFrom stats chisq.test complete.cases na.omit
 #' @importFrom methods is
-#' @importFrom utils txtProgressBar
+#' @importFrom SingleCellExperiment colLabels
 #' @export
 #' @examples
 #' outdir <- tempfile()
@@ -69,213 +71,66 @@
 #' )
 #' group_anno <- data.frame(barcode_seq = colnames(sce), groups = SingleCellExperiment::counts(sce)["ENSMUST00000169826.2", ] > 1)
 #' SingleCellExperiment::colLabels(sce) <- group_anno$groups
-#' sc_DTU_analysis(sce, min_count = 1)
-sc_DTU_analysis <- function(sce, min_count = 15, threads = 1) {
+#' # DTU with permutation testing:
+#' sc_DTU_analysis(sce, min_count = 1, method = "trascript usage permutation")
+#' # now try with chisq:
+#' sc_DTU_analysis(sce, min_count = 1, method = "chisq")
+sc_DTU_analysis <- function(sce, gene_col = "gene_id", min_count = 15, threads = 1, method = "trascript usage permutation", permuations = 1000) {
 
-  # sce object from sc_long_pipeline
-  if (!is(sce, "SingleCellExperiment")) {
-    stop("sce need to be an SingleCellExperiment Object returned by sc_long_pipeline()")
-  }
+  stopifnot("sce need to be an SingleCellExperiment Object" = is(sce, "SingleCellExperiment"))
   stopifnot("min_count must be a positive number" = min_count > 0)
   stopifnot("Cluster label (colLabels(sce)) not found" = !is.null(colLabels(sce)))
-  if (!is.character(sce@metadata$OutputFiles$outdir) ||
-    !file.exists(file.path(sce@metadata$OutputFiles$outdir, "isoform_FSM_annotation.csv"))) {
-    return(isoform_chisq_test(sce, min_count, threads))
-  }
-
-  outdir <- sce@metadata$OutputFiles$outdir
-  cat("Loading isoform_FSM_annotation.csv ...\n")
-  isoform_FSM_annotation <- read.csv(file.path(outdir, "isoform_FSM_annotation.csv"), stringsAsFactors = FALSE)
-
-  cat("Selecting transcript_ids with full splice match ...\n")
-  sce <- sce[rownames(sce) %in% isoform_FSM_annotation$transcript_id, ]
-  rowData(sce)$FSM_match <-
-    isoform_FSM_annotation[
-      match(rownames(sce), isoform_FSM_annotation$transcript_id),
-      "FSM_match"
-    ]
-
-  cat("Summing transcripts with same FSM ... \n")
-  # mer_tmp: cell_bcs as cols, FSM_match as rows.
-  fsm_csv <- file.path(outdir, "FSM_count.csv.gz")
-  if (file.exists(fsm_csv)) {
-    mer_tmp <- read.csv(fsm_csv)
+  if (method == "trascript usage permutation") {
+    return(
+      sc_transcript_usage_permutation(
+        sce = sce,
+        gene_col = gene_col,
+        min_count = min_count,
+        threads = threads,
+        permuations = permuations
+      )
+    )
+  } else if (method == "chisq") {
+    return(
+      sc_transcript_usage_chisq(
+        sce = sce,
+        gene_col = gene_col,
+        min_count = min_count,
+        threads = threads
+      )
+    )
   } else {
-    # sum transcript (FSM) counts
-    mer_tmp <- as_tibble(counts(sce)) %>%
-      mutate(FSM_match = rowData(sce)$FSM_match) %>%
-      group_by(FSM_match) %>%
-      summarise_at(colnames(sce), sum)
-    cat("Creating FSM_count.csv.gz ...\n")
-    write.csv(mer_tmp, file = gzfile(fsm_csv), row.names = FALSE)
-    cat(paste0(c(fsm_csv, "saved.\n")))
+    stop("Unknown method. Currently available methods are: 'trascript usage permutation' and 'chisq'")
   }
-  stopifnot(all(complete.cases(mer_tmp)))
-  cat("\t", nrow(mer_tmp), "FSM_match(s) found.\n")
-
-  tr_sce <- SingleCellExperiment(assays = list(counts = as.matrix(mer_tmp[, -1])))
-  rownames(tr_sce) <- mer_tmp$FSM_match
-  rowData(tr_sce) <- rowData(sce)[match(mer_tmp$FSM_match, rowData(sce)$FSM_match), ]
-
-  # Remove version number from gene_id
-  # rowData(tr_sce)$gene_id <- gsub("\\..*", "", rowData(tr_sce)$gene_id)
-  colLabels(tr_sce) <- colLabels(sce)
-
-  cat("Filtering for genes with at least 2 detected isforms ...")
-  tr_sce_multi <- tr_sce[rowData(tr_sce)$gene_id %in% names(table(rowData(tr_sce)$gene_id)[table(rowData(tr_sce)$gene_id) > 1]), ]
-  cat(paste(c("     ", dim(tr_sce_multi)[1], "FSM_match(s) left.\n")))
-
-  cat("Keeping only the top 4 expressed FSM_matches for each gene ...")
-  rowData(tr_sce_multi)$mean <- rowMeans(counts(tr_sce_multi))
-  top_4s <- rowData(tr_sce_multi) %>%
-    as.data.frame() %>%
-    group_by(gene_id) %>%
-    top_n(n = 4, wt = mean) # Consider adding a parameter here to allow user to decide how many to keep?
-  cat(paste(c("     ", dim(top_4s)[1], "FSM_match(s) left.\n")))
-
-  # Apply the top_n filtering to the sce object
-  tr_sce_multi <- tr_sce_multi[rowData(tr_sce_multi)$transcript_id %in% top_4s$transcript_id, ]
-
-  cat("Aggregating counts by cluster labels ...\n")
-  tr_sce_multi$barcode_seq <- colnames(tr_sce_multi)
-  counts_group <- counts(tr_sce_multi) %>%
-    as.data.frame() %>%
-    mutate(tr_id = rownames(.)) %>%
-    gather(cell_id, cnt, -"tr_id") %>% # long format: tr_id, cell_id, cnt
-    left_join(as.data.frame(colData(tr_sce_multi)[, c("barcode_seq", "label")]),
-      by = c("cell_id" = "barcode_seq")) %>%
-    group_by(tr_id, label) %>%
-    summarise(cnt = sum(cnt)) %>%
-    pivot_wider(id_cols = tr_id, names_from = label, values_from = cnt) %>%
-    left_join(as.data.frame(rowData(tr_sce_multi)), by = c("tr_id" = "FSM_match"))
-  stopifnot(all(complete.cases(counts_group)))
-  # counts_group: transcript counts by group
-  # tr_id, cluster_1, cluster2, ...
-
-  cat("Filtering isoforms ... ")
-  filter_tr <- function(x) {
-    # for cluster x, filter genes for at least min_count for top expressed isoform
-    group_max <- counts_group %>%
-      group_by(gene_id) %>%
-      summarise_at(x, max) %>%
-      filter_at(x, all_vars(. > min_count))
-
-    # select the top 2 isoforms expressed by group x for each gene
-    filtered_tr_ids <- counts_group %>%
-      filter_at("gene_id", all_vars(. %in% group_max$gene_id)) %>%
-      group_by(gene_id) %>%
-      top_n(n = 2, wt = x) %>%
-      dplyr::pull("tr_id")
-    return(filtered_tr_ids)
-  }
-
-  all_grp <- levels(factor(colLabels(tr_sce_multi)))
-  sel_tr <- Reduce(union, lapply(all_grp, filter_tr))
-  counts_group <- counts_group[counts_group$tr_id %in% sel_tr, ]
-  counts_group <- counts_group %>%
-    group_by(gene_id) %>%
-    top_n(n = 4, wt = mean)
-  cat(paste(c(nrow(counts_group), " transcript_id(s) remaining.\n")))
-
-  cat("Performing Chi-square tests ...\n")
-  ge_name <- c()
-  X_value <- c()
-  df <- c()
-  p_value <- c()
-  DTU_tr <- c()
-  DTU_group <- c()
-  pb_max <- length(unique(counts_group$gene_id))
-  if (pb_max > 10) {
-    pb <- txtProgressBar(min = 1, max = length(unique(counts_group$gene_id)),
-      initial = 1, style = 3)
-    pbi <- 0
-  }
-  for (gene in unique(counts_group$gene_id)) {
-    # transcript x clutser count matrix for gene
-    counts_group_gene <- counts_group %>%
-      filter_at("gene_id", all_vars(. == gene)) %>%
-      filter_at(all_grp, any_vars(. > min_count))
-    mtx <- counts_group_gene %>%
-      ungroup() %>%
-      select(all_of(all_grp)) %>%
-      select_if(function(col_x) {max(col_x) > min_count}) %>%
-      as.matrix()
-    rownames(mtx) <- counts_group_gene$tr_id
-
-    if (!is.null(dim(mtx))) {
-      if (ncol(mtx) > 1 && nrow(mtx) > 1) {
-        fit <- suppressWarnings(chisq.test(mtx))
-        ge_name <- c(ge_name, gene)
-        X_value <- c(X_value, fit$statistic)
-        df <- c(df, fit$parameter)
-        p_value <- c(p_value, fit$p.value)
-        cs <- colSums(fit$residuals^2)
-        DTU_group <- c(DTU_group, names(cs[order(cs, decreasing = TRUE)[1]]))
-        if (nrow(mtx) == 2) {
-          rs <- rowSums(mtx)
-          DTU_tr <- c(DTU_tr, names(rs[order(rs)[1]]))
-        } else {
-          hi1 <- which(rowSums(mtx) == max(rowSums(mtx)))
-          if (length(hi1) > 1) {
-            re1 <- rowSums(fit$residuals[hi1, ]^2)
-          } else {
-            re1 <- rowSums(fit$residuals[-hi1, ]^2)
-          }
-          DTU_tr <- c(DTU_tr, names(re1[order(re1, decreasing = TRUE)[1]]))
-        }
-      }
-    }
-    if (exists("pb")) {
-      pbi <- pbi + 1
-      setTxtProgressBar(pb, pbi)
-    }
-  }
-  if (exists("pb")) {
-    close(pb)
-  }
-  res_df <- data.frame(
-    gene_id = ge_name,
-    X_value = X_value,
-    df = df,
-    DTU_tr = DTU_tr,
-    DTU_group = DTU_group,
-    p_value = p_value, stringsAsFactors = FALSE
-  )
-  if (any(dim(res_df) == 0)) {
-    message("No DTU gene was found\n")
-    return(res_df)
-  }
-  res_df$adj_p <- res_df$p_value * nrow(res_df)
-  res_df$adj_p <- sapply(res_df$adj_p, function(x) {
-    min(1, x)
-  })
-  res_df <- res_df[order(res_df$p_value), ]
-  warning("Chi-squared approximation(s) may be incorrect")
-  write.csv(res_df, file = file.path(outdir, "sc_DTU_analysis.csv"), row.names = FALSE)
-  cat(paste(c("Results saved to ", file.path(outdir, "sc_DTU_analysis.csv"), "\n")))
-  return(res_df)
 }
 
-#' @importFrom DelayedArray colsum
-isoform_chisq_test <- function(sce, min_count = 15, threads = 1) {
+#' @importFrom SingleCellExperiment counts colLabels
+#' @importFrom SummarizedExperiment rowData
+#' @importFrom dplyr summarise filter n bind_rows arrange mutate
+#' @importFrom tibble as_tibble
+#' @importFrom BiocParallel bplapply MulticoreParam
+#' @importFrom SparseArray colsum rowsum
+#' @keywords internal
+sc_transcript_usage_chisq <- function(sce, gene_col = "gene_id", min_count = 15, threads = 1) {
 
   message("Filtering for genes with at least 2 detected isforms ...")
   sce <- sce[rowSums(SingleCellExperiment::counts(sce)) > min_count, ]
+  # TODO: preserve correct gene counts after filtering
+  # like in sc_transcript_usage_permutation
   genes <- SummarizedExperiment::rowData(sce) |>
     as.data.frame() |>
-    dplyr::group_by(gene_id) |>
-    dplyr::summarise(n = n()) |>
+    tibble::as_tibble(rownames = "transcript") |>
+    dplyr::mutate(n = dplyr::n(), .by = eval(gene_col)) |>
     dplyr::filter(n > 1)
-  sce <- sce[SummarizedExperiment::rowData(sce)$gene_id %in% genes$gene_id, ]
+  sce <- sce[genes$transcript, ]
   message(sprintf("\t%d isoform(s) left.\n", nrow(sce)))
 
   message("Aggregating counts by cluster labels ...")
   pseudobulk_counts <- SingleCellExperiment::counts(sce) |>
-    as("CsparseMatrix") |>
-    DelayedArray::colsum(
+    SparseArray::colsum(
       group = SingleCellExperiment::colLabels(sce)
     )
-  split(1:nrow(sce), SummarizedExperiment::rowData(sce)$gene_id) |>
+  split(1:nrow(sce), SummarizedExperiment::rowData(sce)[, gene_col]) |>
     BiocParallel::bplapply(
       FUN = \(x) chisq_test_by_gene(pseudobulk_counts[x, ]),
       BPPARAM = BiocParallel::MulticoreParam(
@@ -283,8 +138,8 @@ isoform_chisq_test <- function(sce, min_count = 15, threads = 1) {
       )
     ) |>
     dplyr::bind_rows(.id = "gene") |>
-    dplyr::mutate(adj_p = p.adjust(p_value, method = "BH")) |>
-    dplyr::arrange(adj_p)
+    dplyr::mutate(adj.p.value = p.adjust(p.value, method = "BH")) |>
+    dplyr::arrange(adj.p.value)
 }
 
 # a chisq.test wrapper for a gene matrix
@@ -306,64 +161,94 @@ chisq_test_by_gene <- function(gene_mtx) {
   expected_pcts <- rowSums(gene_mtx) / sum(gene_mtx)
   pct_diff <- observed_pcts[DTU_idx[1], DTU_idx[2]] - expected_pcts[DTU_idx[1]]
 
-  tibble(
+  tibble::tibble(
     X_value = fit$statistic,
     df = fit$parameter,
-    DTU_tr = rownames(gene_mtx)[DTU_idx[1]],
-    DTU_group = colnames(gene_mtx)[DTU_idx[2]],
-    p_value = fit$p.value,
-    expected_pct = expected_pcts[DTU_idx[1]],
-    observed_pct = observed_pcts[DTU_idx[1], DTU_idx[2]],
-    pct_diff = pct_diff
+    transcript = rownames(gene_mtx)[DTU_idx[1]],
+    cluster = colnames(gene_mtx)[DTU_idx[2]],
+    p.value = fit$p.value,
+    expected_usage = expected_pcts[DTU_idx[1]],
+    transcript_usage = observed_pcts[DTU_idx[1], DTU_idx[2]],
+    usage_difference = pct_diff
   )
 }
 
 
 # DTU via mean difference with permutation
 #' @importFrom MatrixGenerics rowSums
-#' @importFrom SingleCellExperiment counts rowData colData colLabels
-#' @importFrom dplyr summarise filter n bind_rows left_join mutate
+#' @importFrom SparseArray colsum
+#' @importFrom SingleCellExperiment counts rowData colLabels
+#' @importFrom abind abind
+#' @importFrom dplyr summarise filter n bind_rows left_join mutate distinct
 #' @importFrom BiocParallel bpmapply MulticoreParam
-#' @importFrom tibble tibble
+#' @importFrom tibble tibble as_tibble
 #' @importFrom tidyselect matches
-#' @importFrom stats ecdf
-#' @importFrom utils message
+#' @importFrom SparseArray rowsum colsum
 #' @importFrom stats p.adjust
-DTU_mean_diff <- function(sce, gene_col = "gene_id", min_count = 50, threads = 1, permuations = 1000) {
-  message("Filtering for genes with at least 2 detected isforms ...")
-  sce <- sce[rowSums(SingleCellExperiment::counts(sce)) > min_count, ]
+#' @keywords internal
+sc_transcript_usage_permutation <- function(sce, gene_col = "gene_id", min_count = 50, threads = 1, permuations = 1000) {
+  message(
+    sprintf(
+      "Filtering for genes with at least 2 isforms expressing more than %d counts ...",
+      min_count
+    )
+  )
+  SummarizedExperiment::rowData(sce)$total <- rowSums(SingleCellExperiment::counts(sce))
+  # metadata tibble
+  # keep genes with at least 2 isoforms expressing more than min_count
+  # all isoforms of a kept gene are kept to get the correct transcript usage (total gene expression)
   genes <- SummarizedExperiment::rowData(sce) |>
     as.data.frame() |>
-    dplyr::summarise(n = n(), .by = eval(gene_col)) |>
-    dplyr::filter(n > 1)
-  sce <- sce[SummarizedExperiment::rowData(sce)[, gene_col] %in% genes[, gene_col], ]
-    # sce[SummarizedExperiment::rowData(sce)$gene_id %in% genes$gene_id, ]
-  message(sprintf("\t%d transcript(s) left.\n", nrow(sce)))
+    dplyr::mutate(test = total >= min_count) |>
+    dplyr::mutate(n = sum(test), .by = eval(gene_col)) |>
+    dplyr::filter(n > 1) |>
+    tibble::as_tibble(rownames = "transcript")
+  # filter the sce to remove filtered genes
+  sce <- sce[genes$transcript, ]
+  message(
+    sprintf(
+      "\t%d gene(s), %d transcript(s) left.",
+      nrow(dplyr::distinct(genes[, gene_col])),
+      sum(genes$test)
+    )
+  )
 
   cell_labels <- SingleCellExperiment::colLabels(sce)
   gene_ids <- SummarizedExperiment::rowData(sce)[, gene_col]
+  gene_counts <- SingleCellExperiment::counts(sce) |>
+    # as("CsparseMatrix") |> # fixed in SparseArray 1.7.7
+    SparseArray::rowsum(group = gene_ids, reorder = TRUE)
+  # with gene_counts saved, can remove filtered isoforms now
+  genes <- dplyr::filter(genes, test)
+  sce <- sce[genes$transcript, ]
+  # update the gene_ids since the filtered isoforms are removed
+  gene_ids <- SummarizedExperiment::rowData(sce)[, gene_col]
+
   transcript_list <- split(rownames(sce), gene_ids)
   # reduce multi-threading overhead by partitioning the job
+  # into 4 job partitions per thread
   job_list <- split(transcript_list, cut(seq_along(transcript_list), threads * 4))
   job_list <- job_list[lapply(job_list, length) > 0] # incase of empty job from over partitioning
+  # need the gene names since each partition may have different genes
   job_gene_list <- lapply(job_list, function(jbs) {
     lapply(names(jbs), \(gene) rep(gene, length(jbs[[gene]]))) |>
       do.call(what = c, args = _)
   })
   job_list <- lapply(job_list, unlist)
 
-
   tb <- BiocParallel::bpmapply(
     function(transcripts, genes) {
-      mtx <- SingleCellExperiment::counts(sce)[transcripts, ] |>
-        as("CsparseMatrix")
-      orig_diff_mtx <- mean_transcript_usage(mtx, cell_labels, genes)
+      mtx <- SingleCellExperiment::counts(sce)[transcripts, ]
+      orig_diff_mtx <- mean_transcript_usage(mtx, cell_labels, genes, gene_counts[genes, ])
 
       # permute the labels and get the mean difference matrix
-      perm_diff_mtx_lst <- lapply(seq_len(permuations), \(x) {
+      perm_diff_mtx <- lapply(seq_len(permuations), \(x) {
         perm_labels <- sample(cell_labels, length(cell_labels), replace = FALSE)
-        abs(mean_transcript_usage(mtx, perm_labels, genes, diff_only = TRUE))
-      })
+        mean_transcript_usage(mtx, perm_labels, genes, gene_counts[genes, ], diff_only = TRUE)
+      }) |>
+        abind::abind(along = 3) |>
+        abs()
+
 
       args.grid <- expand.grid(
         transcript = rownames(orig_diff_mtx),
@@ -371,13 +256,12 @@ DTU_mean_diff <- function(sce, gene_col = "gene_id", min_count = 50, threads = 1
       )
       mapply(
         function(i, j) {
-          permuted_diffs <- sapply(perm_diff_mtx_lst, \(mtx) mtx[i, j])
-          n_unique <- length(na.omit(unique(permuted_diffs)))
+          permuted_diffs <- perm_diff_mtx[i, j, ]
+          n_samples <- length(na.omit(permuted_diffs))
           # in case of ties, get the lower bound of the quantile
           imperical_quantile <- ecdf_lower(permuted_diffs, abs(orig_diff_mtx[i, j, "usage_difference"]))
-          p_value <- (1 - imperical_quantile) + (1 / n_unique) # percision at best is 1 / n_unique
+          p_value <- (1 - imperical_quantile) + (1 / n_samples) # percision at best is 1 /n_samples 
           permuted_var <- sum(permuted_diffs^2, na.rm = TRUE) / (sum(!is.na(permuted_diffs)) - 1)
-          # permuted_mean <- mean(permuted_diffs, na.rm = TRUE)
           return(tibble::tibble(
             transcript = i,
             cluster = j,
@@ -407,30 +291,39 @@ DTU_mean_diff <- function(sce, gene_col = "gene_id", min_count = 50, threads = 1
     tibble::as_tibble(rownames = "transcript") |>
     dplyr::select(transcript, eval(gene_col), tidyselect::matches("gene_name"))
   dplyr::mutate(tb, adj.p.value = p.adjust(p.value, method = "BH")) |>
-    dplyr::left_join(rowdata, by = c("transcript"))
+    dplyr::left_join(rowdata, by = c("transcript")) |>
+    dplyr::arrange(adj.p.value)
 }
 
 ecdf_lower <- function(samples, x) {
   sum(samples < x) / length(samples)
 }
 
-#' @importFrom DelayedArray colsum rowsum
+#' @importFrom SparseArray colsum rowsum
 #' @importFrom MatrixGenerics rowSums
 #' @importFrom abind abind
-mean_transcript_usage <- function(mtx, cell_labels, genes, diff_only = FALSE) {
+#' @keywords internal
+mean_transcript_usage <- function(mtx, cell_labels, genes, gene_counts, diff_only = FALSE) {
   stopifnot("labels should be of the same length as the number of columns in mtx" = length(cell_labels) == ncol(mtx))
 
   transcript_counts <- mtx |>
-    as("CsparseMatrix") |>
-    DelayedArray::colsum(group = cell_labels, reorder = TRUE)
+    SparseArray::colsum(group = cell_labels, reorder = TRUE)
   if (missing(genes)) {
     genes <- rep(1, nrow(mtx))
   } else {
     stopifnot("genes should be of the same length as the number of rows in mtx" = length(genes) == nrow(mtx))
   }
-  gene_counts <- transcript_counts |>
-    DelayedArray::rowsum(group = genes, reorder = TRUE) |>
-    (\(mtx) mtx[genes, ])()
+
+  if (missing(gene_counts)) {
+    # if trascript counts are filtered, the transcript usage will be wrong!
+    gene_counts <- transcript_counts |>
+      SparseArray::rowsum(group = genes, reorder = TRUE) |>
+      (\(mtx) mtx[genes, ])() # need same number of rows as transcript count mtx
+  } else {
+    stopifnot("gene_counts have the same dimension as mtx" = all(dim(gene_counts) == dim(mtx)))
+    gene_counts <- gene_counts |>
+      SparseArray::colsum(group = cell_labels, reorder = TRUE)
+  }
   transcript_usage <- transcript_counts / gene_counts
 
   # get the mean transcript usage of other clusters (ecxluding the current cluster)

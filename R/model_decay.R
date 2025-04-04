@@ -467,8 +467,8 @@ remove_UTR_coverage <- function(coverage_rlel, annotation) {
   transcript_names <- names(coverage_rlel)
 
   message("Getting UTRs...")
-  threeUTR.data <- GenomicFeatures::threeUTRsByTranscript(annotation, use.names = T)
-  fiveUTR.data <- GenomicFeatures::fiveUTRsByTranscript(annotation, use.names = T)
+  threeUTR.data <- GenomicFeatures::threeUTRsByTranscript(annotation, use.names = TRUE)
+  fiveUTR.data <- GenomicFeatures::fiveUTRsByTranscript(annotation, use.names = TRUE)
   threeUTR.data <- threeUTR.data[names(threeUTR.data) %in% transcript_names]
   fiveUTR.data <- fiveUTR.data[names(fiveUTR.data) %in% transcript_names]
 
