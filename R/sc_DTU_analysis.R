@@ -109,7 +109,7 @@ sc_DTU_analysis <- function(sce, gene_col = "gene_id", min_count = 15, threads =
 #' @importFrom dplyr summarise filter n bind_rows arrange mutate
 #' @importFrom tibble as_tibble
 #' @importFrom BiocParallel bplapply MulticoreParam
-#' @importFrom SparseArray colsum rowsum
+#' @importFrom S4Arrays colsum rowsum
 #' @keywords internal
 sc_transcript_usage_chisq <- function(sce, gene_col = "gene_id", min_count = 15, threads = 1) {
 
@@ -127,7 +127,8 @@ sc_transcript_usage_chisq <- function(sce, gene_col = "gene_id", min_count = 15,
 
   message("Aggregating counts by cluster labels ...")
   pseudobulk_counts <- SingleCellExperiment::counts(sce) |>
-    SparseArray::colsum(
+    as("CsparseMatrix") |>
+    S4Arrays::colsum(
       group = SingleCellExperiment::colLabels(sce)
     )
   split(1:nrow(sce), SummarizedExperiment::rowData(sce)[, gene_col]) |>
@@ -176,14 +177,13 @@ chisq_test_by_gene <- function(gene_mtx) {
 
 # DTU via mean difference with permutation
 #' @importFrom MatrixGenerics rowSums
-#' @importFrom SparseArray colsum
 #' @importFrom SingleCellExperiment counts rowData colLabels
 #' @importFrom abind abind
 #' @importFrom dplyr summarise filter n bind_rows left_join mutate distinct
 #' @importFrom BiocParallel bpmapply MulticoreParam
 #' @importFrom tibble tibble as_tibble
 #' @importFrom tidyselect matches
-#' @importFrom SparseArray rowsum colsum
+#' @importFrom S4Arrays rowsum colsum
 #' @importFrom stats p.adjust
 #' @keywords internal
 sc_transcript_usage_permutation <- function(sce, gene_col = "gene_id", min_count = 50, threads = 1, permuations = 1000) {
@@ -216,8 +216,8 @@ sc_transcript_usage_permutation <- function(sce, gene_col = "gene_id", min_count
   cell_labels <- SingleCellExperiment::colLabels(sce)
   gene_ids <- SummarizedExperiment::rowData(sce)[, gene_col]
   gene_counts <- SingleCellExperiment::counts(sce) |>
-    # as("CsparseMatrix") |> # fixed in SparseArray 1.7.7
-    SparseArray::rowsum(group = gene_ids, reorder = TRUE)
+    as("CsparseMatrix") |> # fixed in SparseArray 1.7.7
+    S4Arrays::rowsum(group = gene_ids, reorder = TRUE)
   # with gene_counts saved, can remove filtered isoforms now
   genes <- dplyr::filter(genes, test)
   sce <- sce[genes$transcript, ]
@@ -238,7 +238,8 @@ sc_transcript_usage_permutation <- function(sce, gene_col = "gene_id", min_count
 
   tb <- BiocParallel::bpmapply(
     function(transcripts, genes) {
-      mtx <- SingleCellExperiment::counts(sce)[transcripts, ]
+      mtx <- SingleCellExperiment::counts(sce)[transcripts, ] |>
+        as("CsparseMatrix")
       orig_diff_mtx <- mean_transcript_usage(mtx, cell_labels, genes, gene_counts[genes, ])
 
       # permute the labels and get the mean difference matrix
@@ -299,7 +300,7 @@ ecdf_lower <- function(samples, x) {
   sum(samples < x) / length(samples)
 }
 
-#' @importFrom SparseArray colsum rowsum
+#' @importFrom S4Arrays rowsum colsum
 #' @importFrom MatrixGenerics rowSums
 #' @importFrom abind abind
 #' @keywords internal
@@ -307,7 +308,7 @@ mean_transcript_usage <- function(mtx, cell_labels, genes, gene_counts, diff_onl
   stopifnot("labels should be of the same length as the number of columns in mtx" = length(cell_labels) == ncol(mtx))
 
   transcript_counts <- mtx |>
-    SparseArray::colsum(group = cell_labels, reorder = TRUE)
+    S4Arrays::colsum(group = cell_labels, reorder = TRUE)
   if (missing(genes)) {
     genes <- rep(1, nrow(mtx))
   } else {
@@ -317,12 +318,12 @@ mean_transcript_usage <- function(mtx, cell_labels, genes, gene_counts, diff_onl
   if (missing(gene_counts)) {
     # if trascript counts are filtered, the transcript usage will be wrong!
     gene_counts <- transcript_counts |>
-      SparseArray::rowsum(group = genes, reorder = TRUE) |>
+      S4Arrays::rowsum(group = genes, reorder = TRUE) |>
       (\(mtx) mtx[genes, ])() # need same number of rows as transcript count mtx
   } else {
     stopifnot("gene_counts have the same dimension as mtx" = all(dim(gene_counts) == dim(mtx)))
     gene_counts <- gene_counts |>
-      SparseArray::colsum(group = cell_labels, reorder = TRUE)
+      S4Arrays::colsum(group = cell_labels, reorder = TRUE)
   }
   transcript_usage <- transcript_counts / gene_counts
 
