@@ -579,7 +579,6 @@ def _umi_correction(umis, max_ed=1):
     """
     Correct umis.
     """
-    read_cnt = len(umis)
     dup_cnt = Counter(umis)
     dup_cnt = sorted(dup_cnt.most_common(), key=lambda x: (x[1], x[0]), reverse=True)
     if len(dup_cnt) == 1:
@@ -589,6 +588,8 @@ def _umi_correction(umis, max_ed=1):
     #umi_count = {} # {real_umi: count}
     for ith in range(len(dup_cnt)-1):
         umi_i, dup_i = dup_cnt[ith]
+        if umi_i in umi_mapping:
+            continue
         umi_mapping[umi_i] = umi_i
         #umi_count[umi_i] = dup_i
         for jth in range(len(dup_cnt)-1, ith, -1):  # first assess the low abundant UMI
@@ -600,7 +601,6 @@ def _umi_correction(umis, max_ed=1):
     umi_last, dup_last = dup_cnt[-1]
     if umi_last not in umi_mapping:
         umi_mapping[umi_last] = umi_last
-        #umi_count[umi_last] = dup_last
 
     umi_corrected = [umi_mapping[umi] for umi in umis]
     
