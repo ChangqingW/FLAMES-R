@@ -439,7 +439,7 @@ def flames_read_id_parser(read_id, methods = 'flexiplex'):
     else:
         sys.exit("Please specify the correct methods: 'flexiplex' or 'blaze'")
 
-def quantify_gene(in_bam, in_gtf, n_process, random_seed=2024):
+def quantify_gene(in_bam, in_gtf, n_process, out_count_csv,  random_seed=2024):
     """A multi-process wrapper of quantify_gene_single_process 
        Processing strategy:
         1. split the gtf file by chromosome
@@ -449,6 +449,7 @@ def quantify_gene(in_bam, in_gtf, n_process, random_seed=2024):
         in_bam: bam file path
         in_gtf: gtf file path
         n_process: number of process to run
+        out_count_csv: output gene count matrix file name
        return:
         gene_count_mat: pd.DataFrame, a matrix of gene counts
         dedup_read_lst: a list of duplicated read id
@@ -487,11 +488,37 @@ def quantify_gene(in_bam, in_gtf, n_process, random_seed=2024):
         umi_lst.extend(umi_list_sub)
 
     # combine the gene count matrix
-    print("Finalising the gene count matrix ...")
-    gene_count_mat = pd.concat(gene_count_mat_dfs, 
-                                copy=False).fillna(0)
+    print("Writing the gene count matrix ...")
+    all_barcodes = sorted(set().union(*[df.columns for df in gene_count_mat_dfs]))
+    gene_count_mat_dfs = [df.reindex(all_barcodes, axis=1) for df in gene_count_mat_dfs]
+
+
+
+    # Assuming gene_count_mat_dfs is already defined
+    temp_file = out_count_csv + ".tmp"
+
+
+    try:
+        # Step 1: Write the first DataFrame to the temp file (with header)
+        gene_count_mat_dfs[0].to_csv(temp_file, mode='w', header=True, index=True)
+
+        # Step 2: Append the rest of the DataFrames to the temp file (without writing headers again)
+        for df in gene_count_mat_dfs[1:]:
+            df.to_csv(temp_file, mode='a', header=False, index=True)
+
+        # Step 3: Rename the temp file to the final file
+        os.rename(temp_file, out_count_csv)
+
+    except Exception as e:
+        # If anything goes wrong, remove the temporary file
+        if os.path.exists(temp_file):
+            os.remove(temp_file)
+        print(f"An error occurred while writing to {out_count_csv}: {e}")
+
+    # gene_count_mat = pd.concat(gene_count_mat_dfs, 
+    #                             copy=False).fillna(0)
     
-    return gene_count_mat, dedup_read_lst, umi_lst
+    return dedup_read_lst, umi_lst
 
 def quantify_gene_single_process(in_gtf_df, in_bam, demulti_methods, cluster_3prim = False, verbose=False, random_seed=2024):
     """
@@ -503,7 +530,7 @@ def quantify_gene_single_process(in_gtf_df, in_bam, demulti_methods, cluster_3pr
         verbose: whether to print the progress
     Output:
         gene_count_mat: a matrix of gene counts
-        dedup_read_lst: a list of duplicated read id
+        dedup_read_lst: a list of deduplicated read id
         umi_lst: a list of umi (not deduplicated, in the form of bc+umi+cluster)
     """
 
@@ -579,7 +606,6 @@ def _umi_correction(umis, max_ed=1):
     """
     Correct umis.
     """
-    read_cnt = len(umis)
     dup_cnt = Counter(umis)
     dup_cnt = sorted(dup_cnt.most_common(), key=lambda x: (x[1], x[0]), reverse=True)
     if len(dup_cnt) == 1:
@@ -589,6 +615,8 @@ def _umi_correction(umis, max_ed=1):
     #umi_count = {} # {real_umi: count}
     for ith in range(len(dup_cnt)-1):
         umi_i, dup_i = dup_cnt[ith]
+        if umi_i in umi_mapping:
+            continue
         umi_mapping[umi_i] = umi_i
         #umi_count[umi_i] = dup_i
         for jth in range(len(dup_cnt)-1, ith, -1):  # first assess the low abundant UMI
@@ -600,7 +628,6 @@ def _umi_correction(umis, max_ed=1):
     umi_last, dup_last = dup_cnt[-1]
     if umi_last not in umi_mapping:
         umi_mapping[umi_last] = umi_last
-        #umi_count[umi_last] = dup_last
 
     umi_corrected = [umi_mapping[umi] for umi in umis]
     
@@ -753,10 +780,12 @@ def quantification(annotation, outdir, pipeline,
         out_fig = os.path.join(outdir, "saturation_curve.png") if saturation_curve else None
         out_fastq = os.path.join(outdir, "matched_reads_dedup.fastq")
 
-        gene_count_mat, dedup_read_lst, umi_lst = \
-                                quantify_gene(in_bam, annotation, n_process, random_seed=random_seed)
+        dedup_read_lst, umi_lst = \
+                        quantify_gene(in_bam, annotation, n_process, 
+                                        out_count_csv=out_csv,
+                                        random_seed=random_seed)
 
-        gene_count_mat.to_csv(out_csv)
+        #gene_count_mat.to_csv(out_csv)
 
         print("Plotting the saturation curve ...")
         saturation_estimation(umi_lst, out_fig)  
@@ -784,12 +813,13 @@ def quantification(annotation, outdir, pipeline,
             out_fig = os.path.join(outdir, sample+ "_"+"saturation_curve.png") if saturation_curve else None
             #out_read_lst = os.path.join(outdir, sample+ "_"+"deduplicated_read_id.txt")
             
-            gene_count_mat, dedup_read_lst, umi_lst = \
-                                    quantify_gene(sample_bam, annotation, n_process, random_seed=random_seed)
+            dedup_read_lst, umi_lst = \
+                            quantify_gene(sample_bam, annotation, n_process, 
+                                            out_count_csv=out_csv,
+                                            random_seed=random_seed)
 
             #pd.DataFrame({'umi':umi_lst}).to_csv(f"{outdir}/{sample}_umi_lst.csv")
-
-            gene_count_mat.to_csv(out_csv)
+            # gene_count_mat.to_csv(out_csv)
 
             print("Plotting the saturation curve ...")
             saturation_estimation(umi_lst, out_fig)  
