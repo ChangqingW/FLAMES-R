@@ -106,13 +106,35 @@
 #' )
 #'
 #' @export
+# Define the subclass for multi-sample pipelines
+setClass(
+  "FLAMES.MultiSamplePipeline",
+  contains = "FLAMES.Pipeline",
+  slots = list(
+    fastqs = "character",       # Input FASTQ files
+    expect_cell_numbers = "numeric" # Expected cell numbers
+  )
+)
+
+# Refactor the multi-sample pipeline to use the new class
 sc_long_multisample_pipeline <- function(annotation, fastqs, outdir, genome_fa,
     minimap2 = NULL, k8 = NULL, barcodes_file = NULL,
     expect_cell_numbers = NULL, config_file = NULL) {
 
-  checked_args <- check_arguments(annotation, fastqs, genome_bam = NULL,
-    outdir, genome_fa, config_file)
-  config <- checked_args$config
+  # Initialize the pipeline object
+  pipeline <- new("FLAMES.MultiSamplePipeline")
+  config <- check_arguments(annotation, fastqs, genome_bam = NULL, outdir, genome_fa, config_file)$config
+  steps <- c("demultiplexing", "alignment", "quantification", "isoform_identification")
+  pipeline <- initializePipeline(pipeline, config, steps, outdir)
+
+  # Assign specific slots
+  pipeline@fastqs <- fastqs
+  pipeline@expect_cell_numbers <- expect_cell_numbers
+
+  # Example: Accessing pipeline slots
+  cat("Pipeline initialized with steps:", paste(pipeline@steps, collapse = ", "), "\n")
+
+  # Continue with the existing logic, refactored to use the pipeline object
 
   metadata <- list(
     "inputs" = list(

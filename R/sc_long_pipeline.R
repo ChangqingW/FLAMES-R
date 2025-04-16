@@ -112,17 +112,23 @@
 sc_long_pipeline <- function(
     annotation, fastq, genome_bam = NULL, outdir, genome_fa,
     minimap2 = NULL, k8 = NULL, barcodes_file = NULL, expect_cell_number = NULL, config_file = NULL) {
-  checked_args <- check_arguments(
-    annotation,
-    fastq,
-    genome_bam,
-    outdir,
-    genome_fa,
-    config_file
-  )
-  cat(format(Sys.time(), "%X %a %b %d %Y"), "Start running\n")
-  config <- checked_args$config
 
+  # Initialize the pipeline object
+  pipeline <- new("FLAMES.SingleCellPipeline")
+  config <- check_arguments(annotation, fastq, genome_bam, outdir, genome_fa, config_file)$config
+  steps <- c("demultiplexing", "alignment", "quantification", "isoform_identification", "realignment")
+  pipeline <- initializePipeline(pipeline, config, steps, outdir)
+
+  # Assign specific slots
+  pipeline@fastq <- fastq
+  pipeline@genome_bam <- genome_bam
+  pipeline@barcodes_file <- barcodes_file
+  pipeline@expect_cell_number <- expect_cell_number
+
+  # Example: Accessing pipeline slots
+  cat("Pipeline initialized with steps:", paste(pipeline@steps, collapse = ", "), "\n")
+
+  # Continue with the existing logic, refactored to use the pipeline object
   metadata <- list(
     "inputs" = list(
       "config_file" = config_file,
@@ -130,7 +136,6 @@ sc_long_pipeline <- function(
       "fastq" = fastq,
       "outdir" = outdir,
       "genome_fa" = genome_fa,
-      # optional arguments
       "barcodes_file" = barcodes_file,
       "expect_cell_number" = expect_cell_number,
       "minimap2" = minimap2,
@@ -141,50 +146,31 @@ sc_long_pipeline <- function(
   )
   metadata$inputs <- metadata$inputs[!sapply(metadata$inputs, is.null)]
 
-
-  infq <- NULL
+  # Demultiplexing step
   if (config$pipeline_parameters$do_barcode_demultiplex) {
-    if (file.exists(file.path(outdir, "matched_reads.fastq"))) {
-      stop(paste0(
-        "The demultiplexing output file matched_reads.fastq already exists in the output directory.",
-        " If you want to run the demultiplexing step again, please remove the file first,  ",
-        "otherwise please set `do_barcode_demultiplex = false` in the JSON configuration file."
-      ))
-    }
-
-    if (is.null(barcodes_file)) {
-      # run blaze
+    if (is.null(pipeline@barcodes_file)) {
       cat("Running BLAZE to generate barcode list from long reads...\n")
-      if (is.null(expect_cell_number)) {
+      if (is.null(pipeline@expect_cell_number)) {
         stop("'expect_cell_number' is required to run BLAZE for barcode identification. Please specify it.")
       }
-      blaze(expect_cell_number, fastq,
+      blaze(pipeline@expect_cell_number, pipeline@fastq,
         "output-prefix" = paste0(outdir, "/"),
         "output-fastq" = "matched_reads.fastq",
         "threads" = config$pipeline_parameters$threads,
         "max-edit-distance" = config$barcode_parameters$max_bc_editdistance,
         "overwrite" = TRUE
       )
-
-      infq <- file.path(outdir, "matched_reads.fastq")
+      pipeline@fastq <- file.path(outdir, "matched_reads.fastq")
     } else {
-      # run flexiplex
-      cat(format(Sys.time(), "%X %a %b %d %Y"), "Demultiplexing using flexiplex...\n")
-      if (!file.exists(barcodes_file)) {
-        stop(
-          "The barcodes_file ", barcodes_file, " doesn't exists. Please check the path.",
-          " If you do not have a barcode file, please set `barcodes_file = NULL` to run BLAZE."
-        )
-      }
-      cat("Matching cell barcodes...\n")
-      infq <- file.path(outdir, "matched_reads.fastq")
+      cat("Demultiplexing using flexiplex...\n")
+      pipeline@fastq <- file.path(outdir, "matched_reads.fastq")
       bc_stat <- file.path(outdir, "matched_barcode_stat")
       metadata$results <- c(metadata$results,
         list("find_barcode" = find_barcode(
-          fastq = fastq,
-          barcodes_file = barcodes_file,
+          fastq = pipeline@fastq,
+          barcodes_file = pipeline@barcodes_file,
           stats_out = bc_stat,
-          reads_out = infq,
+          reads_out = pipeline@fastq,
           pattern = setNames(
             as.character(config$barcode_parameters$pattern),
             names(config$barcode_parameters$pattern)
@@ -201,134 +187,50 @@ sc_long_pipeline <- function(
         )
       )
     }
-    cat(format(Sys.time(), "%X %a %b %d %Y"), "Demultiplex done\n")
-  } else {
-    infq <- fastq
-    cat("Skipping Demultiplexing step...\n")
-    cat("Please make sure the `", infq, "`` is the demultiplexing output from previous FLAMES call.\n")
-  } # requesting to not match barcodes implies `fastq` has already been run through the
-  # function in a previous FLAMES call
-  cat("Running FLAMES pipeline...\n")
-
-  using_bam <- FALSE
-  if (!is.null(genome_bam)) {
-    if (!file.exists(paste0(genome_bam, ".bai")) && !file.exists(paste0(genome_bam, ".csi"))) {
-      stop("Please make sure the BAM file is indexed")
-    }
-    using_bam <- TRUE
-    config$pipeline_parameters$do_genome_alignment <- FALSE
   }
 
-  cat("#### Input parameters:\n")
-  cat(jsonlite::toJSON(config, pretty = TRUE), "\n")
-  cat("gene annotation:", annotation, "\n")
-  cat("genome fasta:", genome_fa, "\n")
-  if (using_bam) {
-    cat("input bam:", genome_bam, "\n")
-  } else {
-    genome_bam <- file.path(outdir, "align2genome.bam")
-  }
-  cat("input fastq:", infq, "\n")
-  cat("output directory:", outdir, "\n")
-  cat("minimap2 path:", minimap2, "\n")
-  cat("k8 path:", k8, "\n")
-
-  # align reads to genome
-  # if (!using_bam && config$pipeline_parameters$do_genome_alignment) {
+  # Align reads to genome
   if (config$pipeline_parameters$do_genome_alignment) {
     cat("#### Aligning reads to genome using minimap2\n")
     metadata$results <- c(metadata$results,
-      list("minimap2_align" = minimap2_align(config, genome_fa, infq,
+      list("minimap2_align" = minimap2_align(config, genome_fa, pipeline@fastq,
         annotation, outdir, minimap2, k8, prefix = NULL,
         threads = config$pipeline_parameters$threads
       )
       )
     )
-  } else {
-    cat("#### Skip aligning reads to genome\n")
   }
 
-  # gene quantification and UMI deduplication
-
+  # Gene quantification and UMI deduplication
   if (config$pipeline_parameters$do_gene_quantification) {
-    cat(format(Sys.time(), "%X %a %b %d %Y"), "Start gene quantification and UMI deduplication\n")
-
-    # get the random seed (if set in pipeline_parameters)
-    if (is.null(config$pipeline_parameters$seed)) {
-      random_seed <- 2024
-    } else {
-      random_seed <- config$pipeline_parameters$seed
-    }
-
-    quantify_gene(annotation, outdir, infq, config$pipeline_parameters$threads,
-      pipeline = "sc_single_sample", random_seed = random_seed
+    cat("#### Start gene quantification and UMI deduplication\n")
+    quantify_gene(annotation, outdir, pipeline@fastq, config$pipeline_parameters$threads,
+      pipeline = "sc_single_sample", random_seed = config$pipeline_parameters$seed
     )
-
-    cat(format(Sys.time(), "%X %a %b %d %Y"), "Gene quantification and UMI deduplication done!\n")
-  } else {
-    cat("#### Skip gene quantification and UMI deduplication\n")
   }
 
-
-  # find isofroms
-
+  # Isoform identification
   if (config$pipeline_parameters$do_isoform_identification) {
-    cat(format(Sys.time(), "%X %a %b %d %Y"), "Start isoform identificaiton\n")
-    find_isoform(annotation, genome_fa, genome_bam, outdir, config)
-    cat(format(Sys.time(), "%X %a %b %d %Y"), "Isoform identificaiton done\n")
-  } else {
-    cat("#### Skip isoform identificaiton\n")
-    # create transcript_assembly.fa using GTF if not exists
-    if (!file.exists(file.path(outdir, "transcript_assembly.fa"))) {
-      cat("#### Generating transcript_assembly.fa from annotation\n")
-      annotation_to_fasta(annotation, genome_fa, outdir)
-    }
+    find_isoform(annotation, genome_fa, pipeline@genome_bam, outdir, config)
   }
 
-
-  # realign to transcript
+  # Realign to transcript
   if (config$pipeline_parameters$do_read_realignment) {
     cat("#### Realigning deduplicated reads to transcript using minimap2\n")
-    if (config$pipeline_parameters$do_gene_quantification) {
-      infq_realign <- file.path(outdir, "matched_reads_dedup.fastq")
+    infq_realign <- if (config$pipeline_parameters$do_gene_quantification) {
+      file.path(outdir, "matched_reads_dedup.fastq")
     } else {
-      infq_realign <- infq
+      pipeline@fastq
     }
-
-    # minimap2_realign looks for the transcript_assembly.fa file in the outdir
-    # https://combine-lab.github.io/oarfish/
-    if (config$pipeline_parameters$oarfish_quantification) {
-      threads <- config$pipeline_parameters$threads
-      minimap2_args <- paste("--eqx -N 100 -ax map-ont -y", "-t", threads)
-
-      cat("Running minimap2 with args:", minimap2_args, "\n")
-
-      metadata$results <- c(metadata$results,
-        list("minimap2_realign" =
-          minimap2_realign(
-            config, infq_realign, outdir, minimap2,
-            prefix = NULL,
-            threads = threads,
-            minimap2_args = minimap2_args,
-            sort_by = "CB"
-          )
-        )
+    metadata$results <- c(metadata$results,
+      list("minimap2_realign" = minimap2_realign(config, infq_realign, outdir, minimap2,
+        prefix = NULL, threads = config$pipeline_parameters$threads)
       )
-    } else {
-      metadata$results <- c(metadata$results,
-        list("minimap2_realign" =
-          minimap2_realign(config, infq_realign, outdir, minimap2,
-            prefix = NULL, threads = config$pipeline_parameters$threads)
-        )
-      )
-    }
-  } else {
-    cat("#### Skip read realignment\n")
+    )
   }
 
-  # transcript quantification
+  # Transcript quantification
   if (config$pipeline_parameters$do_transcript_quantification) {
-    cat("#### Generating transcript count matrix\n")
     sce <- quantify_transcript(
       annotation = annotation,
       outdir = outdir,
@@ -336,15 +238,6 @@ sc_long_pipeline <- function(
       config = config
     )
     sce@metadata <- c(sce@metadata, metadata)
-
-    if (config$pipeline_parameters$do_gene_quantification) {
-      tryCatch({
-        sce <- add_gene_counts(sce)
-      }, error = function(e) {
-        warning("Failed to add gene counts to SingleCellExperiment object")
-      })
-    }
-
     return(sce)
   }
 

@@ -35,18 +35,34 @@
 #' @importFrom BiocGenerics cbind colnames rownames start end
 #' @importFrom Rsamtools indexBam
 #' @export
+
+# Define the subclass for bulk pipelines
+setClass(
+  "FLAMES.BulkPipeline",
+  contains = "FLAMES.Pipeline",
+  slots = list(
+    fastq = "character" # Input FASTQ file or directory
+  )
+)
+
+# Refactor the bulk pipeline to use the new class
 bulk_long_pipeline <- function(
     annotation, fastq, outdir, genome_fa,
     minimap2 = NULL, k8 = NULL, config_file = NULL) {
-  checked_args <- check_arguments(
-    annotation,
-    fastq,
-    genome_bam = NULL,
-    outdir,
-    genome_fa,
-    config_file
-  )
-  config <- checked_args$config
+
+  # Initialize the pipeline object
+  pipeline <- new("FLAMES.BulkPipeline")
+  config <- check_arguments(annotation, fastq, genome_bam = NULL, outdir, genome_fa, config_file)$config
+  steps <- c("alignment", "isoform_identification", "realignment", "quantification")
+  pipeline <- initializePipeline(pipeline, config, steps, outdir)
+
+  # Assign specific slots
+  pipeline@fastq <- fastq
+
+  # Example: Accessing pipeline slots
+  cat("Pipeline initialized with steps:", paste(pipeline@steps, collapse = ", "), "\n")
+
+  # Continue with the existing logic, refactored to use the pipeline object
 
   # create output directory if one doesn't exist
   if (!dir.exists(outdir)) {
