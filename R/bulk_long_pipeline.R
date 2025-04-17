@@ -1,53 +1,4 @@
 # Define the base S4 class for FLAMES pipelines
-setClass(
-  "FLAMES.Pipeline",
-  slots = list(
-    # inputs
-    config = "list",            # Configuration parameters
-    outdir = "character",       # Output directory
-    fastq = "character",        # Path to the FASTQ files
-    annotation = "character",   # Path to the annotation file
-    genome_fa = "character",    # Path to the genome FASTA file
-
-    # outputs
-    metadata = "list",          # Metadata for the pipeline
-    genome_bam = "character",     # Path to the genome BAM file
-    transcriptome_bam = "character", # Path to the transcript BAM file
-    novel_isoform_annotation = "character", # Path to the novel isoform GFF / GTF file
-    transcriptome_assembly = "character", # Path to the transcriptome assembly file
-    experiment = "SummarizedExperiment", # SummarizedExperiment object for quantification results
-
-    # binaries
-    minimap2 = "character",     # Path to the minimap2 binary
-    k8 = "character",           # Path to the k8 binary
-    samtools = "character",     # Path to the samtools binary
-
-    # pipeline state
-    steps = "character",        # Steps to perform
-    completed_steps = "character" # Completed steps
-  ),
-  prototype = list(
-    config = list(),
-    outdir = NA_character_,
-    fastq = NA_character_,
-    annotation = NA_character_,
-    genome_fa = NA_character_,
-
-    metadata = list(),
-    genome_bam = NA_character_,
-    transcriptome_bam = NA_character_,
-    novel_isoform_annotation = NA_character_,
-    transcriptome_assembly = NA_character_,
-    experiment = NA,
-
-    minimap2 = NA_character_,
-    k8 = NA_character_,
-    samtools = NA_character_,
-
-    steps = character(),
-    completed_steps = character()
-  )
-)
 
 # constructor for the bulk pipeline
 BulkPipeline <- function(config_file, outdir, fastq, annotation, genome_fa, minimap2, samtools, k8) {
@@ -88,7 +39,7 @@ BulkPipeline <- function(config_file, outdir, fastq, annotation, genome_fa, mini
   ## outputs
   # metadata
   pipeline@genome_bam <- file.path(outdir, paste0(names(fastq), "_", "align2genome.bam"))
-  pipeline@transcriptome_bam <- file.path(outdir, paste0(names(fastq), "_", "align2transcript.bam"))
+  pipeline@transcriptome_bam <- file.path(outdir, paste0(names(fastq), "_", "realign2transcript.bam"))
   pipeline@transcriptome_assembly <- file.path(outdir, "transcriptome_assembly.fa")
 
   ## binaries
@@ -125,7 +76,7 @@ BulkPipeline <- function(config_file, outdir, fastq, annotation, genome_fa, mini
   return(pipeline)
 }
 
-setGeneric("prerun_check", function(pipeline) {
+setGeneric("prerun_check", function(pipeline, overwrite = FALSE) {
   standardGeneric("prerun_check")
 })
 setMethod("prerun_check", "FLAMES.Pipeline", function(pipeline, overwrite = FALSE) {
@@ -160,6 +111,7 @@ setGeneric("run_step", function(pipeline, step) {
   standardGeneric("run_step")
 })
 setMethod("run_step", "FLAMES.Pipeline", function(pipeline, step) {
+  message(sprintf("Running step: %s", step))
   pipeline <- switch(step,
     barcode_demultiplexing = barcode_demultiplexing(pipeline),
     genome_alignment = genome_alignment(pipeline),
@@ -185,7 +137,7 @@ setGeneric("genome_alignment", function(pipeline) {
 setMethod("genome_alignment", "FLAMES.Pipeline", function(pipeline) {
 
   minimap2_args <- c(
-    "-ax", "splice",  "-k14", "--secondary=no", "-y",
+    "-ax", "splice",  "-k14", "--secondary=no", # "-y",
     "-t", pipeline@config$pipeline_parameters$threads,
     "--seed", pipeline@config$pipeline_parameters$seed
   )
@@ -225,6 +177,7 @@ setMethod("genome_alignment", "FLAMES.Pipeline", function(pipeline) {
         config = pipeline@config,
         outfile = pipeline@genome_bam[i],
         minimap2_args = minimap2_args,
+        sort_by = "coordinates",
         minimap2 = pipeline@minimap2,
         samtools = pipeline@samtools,
         threads = pipeline@config$pipeline_parameters$threads
@@ -262,7 +215,7 @@ setMethod("isoform_identification", "FLAMES.Pipeline", function(pipeline) {
   }
   pipeline@novel_isoform_annotation <- novel_isoform_annotation
   annotation_to_fasta(
-    isofornm_annotation = novel_isoform_annotation,
+    isoform_annotation = novel_isoform_annotation,
     genome_fa = pipeline@genome_fa,
     outfile = pipeline@transcriptome_assembly
   )
@@ -275,16 +228,18 @@ setGeneric("read_realignment", function(pipeline) {
 setMethod("read_realignment", "FLAMES.Pipeline", function(pipeline) {
   if (pipeline@config$pipeline_parameters$oarfish_quantification) {
     minimap2_args <- c(
-      "--eqx", "-N", "100", "-ax", "map-ont", "-y",
+      "--eqx", "-N", "100", "-ax", "map-ont", # "-y",
       "-t", pipeline@config$pipeline_parameters$threads,
       "--seed", pipeline@config$pipeline_parameters$seed
     )
+    sort_by <- "none"
   } else {
     minimap2_args <- c(
-      "-ax", "map-ont", "-y", "-p", "0.9", "--end-bonus", "10", "-N", "3",
+      "-ax", "map-ont", "-p", "0.9", "--end-bonus", "10", "-N", "3",
       "-t", pipeline@config$pipeline_parameters$threads,
-      "--seed", pipeline@config$pipeline_parameters$seed 
+      "--seed", pipeline@config$pipeline_parameters$seed
     )
+    sort_by <- "coordinates"
   }
   res <- lapply(
     seq_along(pipeline@fastq),
@@ -301,6 +256,7 @@ setMethod("read_realignment", "FLAMES.Pipeline", function(pipeline) {
         config = pipeline@config,
         outfile = pipeline@transcriptome_bam[i],
         minimap2_args = minimap2_args,
+        sort_by = sort_by,
         minimap2 = pipeline@minimap2,
         samtools = pipeline@samtools,
         threads = pipeline@config$pipeline_parameters$threads
@@ -314,7 +270,7 @@ setMethod("read_realignment", "FLAMES.Pipeline", function(pipeline) {
   return(pipeline)
 })
 
-setGeneric("transcript_quantification", function(pipeline) {
+setGeneric("transcript_quantification", function(pipeline, reference_only) {
   standardGeneric("transcript_quantification")
 })
 setMethod("transcript_quantification", "FLAMES.Pipeline", function(pipeline, reference_only) {
@@ -343,7 +299,7 @@ setMethod("run_FLAMES", "FLAMES.Pipeline", function(pipeline) {
     return(pipeline)
   }
 
-  for (step in pipeline@steps) {
+  for (step in names(which(pipeline@steps))) {
     # S4 objects are immutable
     # Need R6 for passing by reference
     pipeline <- run_step(pipeline, step)

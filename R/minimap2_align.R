@@ -51,7 +51,7 @@ minimap2_align <- function(fq_in, fa_file, config, outfile, minimap2_args, sort_
     command = minimap2,
     args = base::append(
       minimap2_args,
-      fa_file, fq_in, "|", samtools, "view -b -o", tmp_bam, "-"
+      c(fa_file, fq_in, "|", samtools, "view -b -o", tmp_bam, "-")
     )
   )
   if (!is.null(base::attr(minimap2_status, "status")) &&
@@ -65,23 +65,30 @@ minimap2_align <- function(fq_in, fa_file, config, outfile, minimap2_args, sort_
     "-T", tempfile(fileext = ".sort"),
     tmp_bam, "-o", outfile
   )
-  if (missing(sort_by) || is.na(sort_by)) {
-    message(sprintf("Sorting BAM files by genome coordinates with %s threads...\n", threads))
+
+  if (sort_by != "none") {
+    if (sort_by == "coordinates") {
+      message(sprintf("Sorting BAM files by genome coordinates with %s threads...\n", threads))
+    } else {
+      sort_args <- c(sort_args, "-t", sort_by)
+      message(sprintf("Sorting BAM files by %s with %s threads...\n", threads, sort_by))
+    }
+
+    sort_status <- base::system2(
+      command = samtools,
+      args = sort_args
+    )
+    if (!is.null(base::attr(sort_status, "status")) &&
+          base::attr(sort_status, "status") != 0) {
+      stop(paste0("error running samtools sort:\n", sort_status))
+    }
+
   } else {
-    sort_args <- c(sort_args, "-t", sort_by)
-    message(sprintf("Sorting BAM files by %s with %s threads...\n", threads, sort_by))
+    message("Skipped sorting BAM files.\n")
+    file.rename(tmp_bam, outfile)
   }
 
-  sort_status <- base::system2(
-    command = samtools,
-    args = sort_args
-  )
-  if (!is.null(base::attr(sort_status, "status")) &&
-        base::attr(sort_status, "status") != 0) {
-    stop(paste0("error running samtools sort:\n", sort_status))
-  }
-
-  if (missing(sort_by) || is.na(sort_by)) {
+  if (sort_by == "coordinates") {
     cat("Indexing bam files\n")
     index_status <- base::system2(
       command = samtools,

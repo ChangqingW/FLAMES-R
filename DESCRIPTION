@@ -58,7 +58,7 @@ Imports:
     Rsamtools,
     rtracklayer,
     RColorBrewer,
-    SparseArray (>= 1.7.7),
+    S4Arrays,
     SingleCellExperiment,
     SummarizedExperiment,
     SpatialExperiment,
