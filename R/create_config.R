@@ -51,88 +51,49 @@
 #' @importFrom utils modifyList
 #' @importFrom stats setNames
 #' @export
-# Centralized default configuration
-get_default_config <- function() {
-  jsonlite::fromJSON(
-    system.file("extdata", "config_sclr_nanopore_3end.json", package = "FLAMES")
-  )
-}
-
-# Utility function to recursively merge nested lists
-merge_nested_lists <- function(default, updates) {
-  for (name in names(updates)) {
-    if (is.list(updates[[name]]) && is.list(default[[name]])) {
-      default[[name]] <- merge_nested_lists(default[[name]], updates[[name]])
-    } else {
-      default[[name]] <- updates[[name]]
-    }
-  }
-  return(default)
-}
-
-# Updated create_config function
 create_config <- function(outdir, type = "sc_3end", ...) {
-  # Load default configuration
-  config <- get_default_config()
-
-  # Apply type-specific modifications
-  if (type == "SIRV") {
+  if (type == "sc_3end") {
+    config <- jsonlite::fromJSON(
+      system.file("extdata", "config_sclr_nanopore_3end.json", package = "FLAMES")
+    )
+  } else if (type == "SIRV") {
+    config <- jsonlite::fromJSON(
+      system.file("extdata", "config_sclr_nanopore_3end.json", package = "FLAMES")
+    )
     config$alignment_parameters$no_flank <- TRUE
-  } else if (type != "sc_3end") {
+  } else {
     stop("Unrecognised config type ", type)
   }
-
-  # Merge user-specified updates
   updates <- list(...)
+
   if (length(updates) > 0) {
     if (any(is.null(names(updates))) || "" %in% names(updates)) {
       stop("Parameters must be named")
     }
-    config <- merge_nested_lists(config, updates)
+    config <- within(config, rm(comment))
+    for (i_param in names(updates)) {
+      i_part <- names(config)[as.logical(lapply(lapply(config, names), function(part) {
+        i_param %in% part
+      }))]
+      config <- modifyList(config, setNames(list(updates[i_param]), i_part))
+    }
   }
 
-  # Write created config file
+  # write created config file.
   config_file_path <- file.path(outdir, paste0("config_file_", Sys.getpid(), ".json"))
-  cat("Writing configuration parameters to: ", config_file_path, "\n")
+  cat(
+    "Writing configuration parameters to: ",
+    config_file_path,
+    "\n"
+  )
   write(jsonlite::toJSON(config, pretty = TRUE), config_file_path)
 
   return(config_file_path)
 }
 
-# Define the base S4 class for FLAMES pipelines
-setClass(
-  "FLAMES.Pipeline",
-  slots = list(
-    config = "list",             # Configuration parameters
-    steps = "character",        # Steps to perform
-    completed_steps = "character", # Completed steps
-    metadata = "list",          # Metadata for the pipeline run
-    outdir = "character"        # Output directory
-  )
-)
-
-# Define a method to initialize the pipeline
-setGeneric("initializePipeline", function(object, config, steps, outdir) {
-  standardGeneric("initializePipeline")
-})
-
-setMethod(
-  "initializePipeline",
-  "FLAMES.Pipeline",
-  function(object, config, steps, outdir) {
-    object@config <- config
-    object@steps <- steps
-    object@completed_steps <- character(0)
-    object@metadata <- list()
-    object@outdir <- outdir
-    return(object)
-  }
-)
-
 #' @importFrom Matrix tail
 #' @importFrom stringr str_split
 #' @importFrom jsonlite fromJSON
-# Updated check_arguments function to ensure backward compatibility
 check_arguments <- function(
     annotation, fastq, genome_bam,
     outdir, genome_fa, config_file) {
@@ -147,16 +108,14 @@ check_arguments <- function(
     config_file <- create_config(outdir)
   }
 
-  # Load configuration and ensure backward compatibility
+  # argument verificiation
   config <- jsonlite::fromJSON(config_file)
-  default_config <- get_default_config()
-  config <- merge_nested_lists(default_config, config)
 
-  # Validate configuration
   if (config$isoform_parameters$downsample_ratio > 1 || config$isoform_parameters$downsample_ratio <= 0) {
     stop("downsample_ratio should be between 0 and 1")
   }
-  if (!is.null(fastq) && any(!file.exists(fastq))) {
+  if (!is.null(fastq) &&
+    any(!file.exists(fastq))) {
     stop(paste0("Make sure ", fastq, " exists."))
   }
   if (!file.exists(annotation)) {
@@ -165,8 +124,11 @@ check_arguments <- function(
   if (!file.exists(genome_fa)) {
     stop(paste0("Make sure ", genome_fa, " exists."))
   }
-  if (!is.null(genome_bam) && any(!file.exists(genome_bam))) {
-    stop("Make sure genome_bam exists")
+
+  if (!is.null(genome_bam)) {
+    if (any(!file.exists(genome_bam))) {
+      stop("Make sure genome_bam exists")
+    }
   }
 
   if (config$pipeline_parameters$bambu_isoform_identification) {
@@ -180,6 +142,9 @@ check_arguments <- function(
     !config$pipeline_parameters$do_gene_quantification) {
     warning("You have set to use oarfish quantification without gene quantification. Oarfish currently does not collapse UMIs, and gene quantification performs UMI collapsing. You may want to set do_gene_quantification to TRUE for more accurate results.")
   }
+
+  # Todo: add default values for missing parameters
+  # so adding new parameters could be backward compatible
 
   return(list(config = config))
 }

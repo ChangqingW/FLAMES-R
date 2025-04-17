@@ -7,7 +7,6 @@
 #' @param config Parsed list of FLAMES config file
 #' @param fa_file Path to the fasta file used as a reference database for alignment
 #' @param fq_in File path to the fastq file used as a query sequence file
-#' @param annot Genome annotation file used to create junction bed files
 #' @param outdir Output folder
 #' @param minimap2 Path to minimap2 binary
 #' @param k8 Path to the k8 Javascript shell binary
@@ -36,219 +35,71 @@
 #'   ),
 #'   fa_file = genome_fa,
 #'   fq_in = fastq1,
-#'   annot = annotation,
 #'   outdir = outdir
 #' )
-minimap2_align <- function(config, fa_file, fq_in, annot, outdir, minimap2 = NA, k8 = NA, samtools = NA,
-    prefix = NULL, threads = 1) {
-  cat(format(Sys.time(), "%X %a %b %d %Y"), "minimap2_align\n")
-
-  if (!is.null(prefix)) {
-    prefix <- paste0(prefix, "_")
-  }
-
-  if (missing("minimap2") || is.null(minimap2) || is.na(minimap2) || minimap2 == "") {
-    minimap2 <- find_bin("minimap2")
-    if (is.na(minimap2)) {
-      stop("minimap2 not found, please make sure it is installed and provide its path as the minimap2 argument")
-    }
-  }
-
-  if (missing("k8") || is.null(k8) || is.na(k8) || k8 == "") {
-    k8 <- find_bin("k8")
-    if (is.na(k8)) {
-      stop("k8 not found, please make sure it is installed and provide its path as the k8 argument")
-    }
-  }
-
-  if (missing("samtools") || is.null(samtools) || is.na(samtools) || samtools == "") {
-    samtools <- find_bin("samtools")
-  }
+minimap2_align <- function(fq_in, fa_file, config, outfile, minimap2_args, sort_by, minimap2, samtools, threads = 1) {
 
   has_tags <- grepl("\t", readLines(fq_in, n = 1))
-  tags <- switch(has_tags, "-y")
-
-  minimap2_args <- c("-ax", "splice", tags, "-t", threads, "-k14", "--secondary=no",
-    "--seed", config$pipeline_parameters$seed)
-  if (config$alignment_parameters$no_flank) {
-    minimap2_args <- base::append(minimap2_args, "--splice-flank=no")
+  if (has_tags && !any(grepl("-y", minimap2_args))) {
+    message("Your fastq file appears to have tags, but you did not provide the -y option to minimap2 to include the tags in the output.")
   }
 
-  # k8 paftools.js gff2bend gff > bed12
-  paftoolsjs <- system.file("paftools.js", package = "FLAMES")
-  if (config$alignment_parameters$use_junctions) {
-    paftoolsjs_status <- base::system2(command = k8,
-      args = c(paftoolsjs, "gff2bed", annot,
-        ">", file.path(outdir, "tmp_splice_anno.bed12")))
-    if (!is.null(base::attr(paftoolsjs_status, "status")) && base::attr(paftoolsjs_status,
-      "status") != 0) {
-      stop(paste0("error running k8 paftools.js gff2bed:\n", paftoolsjs_status, "\n",
-        "Are you using NCBI GFF3? It is not well supported by minimap2's paftools.js"))
-    }
-    minimap2_args <- base::append(minimap2_args, c("--junc-bed", file.path(outdir,
-      "tmp_splice_anno.bed12"), "--junc-bonus", "1"))
-  }
-
-  # /bin/minimap2 -ax splice -t 12 --junc-bed
-  # /.../FLAMES_out/tmp_splice_anno.bed12 --junc-bonus 1 -k14 --secondary=no -o
-  # /.../FLAMES_datasets/MuSC/FLAMES_out/tmp_align.sam --seed 2022
-  # /.../GRCm38.primary_assembly.genome.fa /.../trimmed_MSC.fastq.gz
+  # TODO: use Rsamtools if samtools is not available
   stopifnot("Samtools not found" = !is.na(samtools))
-  minimap2_status <- base::system2(command = minimap2,
-    args = base::append(minimap2_args, c(fa_file, fq_in, "|", samtools, "view -b -o",
-      file.path(outdir, paste0(prefix, "tmp_align.bam")), "-")))
-  if (!is.null(base::attr(minimap2_status, "status")) && base::attr(minimap2_status,
-    "status") != 0) {
+  tmp_bam <- tempfile(fileext = ".bam")
+  minimap2_status <- base::system2(
+    command = minimap2,
+    args = base::append(
+      minimap2_args,
+      fa_file, fq_in, "|", samtools, "view -b -o", tmp_bam, "-"
+    )
+  )
+  if (!is.null(base::attr(minimap2_status, "status")) &&
+        base::attr(minimap2_status, "status") != 0) {
     stop(paste0("error running minimap2:\n", minimap2_status))
   }
-  cat(paste0("Sorting BAM files with ", threads, " threads...\n"))
-  sort_status <- base::system2(command = samtools, args = c("sort", "-@", threads, file.path(outdir,
-    paste0(prefix, "tmp_align.bam")), "-o", file.path(outdir, paste0(prefix,
-    "align2genome.bam"))))
-  cat("Indexing bam files\n")
-  index_status <- base::system2(command = samtools, args = c("index", file.path(outdir,
-    paste0(prefix, "align2genome.bam"))))
-  file.remove(file.path(outdir, paste0(prefix, "tmp_align.bam")))
 
-  if (config$alignment_parameters$use_junctions) {
-    file.remove(file.path(outdir, "tmp_splice_anno.bed12"))
+  sort_args <- c(
+    "sort",
+    "-@", threads,
+    "-T", tempfile(fileext = ".sort"),
+    tmp_bam, "-o", outfile
+  )
+  if (missing(sort_by) || is.na(sort_by)) {
+    message(sprintf("Sorting BAM files by genome coordinates with %s threads...\n", threads))
+  } else {
+    sort_args <- c(sort_args, "-t", sort_by)
+    message(sprintf("Sorting BAM files by %s with %s threads...\n", threads, sort_by))
+  }
+
+  sort_status <- base::system2(
+    command = samtools,
+    args = sort_args
+  )
+  if (!is.null(base::attr(sort_status, "status")) &&
+        base::attr(sort_status, "status") != 0) {
+    stop(paste0("error running samtools sort:\n", sort_status))
+  }
+
+  if (missing(sort_by) || is.na(sort_by)) {
+    cat("Indexing bam files\n")
+    index_status <- base::system2(
+      command = samtools,
+      args = c("index", outfile)
+    )
+    if (!is.null(base::attr(index_status, "status")) &&
+          base::attr(index_status, "status") != 0) {
+      stop(paste0("error running samtools index:\n", index_status))
+    }
   }
 
   if (!is.na(samtools)) {
-    return(get_flagstat(file.path(outdir, paste0(prefix, "align2genome.bam")), samtools))
+    return(get_flagstat(outfile, samtools))
   }
   # No equivalent to samtools flagstat in Rsamtools
   # Rsamtools::quickBamFlagSummary does not return anything
 }
 
-
-#' Minimap2 re-align reads to transcriptome
-#'
-#' @description
-#' Uses minimap2 to re-align reads to transcriptome
-#'
-#' @param config Parsed list of FLAMES config file
-#' @param fq_in File path to the fastq file used as a query sequence file
-#' @param outdir Output folder
-#' @param minimap2 Path to minimap2 binary
-#' @param samtools path to the samtools binary, required for large datasets since \code{Rsamtools} does not support \code{CSI} indexing
-#' @param prefix String, the prefix (e.g. sample name) for the outputted BAM file
-#' @param minimap2_args vector of command line arguments to pass to minimap2
-#' @param sort_by String, If provided, sort the BAM file by this tag instead of by position.
-#' @param threads Integer, threads for minimap2 to use, see minimap2 documentation for details,
-#' FLAMES will try to detect cores if this parameter is not provided.
-#'
-#' @return a \code{data.frame} summarising the reads aligned
-#' @seealso [minimap2_align()]
-#'
-#' @importFrom Rsamtools sortBam indexBam asBam
-#' @export
-#' @examples
-#' outdir <- tempfile()
-#' dir.create(outdir)
-#' annotation <- system.file('extdata', 'rps24.gtf.gz', package = 'FLAMES')
-#' genome_fa <- system.file('extdata', 'rps24.fa.gz', package = 'FLAMES')
-#' fasta <- annotation_to_fasta(annotation, genome_fa, outdir)
-#' fastq <- system.file('extdata', 'fastq', 'demultiplexed.fq.gz', package = 'FLAMES')
-#' minimap2_realign(
-#'   config = jsonlite::fromJSON(
-#'     system.file("extdata", "config_sclr_nanopore_3end.json", package = 'FLAMES')
-#'   ),
-#'   fq_in = fastq,
-#'   outdir = outdir
-#' )
-minimap2_realign <- function(config, fq_in, outdir, minimap2, samtools = NULL, prefix = NULL,
-    minimap2_args, sort_by, threads = 1) {
-  cat(format(Sys.time(), "%X %a %b %d %Y"), "minimap2_realign\n")
-
-  if (!is.null(prefix)) {
-    prefix <- paste0(prefix, "_")
-  }
-
-  if (missing("minimap2") || is.null(minimap2) || is.na(minimap2) || minimap2 == "") {
-    minimap2 <- find_bin("minimap2")
-    if (is.na(minimap2)) {
-      stop("minimap2 not found, please make sure it is installed and provide its path as the minimap2 argument")
-    }
-  }
-
-  if (missing("samtools") || is.null(samtools) || is.na(samtools) || samtools == "") {
-    samtools <- find_bin("samtools")
-  }
-
-  if (missing("minimap2_args") || !is.character(minimap2_args)) {
-    has_tags <- grepl("\t", readLines(fq_in, n = 1))
-    tags <- switch(has_tags, "-y")
-    minimap2_args <- c("-ax", "map-ont", tags, "-p", "0.9", "--end-bonus", "10", "-N",
-      "3", "-t", threads, "--seed", config$pipeline_parameters$seed)
-  }
-
-  stopifnot("Samtools not found" = !is.na(samtools))
-  minimap2_status <- base::system2(command = minimap2,
-    args = base::append(minimap2_args, c(file.path(outdir, "transcript_assembly.fa"),
-      fq_in, "|", samtools, "view -b -o", file.path(outdir,
-        paste0(prefix, "tmp_align.bam")), "-")))
-  if (!is.null(base::attr(minimap2_status, "status")) && base::attr(minimap2_status,
-    "status") != 0) {
-    stop(paste0("error running minimap2:\n", minimap2_status))
-  }
-
-  if (missing(sort_by)) {
-    cat("Sorting by position\n")
-    cat(paste0("Sorting BAM file with ", threads, " threads...\n"))
-    sort_status <- base::system2(
-    command = samtools,
-    args = c(
-      "sort",
-      "-@", threads,
-      "-T", file.path(outdir, paste0(prefix, "tmp_sort")),
-      "-o", file.path(outdir, paste0(prefix, "realign2transcript.bam")),
-      file.path(outdir, paste0(prefix, "tmp_align.bam"))
-    )
-  )
-
-    cat("Indexing bam files\n")
-    index_status <- base::system2(
-      command = samtools,
-      args = c("index",
-        file.path(outdir, paste0(prefix, "realign2transcript.bam"))
-      )
-    )
-  } else if (is.character(sort_by)) {
-    cat("Sorting by", sort_by, "for oarfish quantifaction", "\n")
-    cat(paste0("Sorting BAM file with ", threads, " threads...\n"))
-    sort_status <- base::system2(
-    command = samtools,
-    args = c(
-      "sort",
-      "-t", sort_by, #sort_by, # Sort by the CB tag
-      "-@", threads,
-      "-T", file.path(outdir, paste0(prefix, "tmp_sort")),
-      "-o", file.path(outdir, paste0(prefix, "realign2transcript.bam")),
-      file.path(outdir, paste0(prefix, "tmp_align.bam"))
-    )
-  )
-
-  } else if (is.na(sort_by)) {
-    cat("file renamed to ", paste0(prefix, "realign2transcript.bam"), "\n")
-    file.rename(file.path(outdir, paste0(prefix, "tmp_align.bam")), file.path(outdir, paste0(prefix, "realign2transcript.bam")))
-    # sort_status <- base::system2(
-    #   command = samtools,
-    #   args = c("sort", "-n",
-    #     file.path(outdir, paste0(prefix, "tmp_align.bam")), "-o",
-    #     file.path(outdir, paste0(prefix, "realign2transcript.bam"))
-    #   )
-    # )
-  } else {
-    stop("sort_by must be a character or NA")
-  }
-  file.remove(file.path(outdir, paste0(prefix, "tmp_align.bam")))
-
-  if (!is.na(samtools)) {
-    return(get_flagstat(file.path(outdir, paste0(prefix, "realign2transcript.bam")),
-      samtools))
-  }
-}
 
 #' Find path to a binary
 #' Wrapper for Sys.which to find path to a binary

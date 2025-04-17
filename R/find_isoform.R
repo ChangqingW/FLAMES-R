@@ -36,7 +36,6 @@
 #' )
 find_isoform <- function(annotation, genome_fa, genome_bam, outdir, config) {
   # pipeline types: singe_cell, single_cell_multisample, bulk
-  cat(format(Sys.time(), "%X %a %b %d %Y"), "find_isoform\n")
   if (config$pipeline_parameters$bambu_isoform_identification) {
     find_isoform_bambu(annotation, genome_fa, genome_bam, outdir, config)
   } else {
@@ -89,12 +88,13 @@ find_isoform_bambu <- function(annotation, genome_fa, genome_bam, outdir, config
 
   isoform_gtf <- file.path(outdir, "isoform_annotated.gtf") # Bambu outputs GTF
   bambu::writeToGTF(SummarizedExperiment::rowRanges(bambu_out), isoform_gtf)
-  annotation_to_fasta(isoform_gtf, genome_fa, outdir)
+  # annotation_to_fasta(isoform_gtf, genome_fa, outdir)
 
   if (useTempAnnot & file.exists(bambuTempAnnot)) {
-    file.remove(bambuTempAnnot);
+    file.remove(bambuTempAnnot)
   }
 
+  return(isoform_gtf)
 }
 
 #' @importFrom reticulate import_from_path
@@ -115,7 +115,7 @@ find_isoform_flames <- function(annotation, genome_fa, genome_bam, outdir, confi
       find_isoform_multithread(
         annotation, genome_bam, isoform_annotation, tss_stat, genome_fa, transcript_assembly, config$isoform_parameters, ifelse(config$isoform_parameters$generate_raw_isoform, raw_splice, "")
       )
-      annotation_to_fasta(isoform_annotation, genome_fa, outdir)
+      # annotation_to_fasta(isoform_annotation, genome_fa, outdir)
     } else {
       ret <- basiliskRun(env = flames_env, fun = function(gff3, genome, iso, tss, fa, tran, ds, conf, raw) {
         python_path <- system.file("python", package = "FLAMES")
@@ -123,7 +123,7 @@ find_isoform_flames <- function(annotation, genome_fa, genome_bam, outdir, confi
         ret <- find$find_isoform(gff3, genome, iso, tss, fa, tran, ds, conf, raw)
         ret
       },
-      gff3 = annotation, genome = genome_bam, iso = file.path(outdir, "isoform_annotated.gff3"), tss = file.path(outdir, "tss_tes.bedgraph"), fa = genome_fa, tran = file.path(outdir, "transcript_assembly.fa"), ds = config$isoform_parameters$downsample_ratio, conf = config, raw = ifelse(config$isoform_parameters$generate_raw_isoform, file.path(outdir, "splice_raw.gff3"), FALSE)
+      gff3 = annotation, genome = genome_bam, iso = isoform_annotation, tss = file.path(outdir, "tss_tes.bedgraph"), fa = genome_fa, tran = transcript_assembly, ds = config$isoform_parameters$downsample_ratio, conf = config, raw = ifelse(config$isoform_parameters$generate_raw_isoform, file.path(outdir, "splice_raw.gff3"), FALSE)
       )
     }
   } else {
@@ -137,7 +137,9 @@ find_isoform_flames <- function(annotation, genome_fa, genome_bam, outdir, confi
     )
   }
   # we then need to use Rsamtools to index transcript_fa
-  Rsamtools::indexFa(file.path(outdir, "transcript_assembly.fa")) # index the output fa file
+  # Rsamtools::indexFa(file.path(outdir, "transcript_assembly.fa")) # index the output fa file
+
+  return(isoform_annotation)
 }
 
 
@@ -187,13 +189,12 @@ fake_stranded_gff <- function(gff_file) {
 #' cat(readChar(fasta, nchars = 1e3))
 #'
 #' @export
-annotation_to_fasta <- function(isoform_annotation, genome_fa, outdir, extract_fn) {
+annotation_to_fasta <- function(isoform_annotation, genome_fa, outfile, extract_fn) {
   isofile <- fake_stranded_gff(isoform_annotation)
-  out_file <- file.path(outdir, "transcript_assembly.fa")
 
   dna_string_set <- Biostrings::readDNAStringSet(genome_fa)
   names(dna_string_set) <- gsub(" .*$", "", names(dna_string_set))
-  txdb <- txdbmaker::makeTxDbFromGFF(isoform_annotation)
+  txdb <- txdbmaker::makeTxDbFromGFF(isofile)
   if (missing(extract_fn)) {
     tr_string_set <- GenomicFeatures::extractTranscriptSeqs(dna_string_set, txdb,
       use.names = TRUE)
@@ -208,10 +209,8 @@ annotation_to_fasta <- function(isoform_annotation, genome_fa, outdir, extract_f
     tr_string_set <- tr_string_set[unique(names(tr_string_set))]
   }
 
-  Biostrings::writeXStringSet(tr_string_set, out_file)
-  Rsamtools::indexFa(out_file)
-
-  return(out_file)
+  Biostrings::writeXStringSet(tr_string_set, outfile)
+  Rsamtools::indexFa(outfile)
 }
 
 #' Parse FLAMES' GFF output
