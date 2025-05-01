@@ -501,8 +501,12 @@ mutation_positions_single <- function(mutations, annotation_grange, type, verbos
     subset(type == "exon") |>
     GenomicRanges::reduce()
 
-  overlaps <- GenomicRanges::findOverlaps(mutations, merged_exons)
-  mutations_in_exons <- mutations[S4Vectors::queryHits(overlaps)]
+  overlaps <- GenomicRanges::findOverlaps(
+    mutations, merged_exons,
+    type = "within", select = "first"
+  )
+  mutations_in_exons <- mutations[!is.na(overlaps)]
+  overlapped_idx <- overlaps[!is.na(overlaps)]
   if (verbose) {
     message(
       sprintf(
@@ -514,7 +518,7 @@ mutation_positions_single <- function(mutations, annotation_grange, type, verbos
   }
   # no mutations in exons
   if (length(mutations_in_exons) == 0) {
-    return(numeric(0))
+    return(rep(NA, length(mutations)))
   }
 
   cumulative_exon_lengths <- cumsum(IRanges::width(merged_exons))
@@ -532,7 +536,7 @@ mutation_positions_single <- function(mutations, annotation_grange, type, verbos
           return(position_tss / sum(IRanges::width(merged_exons)))
         }
       },
-      mutation_id = seq_along(mutations_in_exons), exon_idx = S4Vectors::subjectHits(overlaps),
+      mutation_id = seq_along(mutations_in_exons), exon_idx = overlapped_idx,
       SIMPLIFY = TRUE
     )
 
@@ -547,7 +551,11 @@ mutation_positions_single <- function(mutations, annotation_grange, type, verbos
     positions <- sum(IRanges::width(merged_exons)) - positions
   }
 
-  return(positions)
+  # map the positions back to the original mutations (and add NAs)
+  full_positions <- rep(NA, length(mutations))
+  full_positions[!is.na(overlaps)] <- positions
+
+  return(full_positions)
 }
 
 #' Calculate mutation positions within the gene body
@@ -636,7 +644,7 @@ mutation_positions <- function(mutations, annotation, type = "relative", bin = F
           return(pos)
         }
         pos <- round(pos * 100)
-        coverage <- sapply(1:100, function(i) sum(pos == i))
+        coverage <- sapply(1:100, function(i) sum(pos == i, na.rm = TRUE))
         return(coverage)
       },
       BPPARAM = BiocParallel::MulticoreParam(
