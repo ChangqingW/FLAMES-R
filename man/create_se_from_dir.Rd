@@ -35,8 +35,16 @@ unlink(c(fastq1, fastq2)) # the original files can be deleted
 
 outdir <- tempfile()
 dir.create(outdir)
-se <- bulk_long_pipeline(
-  annotation = annotation, fastq = fastq_dir, outdir = outdir, genome_fa = genome_fa,
-  config_file = create_config(outdir, type = "sc_3end", threads = 1, no_flank = TRUE)
+
+ppl <- BulkPipeline(
+  fastq = fastq_dir, annotation = annotation, genome_fa = genome_fa,
+  config_file = create_config(outdir, type = "sc_3end", threads = 1, no_flank = TRUE),
+  outdir = outdir
 )
+x <- run_FLAMES(ppl)
+x@experiment
+# se <- bulk_long_pipeline(
+#   annotation = annotation, fastq = fastq_dir, outdir = outdir, genome_fa = genome_fa,
+#   config_file = create_config(outdir, type = "sc_3end", threads = 1, no_flank = TRUE)
+# )
 }

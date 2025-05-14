@@ -4,17 +4,17 @@
 \alias{annotation_to_fasta}
 \title{GTF/GFF to FASTA conversion}
 \usage{
-annotation_to_fasta(isoform_annotation, genome_fa, outdir, extract_fn)
+annotation_to_fasta(isoform_annotation, genome_fa, outfile, extract_fn)
 }
 \arguments{
 \item{isoform_annotation}{Path to the annotation file (GTF/GFF3)}
 
 \item{genome_fa}{The file path to genome fasta file.}
 
-\item{outdir}{The path to directory to store the transcriptome as \code{transcript_assembly.fa}.}
-
 \item{extract_fn}{(optional) Function to extract \code{GRangesList} from the genome TxDb object.
 E.g. \code{function(txdb){GenomicFeatures::cdsBy(txdb, by="tx", use.names=TRUE)}}}
+
+\item{outdir}{The path to directory to store the transcriptome as \code{transcript_assembly.fa}.}
 }
 \value{
 Path to the outputted transcriptome assembly

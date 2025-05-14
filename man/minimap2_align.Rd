@@ -5,39 +5,36 @@
 \title{Minimap2 Align to Genome}
 \usage{
 minimap2_align(
-  config,
-  fa_file,
   fq_in,
-  annot,
-  outdir,
-  minimap2 = NA,
-  k8 = NA,
-  samtools = NA,
-  prefix = NULL,
+  fa_file,
+  config,
+  outfile,
+  minimap2_args,
+  sort_by,
+  minimap2,
+  samtools,
   threads = 1
 )
 }
 \arguments{
-\item{config}{Parsed list of FLAMES config file}
+\item{fq_in}{File path to the fastq file used as a query sequence file}
 
 \item{fa_file}{Path to the fasta file used as a reference database for alignment}
 
-\item{fq_in}{File path to the fastq file used as a query sequence file}
-
-\item{annot}{Genome annotation file used to create junction bed files}
-
-\item{outdir}{Output folder}
+\item{config}{Parsed list of FLAMES config file}
 
 \item{minimap2}{Path to minimap2 binary}
 
-\item{k8}{Path to the k8 Javascript shell binary}
-
 \item{samtools}{path to the samtools binary, required for large datasets since \code{Rsamtools} does not support \code{CSI} indexing}
-
-\item{prefix}{String, the prefix (e.g. sample name) for the outputted BAM file}
 
 \item{threads}{Integer, threads for minimap2 to use, see minimap2 documentation for details,
 FLAMES will try to detect cores if this parameter is not provided.}
+
+\item{outdir}{Output folder}
+
+\item{k8}{Path to the k8 Javascript shell binary}
+
+\item{prefix}{String, the prefix (e.g. sample name) for the outputted BAM file}
 }
 \value{
 a \code{data.frame} summarising the reads aligned
@@ -61,7 +58,6 @@ minimap2_align(
   ),
   fa_file = genome_fa,
   fq_in = fastq1,
-  annot = annotation,
   outdir = outdir
 )
 }

@@ -1,8 +1,5 @@
-# Define the base S4 class for FLAMES pipelines
-
 # constructor for the bulk pipeline
 BulkPipeline <- function(config_file, outdir, fastq, annotation, genome_fa, minimap2, samtools, k8) {
-
   pipeline <- new("FLAMES.Pipeline")
   config <- check_arguments(annotation, fastq, genome_bam = NULL, outdir, genome_fa, config_file)$config
 
@@ -13,10 +10,13 @@ BulkPipeline <- function(config_file, outdir, fastq, annotation, genome_fa, mini
 
   if (utils::file_test("-d", fastq)) {
     fastq <- list.files(fastq, pattern = "\\.(fastq|fq)(\\.gz)?$", full.names = TRUE)
-  } else if (!utils::file_test("-f", fastq)) {
+  } else if (!all(utils::file_test("-f", fastq))) {
     stop("fastq must be a valid path to a folder or a FASTQ file")
   }
-  names(fastq) <- gsub("\\.(fastq|fq)(\\.gz)?$", "", basename(fastq))
+  if (is.null(names(fastq))) {
+    names(fastq) <- gsub("\\.(fastq|fq)(\\.gz)?$", "", basename(fastq))
+  }
+  names(fastq) <- make.unique(names(fastq), sep = "_")
 
   steps <- c(
     "genome_alignment", "isoform_identification",
@@ -64,6 +64,7 @@ BulkPipeline <- function(config_file, outdir, fastq, annotation, genome_fa, mini
     message("samtools not found, will use Rsamtools package instead")
   }
   pipeline@samtools <- samtools
+  ##
 
   ## pipeline state
   pipeline@steps <- steps
@@ -111,33 +112,43 @@ setGeneric("run_step", function(pipeline, step) {
   standardGeneric("run_step")
 })
 setMethod("run_step", "FLAMES.Pipeline", function(pipeline, step) {
+  start_time <- Sys.time()
   message(sprintf("Running step: %s", step))
   pipeline <- switch(step,
-    barcode_demultiplexing = barcode_demultiplexing(pipeline),
+    barcode_demultiplex = barcode_demultiplex(pipeline),
     genome_alignment = genome_alignment(pipeline),
+    gene_quantification = gene_quantification(pipeline),
     isoform_identification = isoform_identification(pipeline),
     read_realignment = read_realignment(pipeline),
     transcript_quantification = transcript_quantification(pipeline),
     stop(sprintf("Unknown step: %s", step))
   )
+  end_time <- Sys.time()
   pipeline@completed_steps[step] <- TRUE
+  pipeline@durations[step] <- difftime(end_time, start_time, units = "secs")
   return(pipeline)
 })
 
 # individual steps as methods
-setGeneric("barcode_demultiplexing", function(pipeline) {
-  standardGeneric("barcode_demultiplexing")
+setGeneric("barcode_demultiplex", function(pipeline) {
+  standardGeneric("barcode_demultiplex")
 })
-setMethod("barcode_demultiplexing", "FLAMES.Pipeline", function(pipeline) {
+setMethod("barcode_demultiplex", "FLAMES.Pipeline", function(pipeline) {
   stop("Barcode demultiplexing is only implemented for single cell pipelines (SingleCellPipeline() and MultiSampleSCPipeline())")
 })
-setGeneric("genome_alignment", function(pipeline) {
-  standardGeneric("genome_alignment")
+setGeneric("gene_quantification", function(pipeline) {
+  standardGeneric("gene_quantification")
 })
-setMethod("genome_alignment", "FLAMES.Pipeline", function(pipeline) {
-
+setMethod("gene_quantification", "FLAMES.Pipeline", function(pipeline) {
+  # todo: implement gene quantification for bulk pipelines
+  stop("Gene quantification is not implemented for bulk pipelines yet")
+})
+setGeneric("genome_alignment_raw", function(pipeline, fastqs) {
+  standardGeneric("genome_alignment_raw")
+})
+setMethod("genome_alignment_raw", "FLAMES.Pipeline", function(pipeline, fastqs) {
   minimap2_args <- c(
-    "-ax", "splice",  "-k14", "--secondary=no", # "-y",
+    "-ax", "splice", "-k14", "--secondary=no", # "-y",
     "-t", pipeline@config$pipeline_parameters$threads,
     "--seed", pipeline@config$pipeline_parameters$seed
   )
@@ -163,16 +174,16 @@ setMethod("genome_alignment", "FLAMES.Pipeline", function(pipeline) {
   }
 
   res <- lapply(
-    seq_along(pipeline@fastq),
+    seq_along(fastqs),
     function(i) {
-      if (!is.null(names(pipeline@fastq))) {
-        sample <- names(pipeline@fastq)[i]
+      if (!is.null(names(fastqs))) {
+        sample <- names(fastqs)[i]
       } else {
-        sample <- pipeline@fastq[i]
+        sample <- fastqs[i]
       }
       message(sprintf("Aligning sample %s -> %s", sample, pipeline@genome_bam[i]))
       minimap2_align(
-        fq_in = pipeline@fastq[i],
+        fq_in = fastqs[i],
         fa_file = pipeline@genome_fa,
         config = pipeline@config,
         outfile = pipeline@genome_bam[i],
@@ -184,12 +195,21 @@ setMethod("genome_alignment", "FLAMES.Pipeline", function(pipeline) {
       )
     }
   )
-  if (!is.null(names(pipeline@fastq))) {
-    names(res) <- names(pipeline@fastq)
+  if (!is.null(names(fastqs))) {
+    names(res) <- names(fastqs)
   }
   unlink(bed_file)
   pipeline@metadata$genome_alignment <- res
   return(pipeline)
+})
+setGeneric("genome_alignment", function(pipeline) {
+  standardGeneric("genome_alignment")
+})
+setMethod("genome_alignment", "FLAMES.Pipeline", function(pipeline) {
+  genome_alignment_raw(
+    pipeline = pipeline,
+    fastqs = pipeline@fastq
+  )
 })
 
 setGeneric("isoform_identification", function(pipeline) {
@@ -222,54 +242,75 @@ setMethod("isoform_identification", "FLAMES.Pipeline", function(pipeline) {
   return(pipeline)
 })
 
-setGeneric("read_realignment", function(pipeline) {
-  standardGeneric("read_realignment")
+setGeneric("read_realignment_raw", function(pipeline, include_tags, sort_by, fastqs) {
+  standardGeneric("read_realignment_raw")
 })
-setMethod("read_realignment", "FLAMES.Pipeline", function(pipeline) {
-  if (pipeline@config$pipeline_parameters$oarfish_quantification) {
-    minimap2_args <- c(
-      "--eqx", "-N", "100", "-ax", "map-ont", # "-y",
-      "-t", pipeline@config$pipeline_parameters$threads,
-      "--seed", pipeline@config$pipeline_parameters$seed
-    )
-    sort_by <- "none"
-  } else {
-    minimap2_args <- c(
-      "-ax", "map-ont", "-p", "0.9", "--end-bonus", "10", "-N", "3",
-      "-t", pipeline@config$pipeline_parameters$threads,
-      "--seed", pipeline@config$pipeline_parameters$seed
-    )
-    sort_by <- "coordinates"
-  }
-  res <- lapply(
-    seq_along(pipeline@fastq),
-    function(i) {
-      if (!is.null(names(pipeline@fastq))) {
-        sample <- names(pipeline@fastq)[i]
-      } else {
-        sample <- pipeline@fastq[i]
-      }
-      message(sprintf("Realigning sample %s -> %s", sample, pipeline@transcriptome_bam[i]))
-      minimap2_align(
-        fq_in = pipeline@fastq[i],
-        fa_file = pipeline@transcriptome_assembly,
-        config = pipeline@config,
-        outfile = pipeline@transcriptome_bam[i],
-        minimap2_args = minimap2_args,
-        sort_by = sort_by,
-        minimap2 = pipeline@minimap2,
-        samtools = pipeline@samtools,
-        threads = pipeline@config$pipeline_parameters$threads
+setMethod(
+  "read_realignment_raw", "FLAMES.Pipeline",
+  function(pipeline, include_tags = FALSE, sort_by, fastqs) {
+    if (pipeline@config$pipeline_parameters$oarfish_quantification) {
+      minimap2_args <- c(
+        "--eqx", "-N", "100", "-ax", "map-ont",
+        "-t", pipeline@config$pipeline_parameters$threads,
+        "--seed", pipeline@config$pipeline_parameters$seed
+      )
+    } else {
+      minimap2_args <- c(
+        "-ax", "map-ont", "-p", "0.9", "--end-bonus", "10", "-N", "3",
+        "-t", pipeline@config$pipeline_parameters$threads,
+        "--seed", pipeline@config$pipeline_parameters$seed
       )
     }
-  )
-  if (!is.null(names(pipeline@fastq))) {
-    names(res) <- names(pipeline@fastq)
-  }
-  pipeline@metadata$read_realignment <- res
-  return(pipeline)
-})
+    if (include_tags) {
+      minimap2_args <- base::append(minimap2_args, "-y")
+    }
 
+    res <- lapply(
+      seq_along(fastqs),
+      function(i) {
+        if (!is.null(names(fastqs))) {
+          sample <- names(fastqs)[i]
+        } else {
+          sample <- fastqs[i]
+        }
+        message(sprintf("Realigning sample %s -> %s", sample, pipeline@transcriptome_bam[i]))
+        minimap2_align(
+          fq_in = fastqs[i],
+          fa_file = pipeline@transcriptome_assembly,
+          config = pipeline@config,
+          outfile = pipeline@transcriptome_bam[i],
+          minimap2_args = minimap2_args,
+          sort_by = sort_by,
+          minimap2 = pipeline@minimap2,
+          samtools = pipeline@samtools,
+          threads = pipeline@config$pipeline_parameters$threads
+        )
+      }
+    )
+    if (!is.null(names(fastqs))) {
+      names(res) <- names(fastqs)
+    }
+    pipeline@metadata$read_realignment <- res
+    return(pipeline)
+  }
+)
+
+setGeneric("read_realignment", function(pipeline, include_tags) {
+  standardGeneric("read_realignment")
+})
+setMethod("read_realignment", "FLAMES.Pipeline", function(pipeline, include_tags = FALSE) {
+  sort_by <- ifelse(
+    pipeline@config$pipeline_parameters$oarfish_quantification,
+    "none",
+    "coordinates"
+  )
+  read_realignment_raw(
+    pipeline = pipeline,
+    include_tags = include_tags,
+    sort_by = sort_by,
+    fastqs = pipeline@fastq
+  )
+})
 setGeneric("transcript_quantification", function(pipeline, reference_only) {
   standardGeneric("transcript_quantification")
 })
@@ -279,21 +320,31 @@ setMethod("transcript_quantification", "FLAMES.Pipeline", function(pipeline, ref
   } else {
     annotation <- pipeline@novel_isoform_annotation
   }
+  pipeline_class <- switch(
+    class(pipeline),
+    "FLAMES.Pipeline" = "bulk",
+    "FLAMES.SingleCellPipeline" = "sc_single_sample",
+    "FLAMES.MultiSampleSCPipeline" = "sc_multi_sample"
+  )
   # TODO: refactor quantify_transcript to take file paths from pipeline
-  pipeline@experiment <- quantify_transcript(
+  x <- quantify_transcript(
     annotation = annotation,
     outdir = pipeline@outdir,
     config = pipeline@config,
-    pipeline = "bulk",
+    pipeline = pipeline_class,
     samples = names(pipeline@fastq)
   )
+  if (is.list(x) & pipeline_class == "sc_multi_sample") {
+    pipeline@experiments <- x
+  } else {
+    pipeline@experiment <- x
+  }
   return(pipeline)
 })
 
 setGeneric("run_FLAMES", function(pipeline) {
   standardGeneric("run_FLAMES")
 })
-
 setMethod("run_FLAMES", "FLAMES.Pipeline", function(pipeline) {
   if (!prerun_check(pipeline, overwrite = FALSE)) {
     return(pipeline)
@@ -302,9 +353,48 @@ setMethod("run_FLAMES", "FLAMES.Pipeline", function(pipeline) {
   for (step in names(which(pipeline@steps))) {
     # S4 objects are immutable
     # Need R6 for passing by reference
-    pipeline <- run_step(pipeline, step)
+    pipeline <- tryCatch(
+      run_step(pipeline, step),
+      error = function(e) {
+        warning(sprintf("Error in step %s: %s, pipeline stopped.", step, e$message))
+        pipeline@last_error <- list(
+          step = step,
+          error = e,
+          traceback = capture.output(traceback())
+        )
+        return(pipeline)
+      }
+    )
     pipeline@completed_steps[step] <- TRUE
   }
   return(pipeline)
 })
 
+setGeneric("resume_FLAMES", function(pipeline) {
+  standardGeneric("resume_FLAMES")
+})
+setMethod("resume_FLAMES", "FLAMES.Pipeline", function(pipeline) {
+  configured_steps <- pipeline@completed_steps[pipeline@steps]
+  unfinished_steps <- names(which(!configured_steps))
+  if (length(unfinished_steps) == 0) {
+    message("All steps have already been completed.")
+    return(pipeline)
+  } else {
+    message("Resuming pipeline from step: ", unfinished_steps[1])
+    for (step in unfinished_steps) {
+      pipeline <- tryCatch(
+        run_step(pipeline, step),
+        error = function(e) {
+          warning(sprintf("Error in step %s: %s, pipeline stopped.", step, e$message))
+          pipeline@last_error <- list(
+            step = step,
+            error = e,
+            traceback = capture.output(traceback())
+          )
+          return(pipeline)
+        }
+      )
+      pipeline@completed_steps[step] <- TRUE
+    }
+  }
+})

@@ -85,7 +85,14 @@ minimap2_align <- function(fq_in, fa_file, config, outfile, minimap2_args, sort_
 
   } else {
     message("Skipped sorting BAM files.\n")
-    file.rename(tmp_bam, outfile)
+    # most platforms will not rename files
+    # from one file system to another
+    # and file.rename will fail
+    # file.xxx functions fail witout throwing errors
+    # and return FALSE
+    if (!file.rename(tmp_bam, outfile)) {
+      file.copy(tmp_bam, outfile)
+    }
   }
 
   if (sort_by == "coordinates") {

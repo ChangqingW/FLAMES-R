@@ -1,3 +1,193 @@
+#' @examples
+#' reads <- ShortRead::readFastq(
+#'   system.file("extdata", "fastq", "musc_rps24.fastq.gz", package = "FLAMES")
+#' )
+#' outdir <- tempfile()
+#' dir.create(outdir)
+#' dir.create(file.path(outdir, "fastq"))
+#' bc_allow <- file.path(outdir, "bc_allow.tsv")
+#' genome_fa <- file.path(outdir, "rps24.fa")
+#' R.utils::gunzip(
+#'   filename = system.file("extdata", "bc_allow.tsv.gz", package = "FLAMES"),
+#'   destname = bc_allow, remove = FALSE
+#' )
+#' R.utils::gunzip(
+#'   filename = system.file("extdata", "rps24.fa.gz", package = "FLAMES"),
+#'   destname = genome_fa, remove = FALSE
+#' )
+#' ShortRead::writeFastq(reads[1:100],
+#'   file.path(outdir, "fastq/sample1.fq.gz"), mode = "w", full = FALSE)
+#' reads <- reads[-(1:100)]
+#' ShortRead::writeFastq(reads[1:100],
+#'   file.path(outdir, "fastq/sample2.fq.gz"), mode = "w", full = FALSE)
+#' reads <- reads[-(1:100)]
+#' ShortRead::writeFastq(reads,
+#'   file.path(outdir, "fastq/sample3.fq.gz"), mode = "w", full = FALSE)
+#' ppl <- MultiSampleSCPipeline(
+#'   config_file = create_config(outdir, type = "sc_3end", threads = 1, no_flank = TRUE),
+#'   outdir = outdir,
+#'   fastq = c("sampleA" = file.path(outdir, "fastq"),
+#'     "sample1" = file.path(outdir, "fastq", "sample1.fq.gz"),
+#'     "sample2" = file.path(outdir, "fastq", "sample2.fq.gz"),
+#'     "sample3" = file.path(outdir, "fastq", "sample3.fq.gz")),
+#'   annotation = system.file("extdata", "rps24.gtf.gz", package = "FLAMES"),
+#'   genome_fa = genome_fa,
+#'   barcodes_file = rep(bc_allow, 4)
+#' )
+#' x <- run_FLAMES(ppl)
+MultiSampleSCPipeline <- function(
+  config_file, outdir, fastq, annotation, genome_fa, minimap2, samtools, k8,
+  barcodes_file, expect_cell_number
+) {
+  pipeline <- new("FLAMES.MultiSampleSCPipeline")
+  config <- check_arguments(annotation, fastq, genome_bam = NULL, outdir, genome_fa, config_file)$config
+
+  if (!dir.exists(outdir)) {
+    dir.create(outdir)
+    message(sprintf("Output directory (%s) did not exist, created.", outdir))
+  }
+
+  if (length(fastq) == 1) {
+    if (file_test("-f", fastq)) {
+      stop("Only one fastq file provided, did you meant to used the single-sample pipeline (FLAMES::sc_long_pipeline) ?")
+    }
+    fastq <- list.files(fastq, pattern = "\\.(fastq|fq)(\\.gz)?$", full.names = TRUE)
+    if (length(fastq) <= 1) {
+      stop(length(fastq), " .fq or .fastq file(s) found\n")
+    }
+  } else if (!all(file.exists(fastq))) {
+    stop("fastq must be a valid path to a folder or a FASTQ file")
+  }
+  if (is.null(names(fastq))) {
+    names(fastq) <- gsub("\\.(fastq|fq)(\\.gz)?$", "", basename(fastq))
+  }
+  names(fastq) <- make.unique(names(fastq), sep = "_")
+
+  steps <- c(
+    "barcode_demultiplex", "genome_alignment", "gene_quantification",
+    "isoform_identification", "read_realignment", "transcript_quantification"
+  )
+  steps <- config$pipeline_parameters[paste0("do_", steps)] |>
+    unlist() |>
+    setNames(steps)
+  message("Configured steps: \n", paste0("\t", names(steps), ": ", steps, collapse = "\n"))
+
+  # assign slots
+  ## inputs
+  pipeline@config <- config
+  pipeline@outdir <- outdir
+  pipeline@fastq <- fastq
+  pipeline@annotation <- annotation
+  pipeline@genome_fa <- genome_fa
+  if (!missing(barcodes_file)) {
+    if (length(barcodes_file) == 1) {
+      barcodes_file <- rep(barcodes_file, length(fastq))
+    } else if (length(barcodes_file) != length(fastq)) {
+      stop(
+        sprintf(
+          "Number of barcodes_file (%d) does not match number of fastq files (%d)",
+          length(barcodes_file), length(fastq)
+        )
+      )
+    }
+    pipeline@barcodes_file <- barcodes_file
+  } else if (!missing(expect_cell_number)) {
+    if (length(expect_cell_number) == 1) {
+      expect_cell_number <- rep(expect_cell_number, length(fastq))
+    } else if (length(expect_cell_number) != length(fastq)) {
+      stop(
+        sprintf(
+          "Number of expect_cell_number (%d) does not match number of fastq files (%d)",
+          length(expect_cell_number), length(fastq)
+        )
+      )
+    }
+    pipeline@expect_cell_number <- expect_cell_number
+  } else {
+    stop("Either barcodes_file or expect_cell_number must be provided.")
+  }
+
+  ## outputs
+  # metadata
+  pipeline@genome_bam <- file.path(outdir, paste0(names(fastq), "_", "align2genome.bam"))
+  pipeline@transcriptome_bam <- file.path(outdir, paste0(names(fastq), "_", "realign2transcript.bam"))
+  pipeline@transcriptome_assembly <- file.path(outdir, "transcriptome_assembly.fa")
+  pipeline@demultiplexed_fastq <- file.path(outdir, paste0(names(fastq), "_matched_reads.fastq"))
+  pipeline@deduped_fastq <- file.path(outdir, paste0(names(fastq), "_matched_reads_dedup.fastq"))
+
+  ## binaries
+  if (missing(minimap2)) {
+    minimap2 <- find_bin("minimap2")
+    if (is.na(minimap2)) {
+      stop("minimap2 not found, please make sure it is installed and provide its path as the minimap2 argument")
+    }
+  }
+  pipeline@minimap2 <- minimap2
+  if (missing(k8)) {
+    k8 <- find_bin("k8")
+    if (is.na(k8)) {
+      stop("k8 not found, please make sure it is installed and provide its path as the k8 argument")
+    }
+  }
+  pipeline@k8 <- k8
+  if (missing(samtools)) {
+    samtools <- find_bin("samtools")
+  }
+  if (is.na(samtools)) {
+    message("samtools not found, will use Rsamtools package instead")
+  }
+  pipeline@samtools <- samtools
+  ##
+
+  ## pipeline state
+  pipeline@steps <- steps
+  pipeline@completed_steps <- setNames(
+    rep(FALSE, length(steps)), names(steps)
+  )
+
+  return(pipeline)
+}
+
+setMethod("barcode_demultiplex", "FLAMES.MultiSampleSCPipeline", function(pipeline) {
+  if (any(is.na(pipeline@barcodes_file))) {
+    message("No barcodes file provided, running BLAZE to generate barcode list from long reads...")
+    for (i in seq_along(pipeline@fastq)) {
+      message(sprintf("Demultiplexing sample %s...", names(pipeline@fastq)[i]))
+      blaze(
+        pipeline@expect_cell_number[i], pipeline@fastq[i],
+        "output-fastq" = pipeline@demultiplexed_fastq[i],
+        "threads" = pipeline@config$pipeline_parameters$threads,
+        "max-edit-distance" = pipeline@config$barcode_parameters$max_bc_editdistance,
+        "overwrite" = TRUE
+      )
+    }
+  } else {
+    res <- find_barcode(
+      fastq = pipeline@fastq,
+      barcodes_file = pipeline@barcodes_file,
+      stats_out = file.path(
+        pipeline@outdir,
+        paste0(names(pipeline@fastq), "_matched_barcode_stat")
+      ),
+      reads_out = pipeline@demultiplexed_fastq,
+      pattern = setNames(
+        as.character(pipeline@config$barcode_parameters$pattern),
+        names(pipeline@config$barcode_parameters$pattern)
+      ),
+      TSO_seq = pipeline@config$barcode_parameters$TSO_seq,
+      TSO_prime = pipeline@config$barcode_parameters$TSO_prime,
+      cutadapt_minimum_length = pipeline@config$barcode_parameters$cutadapt_minimum_length,
+      full_length_only = pipeline@config$barcode_parameters$full_length_only,
+      max_bc_editdistance = pipeline@config$barcode_parameters$max_bc_editdistance,
+      max_flank_editdistance = pipeline@config$barcode_parameters$max_flank_editdistance,
+      strand = pipeline@config$barcode_parameters$strand,
+      threads = pipeline@config$pipeline_parameters$threads
+    )
+    pipeline@metadata$barcode_demultiplex <- res
+  }
+  return(pipeline)
+})
+
 #' Pipeline for Multi-sample Single Cell Data
 #'
 #' @md
@@ -106,35 +296,13 @@
 #' )
 #'
 #' @export
-# Define the subclass for multi-sample pipelines
-setClass(
-  "FLAMES.MultiSamplePipeline",
-  contains = "FLAMES.Pipeline",
-  slots = list(
-    fastqs = "character",       # Input FASTQ files
-    expect_cell_numbers = "numeric" # Expected cell numbers
-  )
-)
-
-# Refactor the multi-sample pipeline to use the new class
 sc_long_multisample_pipeline <- function(annotation, fastqs, outdir, genome_fa,
     minimap2 = NULL, k8 = NULL, barcodes_file = NULL,
     expect_cell_numbers = NULL, config_file = NULL) {
 
-  # Initialize the pipeline object
-  pipeline <- new("FLAMES.MultiSamplePipeline")
-  config <- check_arguments(annotation, fastqs, genome_bam = NULL, outdir, genome_fa, config_file)$config
-  steps <- c("demultiplexing", "alignment", "quantification", "isoform_identification")
-  pipeline <- initializePipeline(pipeline, config, steps, outdir)
-
-  # Assign specific slots
-  pipeline@fastqs <- fastqs
-  pipeline@expect_cell_numbers <- expect_cell_numbers
-
-  # Example: Accessing pipeline slots
-  cat("Pipeline initialized with steps:", paste(pipeline@steps, collapse = ", "), "\n")
-
-  # Continue with the existing logic, refactored to use the pipeline object
+  checked_args <- check_arguments(annotation, fastqs, genome_bam = NULL,
+    outdir, genome_fa, config_file)
+  config <- checked_args$config
 
   metadata <- list(
     "inputs" = list(
