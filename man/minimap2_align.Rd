@@ -25,14 +25,16 @@ minimap2_align(
 
 \item{outfile}{Path to the output file}
 
+\item{minimap2_args}{Arguments to pass to minimap2, see minimap2 documentation for details.}
+
+\item{sort_by}{Column to sort the bam file by, see \code{samtools sort} for details}
+
 \item{minimap2}{Path to minimap2 binary}
 
-\item{samtools}{path to the samtools binary, required for large datasets since \code{Rsamtools} does not support \code{CSI} indexing}
+\item{samtools}{path to the samtools binary.}
 
 \item{threads}{Integer, threads for minimap2 to use, see minimap2 documentation for details,
 FLAMES will try to detect cores if this parameter is not provided.}
-
-\item{k8}{Path to the k8 Javascript shell binary}
 }
 \value{
 a \code{data.frame} summarising the reads aligned

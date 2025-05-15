@@ -173,10 +173,10 @@ fake_stranded_gff <- function(gff_file) {
 #' from the genome assembly.
 #' @param isoform_annotation Path to the annotation file (GTF/GFF3)
 #' @param genome_fa The file path to genome fasta file.
-#' @param outdir The path to directory to store the transcriptome as \code{transcript_assembly.fa}.
+#' @param outfile The file path to the output FASTA file.
 #' @param extract_fn (optional) Function to extract \code{GRangesList} from the genome TxDb object.
 #' E.g. \code{function(txdb){GenomicFeatures::cdsBy(txdb, by="tx", use.names=TRUE)}}
-#' @return Path to the outputted transcriptome assembly
+#' @return This does not return anything. A FASTA file will be created at the specified location.
 #'
 #' @importFrom Biostrings readDNAStringSet writeXStringSet
 #' @importFrom GenomicFeatures extractTranscriptSeqs
@@ -185,8 +185,9 @@ fake_stranded_gff <- function(gff_file) {
 #' @importFrom utils write.table
 #'
 #' @examples
-#' fasta <- annotation_to_fasta(system.file("extdata", "rps24.gtf.gz", package = "FLAMES"), system.file("extdata", "rps24.fa.gz", package = "FLAMES"), tempdir())
-#' cat(readChar(fasta, nchars = 1e3))
+#' fasta <- tempfile()
+#' annotation_to_fasta(system.file("extdata", "rps24.gtf.gz", package = "FLAMES"), system.file("extdata", "rps24.fa.gz", package = "FLAMES"), fasta)
+#' cat(readChar(fasta, 1e3))
 #'
 #' @export
 annotation_to_fasta <- function(isoform_annotation, genome_fa, outfile, extract_fn) {
@@ -211,6 +212,7 @@ annotation_to_fasta <- function(isoform_annotation, genome_fa, outfile, extract_
 
   Biostrings::writeXStringSet(tr_string_set, outfile)
   Rsamtools::indexFa(outfile)
+  return(invisible())
 }
 
 #' Parse FLAMES' GFF output

@@ -2,9 +2,12 @@
 % Please edit documentation in R/bulk_long_pipeline.R
 \name{run_step}
 \alias{run_step}
+\alias{run_step,FLAMES.Pipeline-method}
 \title{Execute a single step of the FLAMES pipeline}
 \usage{
 run_step(pipeline, step)
+
+\S4method{run_step}{FLAMES.Pipeline}(pipeline, step)
 }
 \arguments{
 \item{pipeline}{A FLAMES.Pipeline object.}

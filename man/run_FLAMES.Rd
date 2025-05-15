@@ -2,9 +2,12 @@
 % Please edit documentation in R/bulk_long_pipeline.R
 \name{run_FLAMES}
 \alias{run_FLAMES}
+\alias{run_FLAMES,FLAMES.Pipeline-method}
 \title{Execute a FLAMES pipeline}
 \usage{
 run_FLAMES(pipeline)
+
+\S4method{run_FLAMES}{FLAMES.Pipeline}(pipeline)
 }
 \arguments{
 \item{pipeline}{A FLAMES.Pipeline object.}

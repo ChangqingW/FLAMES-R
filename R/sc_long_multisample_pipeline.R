@@ -176,6 +176,8 @@ MultiSampleSCPipeline <- function(
   return(pipeline)
 }
 
+#' @rdname experiment
+#' @export
 setMethod("experiment", "FLAMES.MultiSampleSCPipeline", function(pipeline) {
   pipeline@experiments
 })

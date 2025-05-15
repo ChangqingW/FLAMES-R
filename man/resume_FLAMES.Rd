@@ -2,9 +2,12 @@
 % Please edit documentation in R/bulk_long_pipeline.R
 \name{resume_FLAMES}
 \alias{resume_FLAMES}
+\alias{resume_FLAMES,FLAMES.Pipeline-method}
 \title{Resume a FLAMES pipeline}
 \usage{
 resume_FLAMES(pipeline)
+
+\S4method{resume_FLAMES}{FLAMES.Pipeline}(pipeline)
 }
 \arguments{
 \item{pipeline}{A FLAMES.Pipeline object.}

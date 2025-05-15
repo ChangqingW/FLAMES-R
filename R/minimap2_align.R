@@ -4,15 +4,16 @@
 #' Uses minimap2 to align sequences agains a reference databse.
 #' Uses options '-ax splice -t 12 -k14 --secondary=no \code{fa_file} \code{fq_in}'
 #'
-#' @param config Parsed list of FLAMES config file
-#' @param fa_file Path to the fasta file used as a reference database for alignment
 #' @param fq_in File path to the fastq file used as a query sequence file
+#' @param fa_file Path to the fasta file used as a reference database for alignment
+#' @param config Parsed list of FLAMES config file
 #' @param outfile Path to the output file
+#' @param minimap2_args Arguments to pass to minimap2, see minimap2 documentation for details.
+#' @param sort_by Column to sort the bam file by, see \code{samtools sort} for details
 #' @param minimap2 Path to minimap2 binary
-#' @param k8 Path to the k8 Javascript shell binary
+#' @param samtools path to the samtools binary.
 #' @param threads Integer, threads for minimap2 to use, see minimap2 documentation for details,
 #' FLAMES will try to detect cores if this parameter is not provided.
-#' @param samtools path to the samtools binary, required for large datasets since \code{Rsamtools} does not support \code{CSI} indexing
 #'
 #' @return a \code{data.frame} summarising the reads aligned
 #' @seealso [minimap2_realign()]

@@ -205,6 +205,8 @@ setMethod("prerun_check", "FLAMES.Pipeline", function(pipeline, overwrite = FALS
 setGeneric("run_step", function(pipeline, step) {
   standardGeneric("run_step")
 })
+#' @rdname run_step
+#' @export
 setMethod("run_step", "FLAMES.Pipeline", function(pipeline, step) {
   start_time <- Sys.time()
   message(sprintf("Running step: %s", step))
@@ -237,6 +239,8 @@ setMethod("run_step", "FLAMES.Pipeline", function(pipeline, step) {
 setGeneric("run_FLAMES", function(pipeline) {
   standardGeneric("run_FLAMES")
 })
+#' @rdname run_FLAMES
+#' @export
 setMethod("run_FLAMES", "FLAMES.Pipeline", function(pipeline) {
   if (!prerun_check(pipeline, overwrite = FALSE)) {
     return(pipeline)
@@ -278,6 +282,8 @@ setMethod("run_FLAMES", "FLAMES.Pipeline", function(pipeline) {
 setGeneric("resume_FLAMES", function(pipeline) {
   standardGeneric("resume_FLAMES")
 })
+#' @rdname resume_FLAMES
+#' @export
 setMethod("resume_FLAMES", "FLAMES.Pipeline", function(pipeline) {
   configured_steps <- pipeline@completed_steps[pipeline@steps]
   unfinished_steps <- names(which(!configured_steps))
@@ -322,6 +328,8 @@ setMethod("resume_FLAMES", "FLAMES.Pipeline", function(pipeline) {
 setGeneric("experiment", function(pipeline) {
   standardGeneric("experiment")
 })
+#' @rdname experiment
+#' @export
 setMethod("experiment", "FLAMES.Pipeline", function(pipeline) {
   pipeline@experiment
 })
