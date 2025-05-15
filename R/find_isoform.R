@@ -9,31 +9,7 @@
 #' @return The updated annotation and the transcriptome assembly will be saved in the
 #' output folder as \code{isoform_annotated.gff3} (GTF if bambu is selected) and
 #' \code{transcript_assembly.fa} respectively.
-#' @export
-#' @examples
-#' temp_path <- tempfile()
-#' bfc <- BiocFileCache::BiocFileCache(temp_path, ask = FALSE)
-#' file_url <- "https://raw.githubusercontent.com/OliverVoogd/FLAMESData/master/data"
-#' fastq1 <- bfc[[names(BiocFileCache::bfcadd(bfc, "Fastq1", paste(file_url, "fastq/sample1.fastq.gz", sep = "/")))]]
-#' genome_fa <- bfc[[names(BiocFileCache::bfcadd(bfc, "genome.fa", paste(file_url, "SIRV_isoforms_multi-fasta_170612a.fasta", sep = "/")))]]
-#' annotation <- bfc[[names(BiocFileCache::bfcadd(bfc, "annot.gtf", paste(file_url, "SIRV_isoforms_multi-fasta-annotation_C_170612a.gtf", sep = "/")))]]
-#' outdir <- tempfile()
-#' dir.create(outdir)
-#' config <- jsonlite::fromJSON(
-#'   system.file("extdata", "config_sclr_nanopore_3end.json", package = "FLAMES")
-#' )
-#' minimap2_align(
-#'   config = config,
-#'   fa_file = genome_fa,
-#'   fq_in = fastq1,
-#'   annot = annotation,
-#'   outdir = outdir
-#' )
-#' find_isoform(
-#'   annotation = annotation, genome_fa = genome_fa,
-#'   genome_bam = file.path(outdir, "align2genome.bam"),
-#'   outdir = outdir, config = config
-#' )
+#' @keywords internal
 find_isoform <- function(annotation, genome_fa, genome_bam, outdir, config) {
   # pipeline types: singe_cell, single_cell_multisample, bulk
   if (config$pipeline_parameters$bambu_isoform_identification) {
@@ -219,32 +195,7 @@ annotation_to_fasta <- function(isoform_annotation, genome_fa, outfile, extract_
 #' @description Parse FLAMES' GFF ouputs into a Genomic Ranges List
 #' @param file the GFF file to parse
 #' @return A Genomic Ranges List
-#' @examples
-#' temp_path <- tempfile()
-#' bfc <- BiocFileCache::BiocFileCache(temp_path, ask = FALSE)
-#' file_url <- "https://raw.githubusercontent.com/OliverVoogd/FLAMESData/master/data"
-#' fastq1 <- bfc[[names(BiocFileCache::bfcadd(bfc, "Fastq1", paste(file_url, "fastq/sample1.fastq.gz", sep = "/")))]]
-#' genome_fa <- bfc[[names(BiocFileCache::bfcadd(bfc, "genome.fa", paste(file_url, "SIRV_isoforms_multi-fasta_170612a.fasta", sep = "/")))]]
-#' annotation <- bfc[[names(BiocFileCache::bfcadd(bfc, "annot.gtf", paste(file_url, "SIRV_isoforms_multi-fasta-annotation_C_170612a.gtf", sep = "/")))]]
-#' outdir <- tempfile()
-#' dir.create(outdir)
-#' config <- jsonlite::fromJSON(
-#'   system.file("extdata", "config_sclr_nanopore_3end.json", package = "FLAMES"))
-#' minimap2_align(
-#'   config = config,
-#'   fa_file = genome_fa,
-#'   fq_in = fastq1,
-#'   annot = annotation,
-#'   outdir = outdir
-#' )
-#' find_isoform(
-#'   annotation = annotation, genome_fa = genome_fa,
-#'   genome_bam = file.path(outdir, "align2genome.bam"),
-#'   outdir = outdir, config = config
-#' )
-#' grlist <- get_GRangesList(file = file.path(outdir, "isoform_annotated.gff3"))
-#' @importFrom rtracklayer import
-#' @export
+#' @keywords internal
 get_GRangesList <- function(file) {
   isoform_gr <- rtracklayer::import(file, feature.type = c("exon", "utr"))
   if (grepl("\\.gff3(\\.gz)?$", file)) {

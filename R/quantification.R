@@ -194,28 +194,7 @@ add_gene_counts <- function(sce, gene_count_file) {
 #' @return A \code{SingleCellExperiment} object for single-cell pipeline, a list of \code{SingleCellExperiment} objects for multi-sample pipeline, or a \code{SummarizedExperiment} object for bulk pipeline.
 #' @importFrom basilisk basiliskRun
 #' @importFrom reticulate import_from_path dict
-#' @examples
-#' temp_path <- tempfile()
-#' bfc <- BiocFileCache::BiocFileCache(temp_path, ask = FALSE)
-#' file_url <- "https://raw.githubusercontent.com/OliverVoogd/FLAMESData/master/data"
-#' fastq1 <- bfc[[names(BiocFileCache::bfcadd(bfc, "Fastq1", paste(file_url, "fastq/sample1.fastq.gz", sep = "/")))]]
-#' genome_fa <- bfc[[names(BiocFileCache::bfcadd(bfc, "genome.fa", paste(file_url, "SIRV_isoforms_multi-fasta_170612a.fasta", sep = "/")))]]
-#' annotation <- bfc[[names(BiocFileCache::bfcadd(bfc, "annot.gtf", paste(file_url, "SIRV_isoforms_multi-fasta-annotation_C_170612a.gtf", sep = "/")))]]
-#' outdir <- tempfile()
-#' dir.create(outdir)
-#' fasta <- annotation_to_fasta(annotation, genome_fa, outdir)
-#' config <- jsonlite::fromJSON(create_config(outdir, bambu_isoform_identification = TRUE, min_tr_coverage = 0.1, min_read_coverage = 0.1, min_sup_cnt = 1))
-#' file.copy(annotation, file.path(outdir, "isoform_annotated.gtf"))
-#' \dontrun{
-#' if (!any(is.na(find_bin(c("minimap2", "k8"))))) {
-#'   minimap2_realign(
-#'     config = config, outdir = outdir,
-#'     fq_in = fastq1
-#'   )
-#'   quantify_transcript_flames(annotation, outdir, config, pipeline = "bulk")
-#' }
-#' }
-#' @export
+#' @keywords internal
 quantify_transcript_flames <- function(annotation, outdir, config, pipeline = "sc_single_sample", samples) {
   cat(format(Sys.time(), "%X %a %b %d %Y"), "quantify transcripts \n")
 
@@ -424,30 +403,7 @@ quantify_transcript_oarfish <- function(
 #' @param ... Supply sample names as character vector (e.g. \code{samples = c("name1", "name2", ...)}) for muti-sample or bulk pipeline.
 #' \code{bulk} (bulk, single or multi-sample), or \code{sc_multi_sample} (single-cell, multiple samples)
 #' @return A \code{SingleCellExperiment} object for single-cell pipeline, a list of \code{SingleCellExperiment} objects for multi-sample pipeline, or a \code{SummarizedExperiment} object for bulk pipeline.
-#' @examples
-#' temp_path <- tempfile()
-#' bfc <- BiocFileCache::BiocFileCache(temp_path, ask = FALSE)
-#' file_url <- "https://raw.githubusercontent.com/OliverVoogd/FLAMESData/master/data"
-#' fastq1 <- bfc[[names(BiocFileCache::bfcadd(bfc, "Fastq1", paste(file_url, "fastq/sample1.fastq.gz", sep = "/")))]]
-#' genome_fa <- bfc[[names(BiocFileCache::bfcadd(bfc, "genome.fa", paste(file_url, "SIRV_isoforms_multi-fasta_170612a.fasta", sep = "/")))]]
-#' annotation <- bfc[[names(BiocFileCache::bfcadd(bfc, "annot.gtf", paste(file_url, "SIRV_isoforms_multi-fasta-annotation_C_170612a.gtf", sep = "/")))]]
-#' outdir <- tempfile()
-#' dir.create(outdir)
-#' fasta <- annotation_to_fasta(annotation, genome_fa, outdir)
-#' config <- jsonlite::fromJSON(create_config(outdir, bambu_isoform_identification = TRUE, min_tr_coverage = 0.1, min_read_coverage = 0.1, min_sup_cnt = 1))
-#' file.copy(annotation, file.path(outdir, "isoform_annotated.gtf"))
-#' \dontrun{
-#' if (!any(is.na(find_bin(c("minimap2", "k8"))))) {
-#'   minimap2_realign(
-#'     config = config, outdir = outdir,
-#'     fq_in = fastq1
-#'   )
-#'   quantify_transcript_flames(annotation, outdir, config, pipeline = "bulk")
-#' }
-#' }
-#' @importFrom BiocGenerics cbind ncol
-#' @importFrom SummarizedExperiment colData
-#' @export
+#' @keywords internal
 quantify_transcript <- function(annotation, outdir, config, pipeline = "sc_single_sample", ...) {
   if (config$pipeline_parameters$oarfish_quantification) {
     res <- quantify_transcript_oarfish(annotation, outdir, config, pipeline, ...)

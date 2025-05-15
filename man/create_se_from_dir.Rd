@@ -4,7 +4,7 @@
 \alias{create_se_from_dir}
 \title{Create \code{SummarizedExperiment} object from \code{FLAMES} output folder}
 \usage{
-create_se_from_dir(outdir, annotation)
+create_se_from_dir(outdir, annotation, quantification = "FLAMES")
 }
 \arguments{
 \item{outdir}{The folder containing \code{FLAMES} output files}
@@ -18,28 +18,8 @@ a \code{SummarizedExperiment} object
 Create \code{SummarizedExperiment} object from \code{FLAMES} output folder
 }
 \examples{
-# download example data
-temp_path <- tempfile()
-bfc <- BiocFileCache::BiocFileCache(temp_path, ask = FALSE)
-file_url <-
-  "https://raw.githubusercontent.com/OliverVoogd/FLAMESData/master/data"
-fastq1 <- bfc[[names(BiocFileCache::bfcadd(bfc, "Fastq1", paste(file_url, "fastq/sample1.fastq.gz", sep = "/")))]]
-fastq2 <- bfc[[names(BiocFileCache::bfcadd(bfc, "Fastq2", paste(file_url, "fastq/sample2.fastq.gz", sep = "/")))]]
-annotation <- bfc[[names(BiocFileCache::bfcadd(bfc, "annot.gtf", paste(file_url, "SIRV_isoforms_multi-fasta-annotation_C_170612a.gtf", sep = "/")))]]
-genome_fa <- bfc[[names(BiocFileCache::bfcadd(bfc, "genome.fa", paste(file_url, "SIRV_isoforms_multi-fasta_170612a.fasta", sep = "/")))]]
-fastq_dir <- paste(temp_path, "fastq_dir", sep = "/") # the downloaded fastq files need to be in a directory to be merged together
-dir.create(fastq_dir)
-file.copy(c(fastq1, fastq2), fastq_dir)
-unlink(c(fastq1, fastq2)) # the original files can be deleted
-outdir <- tempfile()
-dir.create(outdir)
-
-ppl <- BulkPipeline(
-  fastq = fastq_dir, annotation = annotation, genome_fa = genome_fa,
-  config_file = create_config(outdir, type = "sc_3end", threads = 1, no_flank = TRUE),
-  outdir = outdir
-)
-ppl <- run_FLAMES(ppl) # run the pipeline
+ppl <- example_pipeline("BulkPipeline")
+ppl <- run_FLAMES(ppl)
 se1 <- experiment(ppl)
-se2 <- create_se_from_dir(outdir, annotation)
+se2 <- create_se_from_dir(ppl@outdir, ppl@annotation)
 }

@@ -37,7 +37,7 @@ R.utils::gunzip(
 )
 annotation <- system.file("extdata", "rps24.gtf.gz", package = "FLAMES")
 
-sce <- FLAMES::sc_long_pipeline(
+sce <- sc_long_pipeline(
   genome_fa = genome_fa,
   fastq = system.file("extdata", "fastq", "musc_rps24.fastq.gz", package = "FLAMES"),
   annotation = annotation,

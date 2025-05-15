@@ -57,24 +57,11 @@ variant_count_tb <- function(bam_path, seqname, pos, indel, verbose = TRUE) {
 #' the number of bam files * number of positions.
 #' @return A tibble with columns: allele, barcode, allele_count, cell_total_reads, pct, pos, seqname.
 #' @examples
-#' outdir <- tempfile()
-#' dir.create(outdir)
-#' genome_fa <- file.path(outdir, "rps24.fa")
-#' R.utils::gunzip(
-#'   filename = system.file("extdata", "rps24.fa.gz", package = "FLAMES"),
-#'   destname = genome_fa, remove = FALSE
-#' )
-#' minimap2_align( # align to genome
-#'   config = jsonlite::fromJSON(
-#'     system.file("extdata", "config_sclr_nanopore_3end.json", package = "FLAMES")
-#'   ),
-#'   fa_file = genome_fa,
-#'   fq_in = system.file("extdata", "fastq", "demultiplexed.fq.gz", package = "FLAMES"),
-#'   annot = system.file("extdata", "rps24.gtf.gz", package = "FLAMES"),
-#'   outdir = outdir
-#' )
+#' ppl <- example_pipeline("SingleCellPipeline")
+#' ppl <- run_step(ppl, "barcode_demultiplex")
+#' ppl <- run_step(ppl, "genome_alignment")
 #' snps_tb <- sc_mutations(
-#'   bam_path = file.path(outdir, "align2genome.bam"),
+#'   bam_path = ppl@genome_bam,
 #'   seqnames = c("chr14", "chr14"),
 #'   positions = c(1260, 2714), # positions of interest
 #'   indel = FALSE
@@ -295,21 +282,12 @@ find_variants_grange <- function(bam_path, reference, gene_grange, min_nucleotid
 #' most frequent nucleotide in a window of \code{homopolymer_window} nucleotides around
 #' the variant position, excluding the variant position itself.
 #' @examples
-#' outdir <- tempfile()
-#' dir.create(outdir)
-#' genome_fa <- system.file("extdata", "rps24.fa.gz", package = "FLAMES")
-#' minimap2_align( # align to genome
-#'   config = jsonlite::fromJSON(
-#'     system.file("extdata", "config_sclr_nanopore_3end.json", package = "FLAMES")),
-#'   fa_file = genome_fa,
-#'   fq_in = system.file("extdata", "fastq", "demultiplexed.fq.gz", package = "FLAMES"),
-#'   annot = system.file("extdata", "rps24.gtf.gz", package = "FLAMES"),
-#'   outdir = outdir
-#' )
+#' ppl <- example_pipeline("SingleCellPipeline")
+#' ppl <- run_step(ppl, "genome_alignment")
 #' variants <- find_variants(
-#'   bam_path = file.path(outdir, "align2genome.bam"),
-#'   reference = genome_fa,
-#'   annotation = system.file("extdata", "rps24.gtf.gz", package = "FLAMES"),
+#'   bam_path = ppl@genome_bam,
+#'   reference = ppl@genome_fa,
+#'   annotation = ppl@annotation,
 #'   min_nucleotide_depth = 4
 #' )
 #' head(variants)

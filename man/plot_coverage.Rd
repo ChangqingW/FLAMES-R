@@ -46,31 +46,18 @@ Plot the average read coverages for each length bin or a
 perticular isoform
 }
 \examples{
-# Create a BAM file with minimap2_realign
-temp_path <- tempfile()
-bfc <- BiocFileCache::BiocFileCache(temp_path, ask = FALSE)
-file_url <- 'https://raw.githubusercontent.com/OliverVoogd/FLAMESData/master/data'
-fastq1 <- bfc[[names(BiocFileCache::bfcadd(bfc, 'Fastq1', paste(file_url, 'fastq/sample1.fastq.gz', sep = '/')))]]
-genome_fa <- bfc[[names(BiocFileCache::bfcadd(bfc, 'genome.fa', paste(file_url, 'SIRV_isoforms_multi-fasta_170612a.fasta', sep = '/')))]]
-annotation <- bfc[[names(BiocFileCache::bfcadd(bfc, 'annot.gtf', paste(file_url, 'SIRV_isoforms_multi-fasta-annotation_C_170612a.gtf', sep = '/')))]]
-outdir <- tempfile()
-dir.create(outdir)
-fasta <- annotation_to_fasta(annotation, genome_fa, outdir)
-minimap2_realign(
-  config = jsonlite::fromJSON(
-    system.file("extdata", "config_sclr_nanopore_3end.json", package = "FLAMES")),
-  fq_in = fastq1,
-  outdir = outdir
-)
+ppl <- example_pipeline("BulkPipeline")
+ppl@steps["isoform_identification"] <- FALSE
+ppl <- run_step(ppl, "read_realignment")
 # Plot the coverages directly from the BAM file
-plot_coverage(file.path(outdir, 'realign2transcript.bam'))
+plot_coverage(ppl@transcriptome_bam[[1]])
 
 # Get the coverage information first
-coverage <- get_coverage(file.path(outdir, 'realign2transcript.bam')) |>
+coverage <- get_coverage(ppl@transcriptome_bam[[1]]) |>
   dplyr::filter(read_counts > 2) |> # Filter out transcripts with read counts < 3
   filter_coverage(filter_fn = convolution_filter) # Filter out transcripts with sharp drops / rises
 # Plot the filtered coverages
 plot_coverage(coverage, detailed = TRUE)
 # filtering function can also be passed directly to plot_coverage
-plot_coverage(file.path(outdir, 'realign2transcript.bam'), filter_fn = convolution_filter)
+plot_coverage(ppl@transcriptome_bam[[1]], filter_fn = convolution_filter)
 }

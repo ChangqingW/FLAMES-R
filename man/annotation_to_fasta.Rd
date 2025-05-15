@@ -25,7 +25,8 @@ genome annotation is first imported as TxDb object and then used to extract tran
 from the genome assembly.
 }
 \examples{
-fasta <- annotation_to_fasta(system.file("extdata", "rps24.gtf.gz", package = "FLAMES"), system.file("extdata", "rps24.fa.gz", package = "FLAMES"), tempfile())
-cat(readChar(fasta, nchars = 1e3))
+fasta <- tempfile()
+annotation_to_fasta(system.file("extdata", "rps24.gtf.gz", package = "FLAMES"), system.file("extdata", "rps24.fa.gz", package = "FLAMES"), fasta)
+cat(readChar(fasta, 1e3))
 
 }

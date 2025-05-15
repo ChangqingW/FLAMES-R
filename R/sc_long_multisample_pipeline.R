@@ -139,7 +139,7 @@ MultiSampleSCPipeline <- function(
   # metadata
   pipeline@genome_bam <- file.path(outdir, paste0(names(fastq), "_", "align2genome.bam"))
   pipeline@transcriptome_bam <- file.path(outdir, paste0(names(fastq), "_", "realign2transcript.bam"))
-  pipeline@transcriptome_assembly <- file.path(outdir, "transcriptome_assembly.fa")
+  pipeline@transcriptome_assembly <- file.path(outdir, "transcript_assembly.fa")
   pipeline@demultiplexed_fastq <- file.path(outdir, paste0(names(fastq), "_matched_reads.fastq"))
   pipeline@deduped_fastq <- file.path(outdir, paste0(names(fastq), "_matched_reads_dedup.fastq"))
 
@@ -302,7 +302,7 @@ sc_long_multisample_pipeline <- function(annotation, fastqs, outdir, genome_fa,
   pipeline <- run_FLAMES(pipeline)
   saveRDS(pipeline, file.path(outdir, "pipeline.rds"))
   message("Pipeline saved to ", file.path(outdir, "pipeline.rds"))
-  if (length(pipeline@last_error == 0)) {
+  if (length(pipeline@last_error) == 0) {
     return(experiment(pipeline))
   } else {
     warning("Returning pipeline object instead of experiment due to errors.")

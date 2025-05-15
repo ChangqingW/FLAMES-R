@@ -25,23 +25,10 @@ Filter the transcript coverage by applying a filter function to the
 coverage values.
 }
 \examples{
-# Create a BAM file with minimap2_realign
-temp_path <- tempfile()
-bfc <- BiocFileCache::BiocFileCache(temp_path, ask = FALSE)
-file_url <- 'https://raw.githubusercontent.com/OliverVoogd/FLAMESData/master/data'
-fastq1 <- bfc[[names(BiocFileCache::bfcadd(bfc, 'Fastq1', paste(file_url, 'fastq/sample1.fastq.gz', sep = '/')))]]
-genome_fa <- bfc[[names(BiocFileCache::bfcadd(bfc, 'genome.fa', paste(file_url, 'SIRV_isoforms_multi-fasta_170612a.fasta', sep = '/')))]]
-annotation <- bfc[[names(BiocFileCache::bfcadd(bfc, 'annot.gtf', paste(file_url, 'SIRV_isoforms_multi-fasta-annotation_C_170612a.gtf', sep = '/')))]]
-outdir <- tempfile()
-dir.create(outdir)
-fasta <- annotation_to_fasta(annotation, genome_fa, outdir)
-minimap2_realign(
-  config = jsonlite::fromJSON(
-    system.file("extdata", "config_sclr_nanopore_3end.json", package = "FLAMES")),
-  fq_in = fastq1,
-  outdir = outdir
-)
-x <- get_coverage(file.path(outdir, 'realign2transcript.bam'))
+ppl <- example_pipeline("BulkPipeline")
+ppl@steps["isoform_identification"] <- FALSE
+ppl <- run_step(ppl, "read_realignment")
+x <- get_coverage(ppl@transcriptome_bam[[1]])
 nrow(x)
 filter_coverage(x) |>
   nrow()

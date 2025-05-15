@@ -115,7 +115,7 @@ BulkPipeline <- function(config_file, outdir, fastq, annotation, genome_fa, mini
   # metadata
   pipeline@genome_bam <- file.path(outdir, paste0(names(fastq), "_", "align2genome.bam"))
   pipeline@transcriptome_bam <- file.path(outdir, paste0(names(fastq), "_", "realign2transcript.bam"))
-  pipeline@transcriptome_assembly <- file.path(outdir, "transcriptome_assembly.fa")
+  pipeline@transcriptome_assembly <- file.path(outdir, "transcript_assembly.fa")
 
   ## binaries
   if (missing(minimap2) || !is.character(minimap2)) {
@@ -261,7 +261,9 @@ setMethod("run_FLAMES", "FLAMES.Pipeline", function(pipeline) {
         return(pipeline)
       }
     )
-    pipeline@completed_steps[step] <- TRUE
+    if (!pipeline@completed_steps[step]) {
+      break
+    }
   }
   return(pipeline)
 })
@@ -305,8 +307,11 @@ setMethod("resume_FLAMES", "FLAMES.Pipeline", function(pipeline) {
           return(pipeline)
         }
       )
-      pipeline@completed_steps[step] <- TRUE
+      if (!pipeline@completed_steps[step]) {
+        break
+      }
     }
+    return(pipeline)
   }
 })
 
@@ -449,7 +454,7 @@ setMethod("isoform_identification", "FLAMES.Pipeline", function(pipeline) {
   return(pipeline)
 })
 
-setGeneric("read_realignment_raw", function(pipeline, include_tags, sort_by, fastqs) {
+setGeneric("read_realignment_raw", function(pipeline, include_tags = FALSE, sort_by, fastqs) {
   standardGeneric("read_realignment_raw")
 })
 setMethod(
@@ -470,6 +475,19 @@ setMethod(
     }
     if (include_tags) {
       minimap2_args <- base::append(minimap2_args, "-y")
+    }
+
+    if (!file.exists(pipeline@transcriptome_assembly)) {
+      if (!pipeline@steps["isoform_identification"]) {
+        message("Using reference annotation for transcriptome assembly.")
+        annotation_to_fasta(
+          isoform_annotation = pipeline@annotation,
+          genome_fa = pipeline@genome_fa,
+          outfile = pipeline@transcriptome_assembly
+        )
+      } else {
+        stop("Isoform identification step configured but transcriptome assembly file does not exist, aborting realignment.")
+      }
     }
 
     res <- lapply(
@@ -502,7 +520,7 @@ setMethod(
   }
 )
 
-setGeneric("read_realignment", function(pipeline, include_tags) {
+setGeneric("read_realignment", function(pipeline, include_tags = FALSE) {
   standardGeneric("read_realignment")
 })
 setMethod("read_realignment", "FLAMES.Pipeline", function(pipeline, include_tags = FALSE) {
@@ -608,7 +626,7 @@ bulk_long_pipeline <- function(
   pipeline <- run_FLAMES(pipeline)
   saveRDS(pipeline, file.path(outdir, "pipeline.rds"))
   message("Pipeline saved to ", file.path(outdir, "pipeline.rds"))
-  if (length(pipeline@last_error == 0)) {
+  if (length(pipeline@last_error) == 0) {
     return(experiment(pipeline))
   } else {
     warning("Returning pipeline object instead of experiment due to errors.")

@@ -64,21 +64,12 @@ the trailing number to match the chromosome names in the bam file, for example w
 \code{names(ref) <- sapply(names(ref), function(x) strsplit(x, " ")[[1]][1])}.
 }
 \examples{
-outdir <- tempfile()
-dir.create(outdir)
-genome_fa <- system.file("extdata", "rps24.fa.gz", package = "FLAMES")
-minimap2_align( # align to genome
-  config = jsonlite::fromJSON(
-    system.file("extdata", "config_sclr_nanopore_3end.json", package = "FLAMES")),
-  fa_file = genome_fa,
-  fq_in = system.file("extdata", "fastq", "demultiplexed.fq.gz", package = "FLAMES"),
-  annot = system.file("extdata", "rps24.gtf.gz", package = "FLAMES"),
-  outdir = outdir
-)
+ppl <- example_pipeline("SingleCellPipeline")
+ppl <- run_step(ppl, "genome_alignment")
 variants <- find_variants(
-  bam_path = file.path(outdir, "align2genome.bam"),
-  reference = genome_fa,
-  annotation = system.file("extdata", "rps24.gtf.gz", package = "FLAMES"),
+  bam_path = ppl@genome_bam,
+  reference = ppl@genome_fa,
+  annotation = ppl@annotation,
   min_nucleotide_depth = 4
 )
 head(variants)

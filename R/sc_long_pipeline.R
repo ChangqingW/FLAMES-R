@@ -111,7 +111,7 @@ SingleCellPipeline <- function(
   # metadata
   pipeline@genome_bam <- file.path(outdir, "align2genome.bam")
   pipeline@transcriptome_bam <- file.path(outdir, "realign2transcript.bam")
-  pipeline@transcriptome_assembly <- file.path(outdir, "transcriptome_assembly.fa")
+  pipeline@transcriptome_assembly <- file.path(outdir, "transcript_assembly.fa")
   pipeline@demultiplexed_fastq <- file.path(outdir, "matched_reads.fastq")
   pipeline@deduped_fastq <- file.path(outdir, "matched_reads_dedup.fastq")
 
@@ -396,15 +396,13 @@ setMethod("read_realignment", "FLAMES.SingleCellPipeline", function(pipeline, in
 #'   filename = system.file("extdata", "rps24.fa.gz", package = "FLAMES"),
 #'   destname = genome_fa, remove = FALSE
 #' )
-#' if (!any(is.na(find_bin(c("minimap2", "k8"))))) {
-#'   sce <- FLAMES::sc_long_pipeline(
-#'     genome_fa = genome_fa,
-#'     fastq = system.file("extdata", "fastq", "musc_rps24.fastq.gz", package = "FLAMES"),
-#'     annotation = system.file("extdata", "rps24.gtf.gz", package = "FLAMES"),
-#'     outdir = outdir,
-#'     barcodes_file = bc_allow
-#'   )
-#' }
+#' sce <- FLAMES::sc_long_pipeline(
+#'   genome_fa = genome_fa,
+#'   fastq = system.file("extdata", "fastq", "musc_rps24.fastq.gz", package = "FLAMES"),
+#'   annotation = system.file("extdata", "rps24.gtf.gz", package = "FLAMES"),
+#'   outdir = outdir,
+#'   barcodes_file = bc_allow
+#' )
 #' @export
 sc_long_pipeline <- function(
     annotation, fastq, outdir, genome_fa, minimap2 = NULL, k8 = NULL,
@@ -423,7 +421,7 @@ sc_long_pipeline <- function(
   pipeline <- run_FLAMES(pipeline)
   saveRDS(pipeline, file.path(outdir, "pipeline.rds"))
   message("Pipeline saved to ", file.path(outdir, "pipeline.rds"))
-  if (length(pipeline@last_error == 0)) {
+  if (length(pipeline@last_error) == 0) {
     return(experiment(pipeline))
   } else {
     warning("Returning pipeline object instead of experiment due to errors.")
@@ -504,7 +502,7 @@ generate_bulk_summarized <- function(out_files) {
 #' )
 #' annotation <- system.file("extdata", "rps24.gtf.gz", package = "FLAMES")
 #'
-#' sce <- FLAMES::sc_long_pipeline(
+#' sce <- sc_long_pipeline(
 #'   genome_fa = genome_fa,
 #'   fastq = system.file("extdata", "fastq", "musc_rps24.fastq.gz", package = "FLAMES"),
 #'   annotation = annotation,
@@ -528,9 +526,9 @@ create_sce_from_dir <- function(outdir, annotation, quantification = "FLAMES") {
         annotation = annotation
       )
       generate_sc_singlecell(out_files) |>
-        addRowRanges(annotation, outdir) |>
-        setNames(stringr::str_remove(x, "_?transcript_count.csv.gz$"))
-    })
+        addRowRanges(annotation, outdir)
+    }) |>
+      setNames(stringr::str_remove(samples, "_?transcript_count.csv.gz$"))
 
   } else if (length(samples_oarfish) > 0 && (missing(quantification) || quantification == "Oarfish")) {
     sce_list <- lapply(samples_oarfish, \(x) {
@@ -614,9 +612,18 @@ addRowRanges <- function(sce, annotation, outdir) {
   }
 
   annotation_grl <- annotation_grl[names(annotation_grl) %in% rownames(sce)]
+
   # rowData lost when adding rowRanges
   # https://github.com/Bioconductor/SummarizedExperiment/issues/81#issuecomment-2632781880
   rowDataBackup <- SummarizedExperiment::rowData(sce)
+
+  # SummarizedExperiment throws: invalid type/length (S4/0) in vector allocation
+  # convert to RangedSummarizedExperiment
+  if (!is(sce, "RangedSummarizedExperiment")) {
+    # don't convert SingleCellExperiment
+    stopifnot("Unexpected class when adding rowRanges" = !is(sce, "SingleCellExperiment"))
+    sce <- as(sce, "RangedSummarizedExperiment")
+  }
   SummarizedExperiment::rowRanges(sce)[names(annotation_grl)] <- annotation_grl
   SummarizedExperiment::rowData(sce) <- rowDataBackup
   return(sce)
@@ -627,42 +634,42 @@ addRowRanges <- function(sce, annotation, outdir) {
 #' @param annotation (Optional) the annotation file that was used to produce the output files
 #' @return a \code{SummarizedExperiment} object
 #' @examples
-#' # download example data
-#' temp_path <- tempfile()
-#' bfc <- BiocFileCache::BiocFileCache(temp_path, ask = FALSE)
-#' file_url <-
-#'   "https://raw.githubusercontent.com/OliverVoogd/FLAMESData/master/data"
-#' fastq1 <- bfc[[names(BiocFileCache::bfcadd(bfc, "Fastq1", paste(file_url, "fastq/sample1.fastq.gz", sep = "/")))]]
-#' fastq2 <- bfc[[names(BiocFileCache::bfcadd(bfc, "Fastq2", paste(file_url, "fastq/sample2.fastq.gz", sep = "/")))]]
-#' annotation <- bfc[[names(BiocFileCache::bfcadd(bfc, "annot.gtf", paste(file_url, "SIRV_isoforms_multi-fasta-annotation_C_170612a.gtf", sep = "/")))]]
-#' genome_fa <- bfc[[names(BiocFileCache::bfcadd(bfc, "genome.fa", paste(file_url, "SIRV_isoforms_multi-fasta_170612a.fasta", sep = "/")))]]
-#' fastq_dir <- paste(temp_path, "fastq_dir", sep = "/") # the downloaded fastq files need to be in a directory to be merged together
-#' dir.create(fastq_dir)
-#' file.copy(c(fastq1, fastq2), fastq_dir)
-#' unlink(c(fastq1, fastq2)) # the original files can be deleted
-#' outdir <- tempfile()
-#' dir.create(outdir)
-#'
-#' ppl <- BulkPipeline(
-#'   fastq = fastq_dir, annotation = annotation, genome_fa = genome_fa,
-#'   config_file = create_config(outdir, type = "sc_3end", threads = 1, no_flank = TRUE),
-#'   outdir = outdir
-#' )
-#' ppl <- run_FLAMES(ppl) # run the pipeline
+#' ppl <- example_pipeline("BulkPipeline")
+#' ppl <- run_FLAMES(ppl)
 #' se1 <- experiment(ppl)
-#' se2 <- create_se_from_dir(outdir, annotation)
+#' se2 <- create_se_from_dir(ppl@outdir, ppl@annotation)
 #' @export
-create_se_from_dir <- function(outdir, annotation) {
-  out_files <- list(
-    counts = file.path(outdir, "transcript_count.csv.gz"),
-    outdir = outdir,
-    annotation = annotation,
-    transcript_assembly = file.path(outdir, "transcript_assembly.fa"),
-    align_bam = file.path(outdir, "align2genome.bam"),
-    realign2transcript = file.path(outdir, "realign2transcript.bam"),
-    tss_tes = file.path(outdir, "tss_tes.bedgraph")
-  )
-  se <- generate_bulk_summarized(out_files) |>
-    addRowRanges(annotation, outdir)
-  return(se)
+create_se_from_dir <- function(outdir, annotation, quantification = "FLAMES") {
+  if (missing(quantification)) {
+    quantification <- ifelse(
+      length(list.files(outdir, pattern = "^transcript_count.csv.gz$")) > 0,
+      "FLAMES",
+      "Oarfish"
+    )
+  }
+  if (quantification == "FLAMES") {
+    out_files <- list(
+      counts = file.path(outdir, "transcript_count.csv.gz"),
+      outdir = outdir,
+      annotation = annotation,
+      transcript_assembly = file.path(outdir, "transcript_assembly.fa"),
+      align_bam = file.path(outdir, "align2genome.bam"),
+      realign2transcript = file.path(outdir, "realign2transcript.bam"),
+      tss_tes = file.path(outdir, "tss_tes.bedgraph")
+    )
+    se <- generate_bulk_summarized(out_files) |>
+      addRowRanges(annotation, outdir)
+    return(se)
+  } else if (quantification == "Oarfish") {
+    oarfish_samples <- list.files(outdir, pattern = "\\.quant$", full.names = TRUE) |>
+      stringr::str_remove("\\.quant$")
+    se <- parse_oarfish_bulk_output(
+      oarfish_outs = oarfish_samples,
+      sample_names = basename(oarfish_samples)
+    ) |>
+      addRowRanges(annotation, outdir)
+    return(se)
+  } else {
+    stop("Unknown quantification method: ", quantification)
+  }
 }
