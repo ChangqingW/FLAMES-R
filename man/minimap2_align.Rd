@@ -23,6 +23,8 @@ minimap2_align(
 
 \item{config}{Parsed list of FLAMES config file}
 
+\item{outfile}{Path to the output file}
+
 \item{minimap2}{Path to minimap2 binary}
 
 \item{samtools}{path to the samtools binary, required for large datasets since \code{Rsamtools} does not support \code{CSI} indexing}
@@ -30,11 +32,7 @@ minimap2_align(
 \item{threads}{Integer, threads for minimap2 to use, see minimap2 documentation for details,
 FLAMES will try to detect cores if this parameter is not provided.}
 
-\item{outdir}{Output folder}
-
 \item{k8}{Path to the k8 Javascript shell binary}
-
-\item{prefix}{String, the prefix (e.g. sample name) for the outputted BAM file}
 }
 \value{
 a \code{data.frame} summarising the reads aligned

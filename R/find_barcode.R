@@ -8,6 +8,7 @@
 #' multiple samples, provide a vector of paths (either to FASTQ files or folders containing
 #' FASTQ files). Gzipped file input are supported but the output will be uncompressed.
 #'
+#' @importFrom utils file_test
 #' @importFrom readr read_delim col_character col_integer col_logical
 #' @importFrom dplyr bind_rows
 #' @param fastq character vector of paths to FASTQ files or folders, if

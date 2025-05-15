@@ -7,10 +7,9 @@
 #' @param config Parsed list of FLAMES config file
 #' @param fa_file Path to the fasta file used as a reference database for alignment
 #' @param fq_in File path to the fastq file used as a query sequence file
-#' @param outdir Output folder
+#' @param outfile Path to the output file
 #' @param minimap2 Path to minimap2 binary
 #' @param k8 Path to the k8 Javascript shell binary
-#' @param prefix String, the prefix (e.g. sample name) for the outputted BAM file
 #' @param threads Integer, threads for minimap2 to use, see minimap2 documentation for details,
 #' FLAMES will try to detect cores if this parameter is not provided.
 #' @param samtools path to the samtools binary, required for large datasets since \code{Rsamtools} does not support \code{CSI} indexing
@@ -178,8 +177,8 @@ get_flagstat <- function(bam, samtools_path) {
 #' @importFrom ggplot2 ggplot aes geom_bar ggtitle coord_polar element_blank theme position_stack theme_bw geom_histogram ggtitle ylab xlab geom_text
 plot_flagstat <- function(flagstat) {
   flagstat[["unmapped"]] <- flagstat[["total"]] - flagstat[["mapped"]]
-  tidyr::pivot_longer(as.data.frame(flagstat), everything()) %>%
-    dplyr::filter(!name %in% c("total", "mapped")) %>%
+  tidyr::pivot_longer(as.data.frame(flagstat), everything()) |>
+    dplyr::filter(!name %in% c("total", "mapped")) |>
     ggplot(aes(x = "", y = value, label = value, fill = name)) + geom_bar(stat = "identity") +
     coord_polar("y") + ggtitle("Alignment summary") + geom_text(position = position_stack(vjust = 0.5)) +
     labs(x = NULL, y = NULL) + theme_bw() + theme(panel.grid.major = element_blank(),

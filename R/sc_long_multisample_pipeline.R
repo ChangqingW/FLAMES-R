@@ -1,3 +1,29 @@
+#' Pipeline for multi-sample long-read scRNA-seq data
+#'
+#' @md
+#'
+#' @description
+#' Semi-supervised isofrom detection and annotation for long read data. This variant is
+#' meant for multi-sample scRNA-seq data. Specific parameters can be configured in
+#' the config file (see \code{\link{create_config}}), input files are specified via
+#' arguments.
+#'
+#' @inherit SingleCellPipeline details
+#' @inheritParams SingleCellPipeline
+#' @param fastq A named vector of fastq file (or folder) paths. Each element of the vector
+#'   will be treated as a sample. The names of the vector will be used as the sample names.
+#'   If not named, the sample names will be generated from the file names.
+#'
+#' @return A \code{FLAMES.MultiSampleSCPipeline} object. The pipeline can be run using
+#'   the \code{\link{run_FLAMES}} function. The resulting list of SingleCellExperiment
+#'   objects can be accessed using the \code{experiment} method.
+#'
+#' @seealso
+#' \code{\link{SingleCellPipeline}} for single-sample long data and more details on the
+#' pipeline output,
+#' \code{\link{create_config}} for creating a configuration file,
+#' \code{\link{BulkPipeline}} for bulk long data.
+#'
 #' @examples
 #' reads <- ShortRead::readFastq(
 #'   system.file("extdata", "fastq", "musc_rps24.fastq.gz", package = "FLAMES")
@@ -34,7 +60,9 @@
 #'   genome_fa = genome_fa,
 #'   barcodes_file = rep(bc_allow, 4)
 #' )
-#' x <- run_FLAMES(ppl)
+#' ppl <- run_FLAMES(ppl)
+#' experiment(ppl)
+#' @export
 MultiSampleSCPipeline <- function(
   config_file, outdir, fastq, annotation, genome_fa, minimap2, samtools, k8,
   barcodes_file, expect_cell_number
@@ -79,7 +107,7 @@ MultiSampleSCPipeline <- function(
   pipeline@fastq <- fastq
   pipeline@annotation <- annotation
   pipeline@genome_fa <- genome_fa
-  if (!missing(barcodes_file)) {
+  if (!missing(barcodes_file) && is.character(barcodes_file)) {
     if (length(barcodes_file) == 1) {
       barcodes_file <- rep(barcodes_file, length(fastq))
     } else if (length(barcodes_file) != length(fastq)) {
@@ -91,7 +119,7 @@ MultiSampleSCPipeline <- function(
       )
     }
     pipeline@barcodes_file <- barcodes_file
-  } else if (!missing(expect_cell_number)) {
+  } else if (!missing(expect_cell_number) && is.numeric(expect_cell_number)) {
     if (length(expect_cell_number) == 1) {
       expect_cell_number <- rep(expect_cell_number, length(fastq))
     } else if (length(expect_cell_number) != length(fastq)) {
@@ -116,21 +144,21 @@ MultiSampleSCPipeline <- function(
   pipeline@deduped_fastq <- file.path(outdir, paste0(names(fastq), "_matched_reads_dedup.fastq"))
 
   ## binaries
-  if (missing(minimap2)) {
+  if (missing(minimap2) || !is.character(minimap2)) {
     minimap2 <- find_bin("minimap2")
     if (is.na(minimap2)) {
       stop("minimap2 not found, please make sure it is installed and provide its path as the minimap2 argument")
     }
   }
   pipeline@minimap2 <- minimap2
-  if (missing(k8)) {
+  if (missing(k8) || !is.character(k8)) {
     k8 <- find_bin("k8")
     if (is.na(k8)) {
       stop("k8 not found, please make sure it is installed and provide its path as the k8 argument")
     }
   }
   pipeline@k8 <- k8
-  if (missing(samtools)) {
+  if (missing(samtools) || !is.character(samtools)) {
     samtools <- find_bin("samtools")
   }
   if (is.na(samtools)) {
@@ -147,6 +175,10 @@ MultiSampleSCPipeline <- function(
 
   return(pipeline)
 }
+
+setMethod("experiment", "FLAMES.MultiSampleSCPipeline", function(pipeline) {
+  pipeline@experiments
+})
 
 setMethod("barcode_demultiplex", "FLAMES.MultiSampleSCPipeline", function(pipeline) {
   if (any(is.na(pipeline@barcodes_file))) {
@@ -188,75 +220,29 @@ setMethod("barcode_demultiplex", "FLAMES.MultiSampleSCPipeline", function(pipeli
   return(pipeline)
 })
 
-#' Pipeline for Multi-sample Single Cell Data
+#' Pipeline for Multi-sample Single Cell Data (deprecated)
 #'
-#' @md
+#' @description This function is deprecated. Please use \code{\link{MultiSampleSCPipeline}}.
 #'
-#' @description
-#' Semi-supervised isoform detection and annotation for long read data.
-#' This variant is for multi-sample single cell data. By default, this pipeline demultiplexes input
-#' fastq data (\code{match_cell_barcode = TRUE}). Specific parameters relating to
-#' analysis can be changed either through function arguments, or through a
-#' configuration JSON file.
+#' @param annotation The file path to the annotation file in GFF3 format
+#' @param fastqs The file path to input fastq file
+#' @param outdir The path to directory to store all output files.
+#' @param genome_fa The file path to genome fasta file.
+#' @param minimap2 Path to minimap2, optional.
+#' @param k8 Path to the k8 Javascript shell binary, optional.
+#' @param barcodes_file The file with expected cell barcodes, with each barcode on a new line.
+#' @param expect_cell_numbers The expected number of cells in the sample. This is used if
+#'   \code{barcodes_file} is not provided. See \code{BLAZE} for more details.
+#' @param config_file File path to the JSON configuration file.
 #'
-#' @details
-#' By default FLAMES use minimap2 for read alignment. After the genome alignment step (\code{do_genome_align}), FLAMES summarizes the alignment for each read in every sample by grouping reads
-#' with similar splice junctions to get a raw isoform annotation (\code{do_isoform_id}). The raw isoform
-#' annotation is compared against the reference annotation to correct potential splice site
-#' and transcript start/end errors. Transcripts that have similar splice junctions
-#' and transcript start/end to the reference transcript are merged with the
-#' reference. This process will also collapse isoforms that are likely to be truncated
-#' transcripts. If \code{isoform_id_bambu} is set to \code{TRUE}, \code{bambu::bambu} will be used to generate the updated annotations (Not implemented for multi-sample yet).
-#' Next is the read realignment step (\code{do_read_realign}), where the sequence of each transcript from the update annotation is extracted, and
-#' the reads are realigned to this updated \code{transcript_assembly.fa} by minimap2. The
-#' transcripts with only a few full-length aligned reads are discarded (Not implemented for multi-sample yet).
-#' The reads are assigned to transcripts based on both alignment score, fractions of
-#' reads aligned and transcript coverage. Reads that cannot be uniquely assigned to
-#' transcripts or have low transcript coverage are discarded. The UMI transcript
-#' count matrix is generated by collapsing the reads with the same UMI in a similar
-#' way to what is done for short-read scRNA-seq data, but allowing for an edit distance
-#' of up to 2 by default. Most of the parameters, such as the minimal distance to splice site and minimal percentage of transcript coverage
-#' can be modified by the JSON configuration file (\code{config_file}).
-#'
-#' @param fastqs The input fastq files for multiple samples. Should be a named
-#' vector of file paths (eithr to FASTQ files or directories containing FASTQ files).
-#' The names of the vector will be used as the sample names.
-#' @param expect_cell_numbers A vector of roughly expected numbers of cells in each sample E.g., the targeted number of cells.
-#' Required if using BLAZE for demultiplexing, specifically, when the \code{do_barcode_demultiplex}
-#' are \code{TRUE} in the the JSON configuration file and \code{barcodes_file} is not specified.
-#' Default is \code{NULL}.
-#' @inheritParams sc_long_pipeline
-#' @return If "do_transcript_quantification" set to true, a list with two elements:
-#' \describe{
-#'  \item{metadata}{ A list of metadata from the pipeline run.}
-#'  \item{sces}{ A list of SingleCellExperiment objects, one for each sample.}
-#' }
-#' @details The default parameters can be changed either through the function
-#' arguments are through the configuration JSON file \code{config_file}. the \code{pipeline_parameters}
-#' section specifies which steps are to be executed in the pipeline - by default, all
-#' steps are executed. The \code{isoform_parameters} section affects isoform detection - key
-#' parameters include:
-#' \describe{
-#'  \item{\code{Min_sup_cnt}}{ which causes transcripts with less reads aligned than
-#' it's value to be discarded}
-#'  \item{\code{MAX_TS_DIST}}{ which merges transcripts with the same intron
-#' chain and TSS/TES distace less than \code{MAX_TS_DIST}}
-#'  \item{\code{strand_specific}}{ which specifies if reads are in the same strand as the mRNA (1),
-#' or the reverse complemented (-1) or not strand specific (0), which results in
-#' strand information being based on reference annotation.}
-#' }
+#' @return A list of \code{SingleCellExperiment} objects, one for each sample.
 #'
 #' @seealso
-#' [bulk_long_pipeline()] for bulk long data,
-#' [SingleCellExperiment()] for how data is outputted
+#' \code{\link{MultiSampleSCPipeline}} for the new pipeline interface,
+#' \code{\link{SingleCellPipeline}} for single-sample pipeline,
+#' \code{\link{BulkPipeline}} for bulk long data.
 #'
-#' @importFrom dplyr group_by summarise_at slice_max filter
-#' @importFrom magrittr "%>%"
-#' @importFrom SingleCellExperiment SingleCellExperiment reducedDimNames logcounts
-#' @importFrom SummarizedExperiment rowData colData rowData<- colData<- rowRanges rowRanges<-
-#' @importFrom BiocGenerics cbind colnames rownames start end
-#' @importFrom utils read.csv read.table file_test
-#' @importFrom jsonlite fromJSON
+#' @importFrom utils file_test
 #'
 #' @examples
 #' reads <- ShortRead::readFastq(
@@ -299,272 +285,26 @@ setMethod("barcode_demultiplex", "FLAMES.MultiSampleSCPipeline", function(pipeli
 sc_long_multisample_pipeline <- function(annotation, fastqs, outdir, genome_fa,
     minimap2 = NULL, k8 = NULL, barcodes_file = NULL,
     expect_cell_numbers = NULL, config_file = NULL) {
-
-  checked_args <- check_arguments(annotation, fastqs, genome_bam = NULL,
-    outdir, genome_fa, config_file)
-  config <- checked_args$config
-
-  metadata <- list(
-    "inputs" = list(
-      "config_file" = config_file,
-      "annotation" = annotation,
-      "fastqs" = fastqs,
-      "outdir" = outdir,
-      "genome_fa" = genome_fa,
-      # optional arguments
-      "barcodes_file" = barcodes_file,
-      "expect_cell_numbers" = expect_cell_numbers,
-      "minimap2" = minimap2,
-      "k8" = k8
-    ),
-    "results" = list()
+  message("sc_long_multisample_pipeline is deprecated, please use MultiSampleSCPipeline instead.")
+  pipeline <- MultiSampleSCPipeline(
+    config_file = config_file,
+    outdir = outdir,
+    fastq = fastqs,
+    annotation = annotation,
+    genome_fa = genome_fa,
+    minimap2 = minimap2,
+    k8 = k8,
+    barcodes_file = barcodes_file,
+    expect_cell_number = expect_cell_numbers
   )
-  metadata$inputs <- metadata$inputs[!sapply(metadata$inputs, is.null)]
-
-  # check fastqs
-  if (length(fastqs) == 1) {
-    if (file_test("-f", fastqs)) {
-      stop("Only one fastq file provided, did you meant to used the single-sample pipeline (FLAMES::sc_long_pipeline) ?")
-    }
-
-    fastqs <- file.path(fastqs, list.files(fastqs, pattern = "\\.(fq|fastq)(\\.gz)?$", full.names = TRUE))
-    if (length(fastqs) <= 1) {
-      stop(length(fastqs), " .fq or .fastq file(s) found\n")
-    }
-    cat("Fastq files found:\n")
-    cat(paste0(fastqs, sep = "\n"))
-    warning("Supplying a single folder as input to `fastqs` is deprecated.")
-    warning("Please provide a (named) vector of paths instead.")
-  } else if (any(!file.exists(fastqs))) {
-    stop("Please make sure all fastq files exist.")
-  }
-
-  if (is.null(names(fastqs))) {
-    names(fastqs) <- gsub("\\.(fastq|fq)(\\.gz)?$", "", basename(fastqs))
-  }
-  names(fastqs) <- make.names(names(fastqs), unique = TRUE)
-
-  # check input length of input fastqs, barcodes_file
-  if (config$pipeline_parameters$do_barcode_demultiplex && is.null(barcodes_file)) {
-    # check if the output exist
-    infqs <- file.path(outdir, paste(names(fastqs), "matched_reads.fastq", sep = "_"))
-    if (any(file.exists(infqs))) {
-      stop(paste0(
-        "Error: Found existing demultiplexed fastq files in the output directory.",
-        " If you want to run the demultiplexing step again, please remove the file first,  ",
-        "otherwise please set `do_barcode_demultiplex = FALSE` in the JSON configuration file."
-      ))
-    }
-
-    cat("No barcodes_file provided, running BLAZE to generate it from long reads...\n")
-
-    # config the blaze run
-    if (is.null(expect_cell_numbers)) {
-      stop("'expect_cell_numbers' is required to run BLAZE for barcode identification. Please specify it.")
-    } else if (length(fastqs) != length(expect_cell_numbers)) {
-      stop("Please specify 'expect_cell_numbers' for each fastq file as a vector of the same length as 'fastqs'.")
-    }
-
-    for (i in 1:length(fastqs)) {
-      blaze(expect_cell_numbers[i], fastqs[i],
-        "output-prefix" = file.path(outdir, paste0(names(fastqs)[i], "_")),
-        "output-fastq" = "matched_reads.fastq",
-        "threads" = config$pipeline_parameters$threads,
-        "max-edit-distance" = config$barcode_parameters$max_bc_editdistance,
-        "overwrite" = TRUE
-      )
-    }
-  } else if (config$pipeline_parameters$do_barcode_demultiplex && length(barcodes_file) >= 1) {
-    infqs <- file.path(outdir, paste(names(fastqs), "matched_reads.fastq", sep = "_"))
-    if (any(file.exists(infqs))) {
-      stop(paste0(
-        "Error: Found existing demultiplexed fastq files in the output directory.",
-        " If you want to run the demultiplexing step again, please remove the file first,  ",
-        "otherwise please set `do_barcode_demultiplex = FALSE` in the JSON configuration file."
-      ))
-    }
-
-    if (!all(file.exists(barcodes_file))) {
-      stop("Please make sure all barcodes_file file exists.\n")
-    }
-    if (length(barcodes_file) == 1) {
-      barcodes_file <- rep(barcodes_file, length(fastqs))
-    }
-    if (length(barcodes_file) != length(fastqs)) {
-      stop(length(barcodes_file), " barcode allow-lists provided while there are ", length(fastqs),
-        "fastq file. Please either provide one allow-list per sample, or one allow-list for all samples.")
-    }
-    infqs <- file.path(outdir, paste(names(fastqs), "matched_reads.fastq", sep = "_"))
-    bc_stats <- file.path(outdir, paste(names(fastqs), "matched_barcode_stat", sep = "_"))
-    metadata$results[["find_barcode"]] <-
-      find_barcode(fastq = fastqs, barcodes_file = barcodes_file, stats_out = bc_stats,
-        reads_out = infqs,
-        pattern = setNames(
-          as.character(config$barcode_parameters$pattern),
-          names(config$barcode_parameters$pattern)
-        ),
-        TSO_seq = config$barcode_parameters$TSO_seq,
-        TSO_prime = config$barcode_parameters$TSO_prime,
-        cutadapt_minimum_length = config$barcode_parameters$cutadapt_minimum_length,
-        full_length_only = config$barcode_parameters$full_length_only,
-        max_bc_editdistance = config$barcode_parameters$max_bc_editdistance,
-        max_flank_editdistance = config$barcode_parameters$max_flank_editdistance,
-        strand = config$barcode_parameters$strand,
-        threads = config$pipeline_parameters$threads
-      )
+  pipeline <- run_FLAMES(pipeline)
+  saveRDS(pipeline, file.path(outdir, "pipeline.rds"))
+  message("Pipeline saved to ", file.path(outdir, "pipeline.rds"))
+  if (length(pipeline@last_error == 0)) {
+    return(experiment(pipeline))
   } else {
-    infqs <- fastqs
-  } # requesting to not match barcodes implies `fastq` has already been run through the
-  # function in a previous FLAMES call
-
-  cat("Running FLAMES pipeline...\n")
-
-  using_bam <- FALSE
-  genome_bam <- file.path(outdir, paste0(names(fastqs), "_", "align2genome.bam"))
-  if (all(utils::file_test("-f", genome_bam))) {
-    cat("Found all corresponding '[sample]_align2genome.bam' files, will skip initial alignment.\n")
-    using_bam <- TRUE
-    config$pipeline_parameters$do_genome_alignment <- FALSE
-    if (!all(utils::file_test("-f", file.path(outdir, paste0(names(fastqs), "_", "align2genome.bam.bai"))) |
-      utils::file_test("-f", file.path(outdir, paste0(names(fastqs), "_", "align2genome.bam.csi"))))) {
-      for (bam in genome_bam) {
-        Rsamtools::indexBam(bam)
-      }
-    }
-  }
-
-
-  cat("#### Input parameters:\n")
-  cat(jsonlite::toJSON(config, pretty = TRUE))
-  cat("gene annotation:", annotation, "\n")
-  cat("genome fasta:", genome_fa, "\n")
-  if (using_bam) {
-    cat("input bam:", paste0(genome_bam, sep = "\n"), "\n")
-  }
-  cat("input fastqs:", paste0(infqs, sep = "\n"), "\n")
-  cat("output directory:", outdir, "\n")
-  cat("minimap2 path:", minimap2, "\n")
-  cat("k8 path:", k8, "\n")
-
-  # align reads to genome
-  # if (!using_bam && config$pipeline_parameters$do_genome_alignment) {
-  if (config$pipeline_parameters$do_genome_alignment) {
-    cat("#### Aligning reads to genome using minimap2\n")
-    metadata$results[["genome_alignment"]] <- list()
-    for (i in 1:length(names(fastqs))) {
-      cat(paste0(c("\tAligning sample ", names(fastqs)[i], "...\n")))
-      metadata$results[["genome_alignment"]][[names(fastqs)[i]]] <-
-        minimap2_align(config, genome_fa, infqs[i], annotation, outdir,
-          minimap2, k8, prefix = names(fastqs)[i], threads = config$pipeline_parameters$threads)
-    }
-  } else {
-    cat("#### Skip aligning reads to genome\n")
-  }
-
-
-    # get the random seed (if set in pipeline_parameters)
-    if (is.null(config$pipeline_parameters$seed)) {
-      random_seed <- 2024
-    } else {
-      random_seed <- config$pipeline_parameters$seed
-    }
-
-  # gene quantification and UMI deduplication
-  if (config$pipeline_parameters$do_gene_quantification) {
-    quantify_gene(annotation, outdir, infqs, config$pipeline_parameters$threads,
-      pipeline = "sc_multi_sample", samples = names(fastqs), random_seed = random_seed
-    )
-    
-    cat(format(Sys.time(), "%X %a %b %d %Y"), "Gene quantification and UMI deduplication done!\n")
-  } else {
-    cat("#### Skip gene quantification and UMI deduplication\n")
-  }
-
-  # find isofroms
-  if (config$pipeline_parameters$do_isoform_identification) {
-    find_isoform(annotation, genome_fa, genome_bam, outdir, config)
-  } else {
-    cat("#### Skip isoform identificaiton\n")
-    # create transcript_assembly.fa using GTF if not exists
-    if (!file.exists(file.path(outdir, "transcript_assembly.fa"))) {
-      cat("#### Generating transcript_assembly.fa from annotation\n")
-      annotation_to_fasta(annotation, genome_fa, outdir)
-    }
-  }
-
-
-
-
-# realign to transcript
-if (config$pipeline_parameters$do_read_realignment) {
-  cat("#### Realign to transcript using minimap2\n")
-  
-  # Set file paths for realignment
-  if (config$pipeline_parameters$do_gene_quantification) {
-    cat("#### Realigning deduplicated reads to transcript using minimap2\n")
-    infqs_realign <- file.path(outdir, paste(names(fastqs), "matched_reads_dedup.fastq", sep = "_"))
-  } else {
-    infqs_realign <- fastqs # if no gene quantification, use the original fastqs
-  }
-  
-  metadata$results[["read_realignment"]] <- list()
-
-  threads = config$pipeline_parameters$threads
-
-  # Loop over each sample
-  for (i in 1:length(names(fastqs))) {
-    cat(paste0(c("\tRealigning sample ", names(fastqs)[i], "...\n")))
-    
-    # Perform realignment using minimap2
-    if (config$pipeline_parameters$oarfish_quantification) {
-      
-      # Define minimap2 arguments inside the loop
-      minimap2_args <- paste("--eqx -N 100 -ax map-ont -y", "-t", threads)
-      metadata$results[["read_realignment"]][[names(fastqs)[i]]] <-
-        minimap2_realign(config, infqs_realign[i], outdir, minimap2,
-          prefix = names(fastqs)[i],
-          threads = threads,
-          minimap2_args = minimap2_args,
-          sort_by = "CB") 
-      cat("Running minimap2 with args:", minimap2_args, "\n")
-    } 
-    
-    else {
-      metadata$results[["read_realignment"]][[names(fastqs)[i]]] <-
-        minimap2_realign(config, infqs_realign[i], outdir, minimap2,
-          prefix = names(fastqs)[i],
-          threads = threads)
-    }
-  }
-} else {
-  cat("#### Skip read realignment\n")
-}
-
-  # transcript quantification
-  # TODO: implement filtering in R
-  if (config$pipeline_parameters$do_transcript_quantification) {
-    cat("#### Generating transcript count matrix\n")
-    sces <- quantify_transcript(annotation = annotation, outdir = outdir,
-      config = config, pipeline = "sc_multi_sample", samples = names(fastqs))
-
-    if (config$pipeline_parameters$do_gene_quantification) {
-      sces <- sapply(names(sces), \(sce) {
-        tryCatch({
-          add_gene_counts(sces[[sce]], file.path(outdir, paste(sce, "gene_count.csv", sep = "_")))
-        }, error = function(e) {
-          warning(sprintf("Could not add gene counts to %s: %s", sce, e$message))
-          return(sces[[sce]])
-        })
-      }, simplify = FALSE)
-    }
-
-    res <- list(
-      "metadata" = metadata,
-      "sces" = sces
-    )
-    return(res)
-  } else {
-    cat("#### Skip transcript quantification\n")
-    return(metadata)
+    warning("Returning pipeline object instead of experiment due to errors.")
+    message("You can resume the pipeline after resolving the errors with resume_FLAMES(pipeline)")
+    return(pipeline)
   }
 }
