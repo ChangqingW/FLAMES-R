@@ -183,6 +183,25 @@ setMethod("prerun_check", "FLAMES.Pipeline", function(pipeline, overwrite = FALS
   }
 })
 
+#' Execute a single step of the FLAMES pipeline
+#'
+#' @description This function runs the specified step of the FLAMES pipeline.
+#'
+#' @param pipeline A FLAMES.Pipeline object.
+#' @param step The step to run. One of "barcode_demultiplex", "genome_alignment",
+#'   "gene_quantification", "isoform_identification", "read_realignment", or
+#'  "transcript_quantification".
+#' @return An updated FLAMES.Pipeline object.
+#'
+#' @seealso
+#' \code{\link{run_FLAMES}} to run the entire pipeline.
+#' \code{\link{resume_FLAMES}} to resume a pipeline from the last completed step.
+#'
+#' @examples
+#' pipeline <- example_pipeline("BulkPipeline")
+#' pipeline <- run_step(pipeline, "genome_alignment")
+#'
+#' @export
 setGeneric("run_step", function(pipeline, step) {
   standardGeneric("run_step")
 })
@@ -204,7 +223,17 @@ setMethod("run_step", "FLAMES.Pipeline", function(pipeline, step) {
   return(pipeline)
 })
 
-# Running and resuming
+#' Execute a FLAMES pipeline
+#'
+#' @description This function runs the FLAMES pipeline. It will run all steps in the pipeline.
+#' @param pipeline A FLAMES.Pipeline object.
+#' @return An updated FLAMES.Pipeline object.
+#' @seealso
+#' \code{\link{resume_FLAMES}} to resume a pipeline from the last completed step.
+#' @examples
+#' pipeline <- example_pipeline("BulkPipeline")
+#' pipeline <- run_FLAMES(pipeline)
+#' @export
 setGeneric("run_FLAMES", function(pipeline) {
   standardGeneric("run_FLAMES")
 })
@@ -233,6 +262,19 @@ setMethod("run_FLAMES", "FLAMES.Pipeline", function(pipeline) {
   return(pipeline)
 })
 
+#' Resume a FLAMES pipeline
+#'
+#' @description This function resumes a FLAMES pipeline by running configured
+#' but unfinished steps.
+#' @param pipeline A FLAMES.Pipeline object.
+#' @return An updated FLAMES.Pipeline object.
+#' @seealso
+#' \code{\link{run_FLAMES}} to run the entire pipeline.
+#' @examples
+#' pipeline <- example_pipeline("BulkPipeline")
+#' pipeline <- run_step(pipeline, "genome_alignment")
+#' pipeline <- resume_FLAMES(pipeline)
+#' @export
 setGeneric("resume_FLAMES", function(pipeline) {
   standardGeneric("resume_FLAMES")
 })
@@ -263,6 +305,20 @@ setMethod("resume_FLAMES", "FLAMES.Pipeline", function(pipeline) {
 })
 
 # Getters and setters
+
+#' Get pipeline results
+#'
+#' @description This function returns the results of the pipeline as a
+#' \code{SummarizedExperiment} object, a \code{SingleCellExperiment} object, or a
+#' list of \code{SingleCellExperiment} objects, depending on the pipeline type.
+#' @param pipeline A FLAMES.Pipeline object.
+#' @return A \code{SummarizedExperiment} object, a \code{SingleCellExperiment} object,
+#' or a list of \code{SingleCellExperiment} objects.
+#' @examples
+#' pipeline <- example_pipeline(type = "BulkPipeline")
+#' pipeline <- run_FLAMES(pipeline)
+#' se <- experiment(pipeline)
+#' @export
 setGeneric("experiment", function(pipeline) {
   standardGeneric("experiment")
 })

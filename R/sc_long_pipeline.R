@@ -148,6 +148,114 @@ SingleCellPipeline <- function(
   return(pipeline)
 }
 
+#' Example pipelins
+#'
+#' @description
+#' Provides example pipelines for bulk, single cell and multi-sample single cell.
+#'
+#' @param type The type of pipeline to create. Options are "SingleCellPipeline",
+#'   "BulkPipeline", and "MultiSampleSCPipeline".
+#'
+#' @return A pipeline object of the specified type.
+#'
+#' @seealso
+#' \code{\link{SingleCellPipeline}} for creating the single cell pipeline,
+#' \code{\link{BulkPipeline}} for bulk long data,
+#' \code{\link{MultiSampleSCPipeline}} for multi sample single cell pipelines.
+#'
+#' @examples
+#' example_pipeline("SingleCellPipeline")
+#'
+#' @importFrom R.utils gunzip
+#' @importFrom BiocFileCache BiocFileCache bfcadd
+#' @importFrom ShortRead readFastq writeFastq
+#'
+#' @export
+example_pipeline <- function(type = "SingleCellPipeline") {
+  switch(type,
+    "SingleCellPipeline" = {
+      outdir <- tempfile()
+      dir.create(outdir)
+      bc_allow <- file.path(outdir, "bc_allow.tsv")
+      genome_fa <- file.path(outdir, "rps24.fa")
+      R.utils::gunzip(
+        filename = system.file("extdata", "bc_allow.tsv.gz", package = "FLAMES"),
+        destname = bc_allow, remove = FALSE
+      )
+      R.utils::gunzip(
+        filename = system.file("extdata", "rps24.fa.gz", package = "FLAMES"),
+        destname = genome_fa, remove = FALSE
+      )
+      SingleCellPipeline(
+        config_file = create_config(outdir, gene_quantification = FALSE),
+        outdir = outdir,
+        fastq = system.file("extdata", "fastq", "musc_rps24.fastq.gz", package = "FLAMES"),
+        annotation = system.file("extdata", "rps24.gtf.gz", package = "FLAMES"),
+        genome_fa = genome_fa,
+        barcodes_file = bc_allow
+      )
+    },
+    "BulkPipeline" = {
+      temp_path <- tempfile()
+      bfc <- BiocFileCache::BiocFileCache(temp_path, ask = FALSE)
+      file_url <-
+        "https://raw.githubusercontent.com/OliverVoogd/FLAMESData/master/data"
+      fastq1 <- bfc[[names(BiocFileCache::bfcadd(bfc, "Fastq1", paste(file_url, "fastq/sample1.fastq.gz", sep = "/")))]]
+      fastq2 <- bfc[[names(BiocFileCache::bfcadd(bfc, "Fastq2", paste(file_url, "fastq/sample2.fastq.gz", sep = "/")))]]
+      annotation <- bfc[[names(BiocFileCache::bfcadd(bfc, "annot.gtf", paste(file_url, "SIRV_isoforms_multi-fasta-annotation_C_170612a.gtf", sep = "/")))]]
+      genome_fa <- bfc[[names(BiocFileCache::bfcadd(bfc, "genome.fa", paste(file_url, "SIRV_isoforms_multi-fasta_170612a.fasta", sep = "/")))]]
+      fastq_dir <- paste(temp_path, "fastq_dir", sep = "/") 
+      dir.create(fastq_dir)
+      file.copy(c(fastq1, fastq2), fastq_dir)
+      unlink(c(fastq1, fastq2))
+      outdir <- tempfile()
+      dir.create(outdir)
+      BulkPipeline(
+        fastq = fastq_dir, annotation = annotation, genome_fa = genome_fa,
+        config_file = create_config(outdir, type = "sc_3end", threads = 1, no_flank = TRUE),
+        outdir = outdir
+      )
+    },
+    "MultiSampleSCPipeline" = {
+      reads <- ShortRead::readFastq(
+        system.file("extdata", "fastq", "musc_rps24.fastq.gz", package = "FLAMES")
+      )
+      outdir <- tempfile()
+      dir.create(outdir)
+      dir.create(file.path(outdir, "fastq"))
+      bc_allow <- file.path(outdir, "bc_allow.tsv")
+      genome_fa <- file.path(outdir, "rps24.fa")
+      R.utils::gunzip(
+        filename = system.file("extdata", "bc_allow.tsv.gz", package = "FLAMES"),
+        destname = bc_allow, remove = FALSE
+      )
+      R.utils::gunzip(
+        filename = system.file("extdata", "rps24.fa.gz", package = "FLAMES"),
+        destname = genome_fa, remove = FALSE
+      )
+      ShortRead::writeFastq(reads[1:100],
+        file.path(outdir, "fastq/sample1.fq.gz"), mode = "w", full = FALSE)
+      reads <- reads[-(1:100)]
+      ShortRead::writeFastq(reads[1:100],
+        file.path(outdir, "fastq/sample2.fq.gz"), mode = "w", full = FALSE)
+      reads <- reads[-(1:100)]
+      ShortRead::writeFastq(reads,
+        file.path(outdir, "fastq/sample3.fq.gz"), mode = "w", full = FALSE)
+      MultiSampleSCPipeline(
+        config_file = create_config(outdir, type = "sc_3end", threads = 1, no_flank = TRUE),
+        outdir = outdir,
+        fastq = c("sampleA" = file.path(outdir, "fastq"),
+          "sample1" = file.path(outdir, "fastq", "sample1.fq.gz"),
+          "sample2" = file.path(outdir, "fastq", "sample2.fq.gz"),
+          "sample3" = file.path(outdir, "fastq", "sample3.fq.gz")),
+        annotation = system.file("extdata", "rps24.gtf.gz", package = "FLAMES"),
+        genome_fa = genome_fa,
+        barcodes_file = rep(bc_allow, 4)
+      )
+    }
+  )
+}
+
 setMethod("barcode_demultiplex", "FLAMES.SingleCellPipeline", function(pipeline) {
   if (any(is.na(pipeline@barcodes_file))) {
     message("No barcodes file provided, running BLAZE to generate barcode list from long reads...")
