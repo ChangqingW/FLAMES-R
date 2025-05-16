@@ -14,9 +14,18 @@ reference:
       - FLAMES
   - title: Pipelines
     contents:
-      - sc_long_pipeline
-      - sc_long_multisample_pipeline
-      - bulk_long_pipeline
+      - BulkPipeline
+      - SingleCellPipeline
+      - MultiSampleSCPipeline 
+      - example_pipeline
+  - title: Pipeline execution
+    contents:
+      - run_FLAMES
+      - resume_FLAMES
+      - run_step
+  - title: Inspecting pipelines
+    contents:
+      - experiment
   - title: Barcode demultiplexing
     contents:
       - find_barcode
@@ -76,6 +85,11 @@ reference:
       - scmixology_lib10_transcripts
       - scmixology_lib90
       - find_bin
+  - title: Pipelines (deprecated)
+    contents:
+      - sc_long_pipeline
+      - sc_long_multisample_pipeline
+      - bulk_long_pipeline
 
 navbar:
   structure:

@@ -221,6 +221,10 @@ setMethod("run_step", "FLAMES.Pipeline", function(pipeline, step) {
   )
   end_time <- Sys.time()
   pipeline@completed_steps[step] <- TRUE
+  # clear last error if it was successfully completed
+  if (length(pipeline@last_error) > 0 && pipeline@last_error$step == step) {
+    pipeline@last_error <- list()
+  }
   pipeline@durations[step] <- difftime(end_time, start_time, units = "secs")
   return(pipeline)
 })

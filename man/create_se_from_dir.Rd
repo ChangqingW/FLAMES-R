@@ -10,6 +10,10 @@ create_se_from_dir(outdir, annotation, quantification = "FLAMES")
 \item{outdir}{The folder containing \code{FLAMES} output files}
 
 \item{annotation}{(Optional) the annotation file that was used to produce the output files}
+
+\item{quantification}{(Optional)  the quantification method used to generate the
+output files (either "FLAMES" or "Oarfish".). If not specified, the function will
+attempt to determine the quantification method.}
 }
 \value{
 a \code{SummarizedExperiment} object

@@ -37,6 +37,7 @@ Imports:
     circlize,
     ComplexHeatmap,
     cowplot,
+    cli,
     dplyr,
     DropletUtils,
     GenomicRanges,
@@ -95,7 +96,7 @@ VignetteBuilder: knitr
 URL: https://mritchielab.github.io/FLAMES
 Config/testthat/edition: 3
 Depends: 
-    R (>= 4.1.0)
+    R (>= 4.2.0)
 LazyData: true
 LazyLoad: yes
 StagedInstall: no

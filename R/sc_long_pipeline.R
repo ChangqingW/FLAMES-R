@@ -632,6 +632,9 @@ addRowRanges <- function(sce, annotation, outdir) {
 #' Create \code{SummarizedExperiment} object from \code{FLAMES} output folder
 #' @param outdir The folder containing \code{FLAMES} output files
 #' @param annotation (Optional) the annotation file that was used to produce the output files
+#' @param quantification (Optional)  the quantification method used to generate the
+#' output files (either "FLAMES" or "Oarfish".). If not specified, the function will
+#' attempt to determine the quantification method.
 #' @return a \code{SummarizedExperiment} object
 #' @examples
 #' ppl <- example_pipeline("BulkPipeline")

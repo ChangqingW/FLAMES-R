@@ -33,7 +33,6 @@ setClass(
     fastq = NA_character_,
     annotation = NA_character_,
     genome_fa = NA_character_,
-
     metadata = list(),
     genome_bam = NA_character_,
     transcriptome_bam = NA_character_,
@@ -44,7 +43,6 @@ setClass(
     minimap2 = NA_character_,
     k8 = NA_character_,
     samtools = NA_character_,
-
     steps = logical(),
     completed_steps = logical(),
     durations = structure(numeric(0), class = "difftime", units = "secs"),
@@ -83,3 +81,206 @@ setClass(
     experiments = list()
   )
 )
+
+## Show methods
+# helper method to display the pipeline class
+setGeneric("display_pipeline_class", function(pipeline) {
+  standardGeneric("display_pipeline_class")
+})
+#' @importFrom cli cli_alert cli_alert_warning cli_alert_success
+setMethod("display_pipeline_class", "FLAMES.Pipeline", function(pipeline) {
+  configured_steps <- pipeline@completed_steps[pipeline@steps]
+  unfinished_steps <- names(which(!configured_steps))
+  if (length(pipeline@last_error) > 0) {
+    func <- cli::cli_alert_warning
+  } else if (length(unfinished_steps) > 0) {
+    func <- cli::cli_alert
+  } else {
+    func <- cli::cli_alert_success
+  }
+  func("A {.strong {class(pipeline)}} outputting to {.path {pipeline@outdir}}")
+})
+
+# Helper function to truncate paths
+truncate_path <- function(path, max_chars = 50) {
+  if (nchar(path) <= max_chars) {
+    return(path)
+  }
+  paste0("...", substr(path, nchar(path) - max_chars + 4, nchar(path)))
+}
+
+# Helper function to format file sizes
+format_file_size <- function(bytes) {
+  units <- c("B", "KB", "MB", "GB", "TB")
+  if (is.na(bytes) || bytes == 0) {
+    return("0 B")
+  }
+  power <- min(floor(log(bytes, 1024)), length(units) - 1)
+  sprintf("%.1f %s", bytes / (1024^power), units[power + 1])
+}
+
+#' @importFrom cli cli_h3 cli_alert_success cli_alert_warning
+display_inputs <- function(object, input_slots) {
+  cli::cli_h3("Inputs")
+  for (slot in input_slots) {
+    paths <- slot(object, slot)
+    if (length(paths) == 0 || (length(paths) == 1 && is.na(paths))) {
+      cli::cli_alert_warning("{.field {slot}}: [not set]")
+    } else {
+      if (length(paths) == 1) {
+        if (file.exists(paths)) {
+          cli::cli_alert_success("{.field {slot}}: {.path {truncate_path(paths)}}")
+        } else {
+          cli::cli_alert_warning("{.field {slot}}: {.path {truncate_path(paths)}} [missing]")
+        }
+      } else {
+        if (all(!is.na(paths)) && all(file.exists(paths))) {
+          cli::cli_alert_success("{.field {slot}}:")
+        } else {
+          cli::cli_alert_warning("{.field {slot}}:")
+        }
+        for (path in paths) {
+          if (is.na(path)) {
+            cli::cli_alert_warning("  [not set]")
+          } else if (file.exists(path)) {
+            cli::cli_alert_success("  {.path {truncate_path(path)}}")
+          } else {
+            cli::cli_alert_warning("  {.path {truncate_path(path)}} [missing]")
+          }
+        }
+      }
+    }
+  }
+}
+
+#' @importFrom cli cli_h3 cli_alert_success cli_alert_info cli_text
+display_outputs <- function(object, output_slots) {
+  cli::cli_h3("Outputs")
+  outdir <- object@outdir
+  for (slot in output_slots) {
+    paths <- slot(object, slot)
+    if (length(paths) == 0 || (length(paths) == 1 && is.na(paths))) next
+
+    display_path <- sapply(paths, function(path) {
+      if (is.na(path)) {
+        return(NA_character_)
+      }
+      tryCatch(
+        {
+          if (startsWith(
+            normalizePath(path, mustWork = FALSE),
+            normalizePath(outdir, mustWork = FALSE)
+          )) {
+            basename(path)
+          } else {
+            truncate_path(path)
+          }
+        },
+        error = function(e) truncate_path(path)
+      )
+    })
+    if (length(paths) == 1) {
+      if (file.exists(paths[1])) {
+        size <- format_file_size(file.info(paths[1])$size)
+        cli::cli_alert_success("{.field {slot}}: {.path {display_path}} [{size}]")
+      } else {
+        cli::cli_alert_info("{.field {slot}}: {.path {display_path}}")
+      }
+    } else {
+      cli::cli_text("{.field {slot}}:")
+      for (i in seq_along(paths)) {
+        if (is.na(paths[i])) {
+          cli::cli_text("\t[not set]")
+        } else if (file.exists(paths[i])) {
+          size <- format_file_size(file.info(paths[i])$size)
+          cli::cli_alert_success("  {.path {display_path[i]}} [{size}]")
+        } else {
+          cli::cli_alert_info("  {.path {display_path[i]}}")
+        }
+      }
+    }
+  }
+}
+
+# format difftime to human-friendly units
+format_durations <- function(durations) {
+  sapply(durations, function(d) {
+    secs <- as.numeric(d, units = "secs")
+    if (secs < 60) {
+      sprintf("%.2f sec", secs)
+    } else if (secs < 3600) {
+      sprintf("%.2f min", secs / 60)
+    } else if (secs < 86400) {
+      sprintf("%.2f hr", secs / 3600)
+    } else {
+      sprintf("%.2f day", secs / 86400)
+    }
+  })
+}
+
+#' @importFrom cli cli_h3 cli_alert_success cli_alert_info cli_alert_danger cli_bullets
+display_pipeline_steps <- function(object) {
+  cli::cli_h3("Pipeline Steps")
+  steps <- object@steps
+  completed <- object@completed_steps
+  durations <- object@durations
+
+  for (step in names(steps)[steps]) { # configured steps only
+    if (!is.null(completed[[step]]) && completed[[step]]) {
+      duration <- durations[[step]]
+      if (!is.null(duration)) {
+        human_readable_duration <- format_durations(duration)
+        cli::cli_alert_success("{.field {step}} (completed in {human_readable_duration})")
+      } else {
+        cli::cli_alert_success("{.field {step}} (completed)")
+      }
+    } else if (length(object@last_error) > 0 && step == object@last_error$step) {
+      cli::cli_alert_danger("{.field {step}} (failed: {object@last_error$error})")
+    } else {
+      cli::cli_alert_info("{.field {step}} (pending)")
+    }
+  }
+}
+
+#' Show method for FLAMES.Pipeline
+#'
+#' Displays the pipeline in a pretty format
+#' @param object An object of class `FLAMES.Pipeline`
+#' @return None. Displays output to the console.
+#' @importFrom methods show
+#' @rdname show-FLAMESPipeline
+#' @keywords internal
+#' @export
+setMethod("show", "FLAMES.Pipeline", function(object) {
+  display_pipeline_class(object)
+  display_inputs(object, c("fastq", "annotation", "genome_fa"))
+  display_outputs(object, c(
+    "genome_bam", "novel_isoform_annotation", "transcriptome_assembly", "transcriptome_bam"
+  ))
+  display_pipeline_steps(object)
+})
+
+#' @rdname show-FLAMESPipeline
+#' @export
+setMethod("show", "FLAMES.SingleCellPipeline", function(object) {
+  display_pipeline_class(object)
+  display_inputs(object, c("fastq", "annotation", "genome_fa", "barcodes_file"))
+  display_outputs(object, c(
+    "demultiplexed_fastq", "deduped_fastq",
+    "genome_bam", "novel_isoform_annotation", "transcriptome_assembly", "transcriptome_bam"
+  ))
+  display_pipeline_steps(object)
+})
+
+#' @rdname show-FLAMESPipeline
+#' @export
+setMethod("show", "FLAMES.MultiSampleSCPipeline", function(object) {
+  display_pipeline_class(object)
+  display_inputs(object, c("fastq", "annotation", "genome_fa", "barcodes_file"))
+  display_outputs(object, c(
+    "novel_isoform_annotation", "transcriptome_assembly",
+    "demultiplexed_fastq", "deduped_fastq",
+    "genome_bam", "transcriptome_bam"
+  ))
+  display_pipeline_steps(object)
+})
