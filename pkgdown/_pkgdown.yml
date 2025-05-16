@@ -25,6 +25,8 @@ reference:
       - run_step
   - title: Inspecting pipelines
     contents:
+      - steps
+      - steps<-
       - experiment
   - title: Barcode demultiplexing
     contents:

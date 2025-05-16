@@ -21,4 +21,8 @@ None. Displays output to the console.
 \description{
 Displays the pipeline in a pretty format
 }
+\examples{
+ppl <- example_pipeline()
+show(ppl)
+}
 \keyword{internal}

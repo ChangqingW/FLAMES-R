@@ -119,13 +119,17 @@ format_file_size <- function(bytes) {
   sprintf("%.1f %s", bytes / (1024^power), units[power + 1])
 }
 
-#' @importFrom cli cli_h3 cli_alert_success cli_alert_warning
+#' @importFrom cli cli_h3 cli_alert_success cli_alert_warning cli_alert_info
 display_inputs <- function(object, input_slots) {
   cli::cli_h3("Inputs")
   for (slot in input_slots) {
     paths <- slot(object, slot)
     if (length(paths) == 0 || (length(paths) == 1 && is.na(paths))) {
-      cli::cli_alert_warning("{.field {slot}}: [not set]")
+      if (slot == "barcodes_file" && !is.na(object@expect_cell_number)) {
+        cli::cli_alert_info("{.field {slot}}: [not set] (set to expect {object@expect_cell_number} cells)")
+      } else {
+        cli::cli_alert_warning("{.field {slot}}: [not set]")
+      }
     } else {
       if (length(paths) == 1) {
         if (file.exists(paths)) {
@@ -139,13 +143,17 @@ display_inputs <- function(object, input_slots) {
         } else {
           cli::cli_alert_warning("{.field {slot}}:")
         }
-        for (path in paths) {
-          if (is.na(path)) {
-            cli::cli_alert_warning("  [not set]")
-          } else if (file.exists(path)) {
-            cli::cli_alert_success("  {.path {truncate_path(path)}}")
+        for (i in seq_along(paths)) {
+          if (is.na(paths[i])) {
+            if (slot == "barcodes_file" && !is.na(object@expect_cell_number[i])) {
+              cli::cli_alert_info("  [not set] (set to expect {object@expect_cell_number[i]} cells)")
+            } else {
+              cli::cli_alert_warning("  [not set]")
+            }
+          } else if (file.exists(paths[i])) {
+            cli::cli_alert_success("  {.path {truncate_path(paths[i])}}")
           } else {
-            cli::cli_alert_warning("  {.path {truncate_path(path)}} [missing]")
+            cli::cli_alert_warning("  {.path {truncate_path(paths[i])}} [missing]")
           }
         }
       }
@@ -247,6 +255,9 @@ display_pipeline_steps <- function(object) {
 #' Displays the pipeline in a pretty format
 #' @param object An object of class `FLAMES.Pipeline`
 #' @return None. Displays output to the console.
+#' @examples
+#' ppl <- example_pipeline()
+#' show(ppl)
 #' @importFrom methods show
 #' @rdname show-FLAMESPipeline
 #' @keywords internal
@@ -283,4 +294,66 @@ setMethod("show", "FLAMES.MultiSampleSCPipeline", function(object) {
     "genome_bam", "transcriptome_bam"
   ))
   display_pipeline_steps(object)
+})
+
+### getter and setters ###
+
+#' Steps to perform in the pipeline
+#'
+#' @param object An object of class `FLAMES.Pipeline`
+#' @return A named logical vector containing all possible steps
+#' for the pipeline. The names of the vector are the step names,
+#' and the values are logical indicating whether the step is
+#' configured to be performed.
+#' @examples
+#' ppl <- example_pipeline()
+#' steps(ppl)
+#' @export
+setGeneric("steps", function(object) standardGeneric("steps"))
+#' @rdname steps
+#' @export
+setMethod("steps", "FLAMES.Pipeline", function(object) {
+  object@steps
+})
+
+#' Set steps to perform in the pipeline
+#'
+#' @param object An object of class `FLAMES.Pipeline`
+#' @param value A named logical vector containing all possible steps
+#' for the pipeline. The names of the vector are the step names,
+#' and the values are logical indicating whether the step is
+#' configured to be performed.
+#' @return An object of class `FLAMES.Pipeline` with the updated steps.
+#' @examples
+#' ppl <- example_pipeline()
+#' steps(ppl) <- c(
+#'   barcode_demultiplex = TRUE,
+#'   genome_alignment = TRUE,
+#'   gene_quantification = TRUE,
+#'   isoform_identification = FALSE,
+#'   read_realignment = FALSE,
+#'   transcript_quantification = TRUE
+#' )
+#' ppl
+#' # or partially change a step:
+#' steps(ppl)["read_realignment"] <- TRUE
+#' ppl
+#' @export
+setGeneric("steps<-", function(object, value) standardGeneric("steps<-"))
+#' @rdname steps-set
+#' @export
+setMethod("steps<-", "FLAMES.Pipeline", function(object, value) {
+  # validate the names
+  if (any(is.null(names(value))) || any(is.na(names(value)))) {
+    stop("Steps must be a named logical vector.")
+  }
+  if (!all(names(value) %in% names(object@steps))) {
+    stop(sprintf(
+      "Invalid step names. Expected: %s, but got: %s",
+      paste(names(object@steps), collapse = ", "),
+      paste(names(value)[!names(value) %in% names(object@steps)], collapse = ", ")
+    ))
+  }
+  object@steps[names(value)] <- value
+  object
 })
