@@ -109,6 +109,8 @@ SingleCellPipeline <- function(
 
   ## outputs
   # metadata
+  pipeline@bed <- file.path(outdir, "reference.bed")
+  gff2bed(gff = pipeline@annotation, bed = pipeline@bed)
   pipeline@genome_bam <- file.path(outdir, "align2genome.bam")
   pipeline@transcriptome_bam <- file.path(outdir, "realign2transcript.bam")
   pipeline@transcriptome_assembly <- file.path(outdir, "transcript_assembly.fa")

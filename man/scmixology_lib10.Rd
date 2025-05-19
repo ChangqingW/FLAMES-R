@@ -14,6 +14,9 @@ A \code{SingleCellExperiment} with 7,240 rows and 60 columns:
 \usage{
 scmixology_lib10
 }
+\value{
+A \code{SingleCellExperiment} object
+}
 \description{
 Short-read gene counts from long and short-read single 
 cell RNA-seq profiling of human  lung adenocarcinoma cell 

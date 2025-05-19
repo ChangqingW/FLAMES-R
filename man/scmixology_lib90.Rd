@@ -14,6 +14,9 @@ A \code{SingleCellExperiment}
 \usage{
 scmixology_lib90
 }
+\value{
+A \code{SingleCellExperiment} object
+}
 \description{
 Short-read single cell RNA-seq profiling of 
 human lung adenocarcinoma cell lines using 10X version 

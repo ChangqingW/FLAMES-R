@@ -10,6 +10,7 @@ setClass(
 
     # outputs
     metadata = "list",          # Metadata for the pipeline
+    bed = "character",         # Path to the BED file
     genome_bam = "character",     # Path to the genome BAM file
     transcriptome_bam = "character", # Path to the transcript BAM file
     novel_isoform_annotation = "character", # Path to the novel isoform GFF / GTF file
@@ -34,6 +35,7 @@ setClass(
     annotation = NA_character_,
     genome_fa = NA_character_,
     metadata = list(),
+    bed = NA_character_,
     genome_bam = NA_character_,
     transcriptome_bam = NA_character_,
     novel_isoform_annotation = NA_character_,

@@ -13,7 +13,8 @@ minimap2_align(
   sort_by,
   minimap2,
   samtools,
-  threads = 1
+  threads = 1,
+  tmpdir
 )
 }
 \arguments{
@@ -33,7 +34,9 @@ minimap2_align(
 
 \item{samtools}{path to the samtools binary.}
 
-\item{threads}{Integer, threads for minimap2 to use, see minimap2 documentation for details,
+\item{threads}{Integer, threads for minimap2 to use, see minimap2 documentation for details,}
+
+\item{tmpdir}{Temporary directory to use for intermediate files.
 FLAMES will try to detect cores if this parameter is not provided.}
 }
 \value{

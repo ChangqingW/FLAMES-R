@@ -13,17 +13,3 @@ flames_env <- BasiliskEnvironment(
     ),
     channels = c("conda-forge", "bioconda")
 )
-
-#' @importFrom basilisk BasiliskEnvironment
-bins_env <- BasiliskEnvironment(
-    envname = "bins_env", pkgname = "FLAMES",
-    packages = c(
-        "python==3.8.15",
-        "oarfish==0.6.2",
-        "minimap2==2.28",
-        "samtools==1.21",
-        "k8==1.2"
-    ),
-    channels = c("conda-forge", "bioconda")
-)
-

@@ -5,6 +5,9 @@
 ^\.git$
 ^\.github$
 ^inst/data$
+^inst/bin/
+^inst/python/__pycache__/
+\.pyc$
 ^doc$
 ^docs$
 ^Meta$

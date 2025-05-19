@@ -8,6 +8,7 @@
 .vscode
 .idea
 inst/doc
+inst/bin/
 inst/python/*.pyc
 inst/python/__pycache__/*
 inst/blaze/__pycache__/*

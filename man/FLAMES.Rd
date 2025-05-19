@@ -3,6 +3,9 @@
 \name{FLAMES}
 \alias{FLAMES}
 \title{FLAMES: full-length analysis of mutations and splicing}
+\value{
+invisible()
+}
 \description{
 FLAMES: full-length analysis of mutations and splicing
 }

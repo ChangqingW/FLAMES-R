@@ -1,39 +1,58 @@
-## This file uses GNU make syntax $(shell ...) so we need to
-## have "SystemRequirements: GNU make" in the DESCRIPTION file.
-## See Rhtslib's vignette for details.
-
+# Define C++ standard
 CXX_STD = CXX17
 
-## The subdirectory paths which contain C files
-CFILES = $(wildcard \
-    *.c \
-    **/*.c \
-    **/*/*.c \
-)
+# Define source files excluding submodule
+CFILES = $(filter-out submodule/%, $(wildcard \
+	*.c \
+	**/*.c \
+	**/*/*.c \
+))
+CPPFILES = $(filter-out submodule/%, $(wildcard \
+	*.cpp \
+	**/*.cpp \
+	**/*/*.cpp \
+))
 
-## The subdirectory paths which contain C++ files
-CPPFILES = $(wildcard \
-    *.cpp \
-    **/*.cpp \
-    **/*/*.cpp \
-)
-
-## Combine the two sets of files
+# Combine C and C++ files
 FILES = $(CFILES) $(CPPFILES)
-
 SOURCES = $(FILES)
 OBJECTS = $(CPPFILES:.cpp=.o) $(CFILES:.c=.o)
 
-strippedLib: $(SHLIB)
-	if test -e "/usr/bin/strip" & test -e "/bin/uname" & [[ `uname` == "Linux" ]] ; then /usr/bin/strip --strip-debug $(SHLIB); fi
-clean:
-	rm $(OBJECTS)
-.phony: strippedLib clean
-
+# Define Rhtslib flags
 RHTSLIB_LIBS=$(shell "${R_HOME}/bin${R_ARCH_BIN}/Rscript" -e \
-    'Rhtslib::pkgconfig("PKG_LIBS")')
+	'Rhtslib::pkgconfig("PKG_LIBS")')
 RHTSLIB_CPPFLAGS=$(shell "${R_HOME}/bin${R_ARCH_BIN}/Rscript" -e \
-    'Rhtslib::pkgconfig("PKG_CPPFLAGS")')
+	'Rhtslib::pkgconfig("PKG_CPPFLAGS")')
 
 PKG_CPPFLAGS = -pthread $(RHTSLIB_CPPFLAGS)
 PKG_LIBS = -pthread -lz $(RHTSLIB_LIBS)
+
+# Define architecture
+UNAME_M := $(shell uname -m)
+
+# Targets
+all: strippedLib ../inst/bin/minimap2
+
+strippedLib: $(SHLIB)
+	if test -e "/usr/bin/strip" & test -e "/bin/uname" & [[ `uname` == "Linux" ]] ; then /usr/bin/strip --strip-debug $(SHLIB); fi
+
+../inst/bin/minimap2:
+ifeq ($(UNAME_M),arm64)
+	@echo "Building for ARM64"
+	(cd submodule/minimap2 && $(MAKE) -f Makefile arm_neon=1 aarch64=1 minimap2)
+else ifeq ($(UNAME_M),aarch64)
+	@echo "Building for ARM64"
+	(cd submodule/minimap2 && $(MAKE) -f Makefile arm_neon=1 aarch64=1 minimap2)
+else
+	@echo "Building for x86_64"
+	(cd submodule/minimap2 && $(MAKE) -f Makefile minimap2)
+endif
+	echo "Installing binary to $(PWD)/../inst/bin"
+	mkdir -p ../inst/bin
+	cp submodule/minimap2/minimap2 ../inst/bin/
+
+clean:
+	rm $(OBJECTS)
+	cd submodule/minimap2 && $(MAKE) clean
+
+.PHONY: strippedLib clean

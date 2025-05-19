@@ -13,6 +13,7 @@
 #'
 #' @format ## `scmixology_lib90`
 #' A \code{SingleCellExperiment}
+#' @returns A \code{SingleCellExperiment} object
 #' @source <https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE126906>
 "scmixology_lib90"
 
@@ -28,6 +29,7 @@
 #'
 #' @format ## `scmixology_lib10`
 #' A \code{SingleCellExperiment} with 7,240 rows and 60 columns:
+#' @returns A \code{SingleCellExperiment} object
 #' @source <https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE154869>
 "scmixology_lib10"
 
@@ -43,5 +45,6 @@
 #'
 #' @format ## `scmixology_lib10_transcripts`
 #' A \code{SingleCellExperiment} with 7,240 rows and 60 columns:
+#' @returns A \code{SingleCellExperiment} object
 #' @source <https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE154869>
 "scmixology_lib10_transcripts"

@@ -113,6 +113,8 @@ BulkPipeline <- function(config_file, outdir, fastq, annotation, genome_fa, mini
 
   ## outputs
   # metadata
+  pipeline@bed <- file.path(outdir, "reference.bed")
+  gff2bed(gff = pipeline@annotation, bed = pipeline@bed)
   pipeline@genome_bam <- file.path(outdir, paste0(names(fastq), "_", "align2genome.bam"))
   pipeline@transcriptome_bam <- file.path(outdir, paste0(names(fastq), "_", "realign2transcript.bam"))
   pipeline@transcriptome_assembly <- file.path(outdir, "transcript_assembly.fa")
@@ -372,21 +374,12 @@ setMethod("genome_alignment_raw", "FLAMES.Pipeline", function(pipeline, fastqs) 
     minimap2_args <- base::append(minimap2_args, "--splice-flank=no")
   }
 
-  # k8 paftools.js gff2bend gff > bed12
-  paftoolsjs <- system.file("paftools.js", package = "FLAMES")
+  # replace k8 paftools.js gff2bed gff > bed12 with rtracklayer::export.bed
   if (pipeline@config$alignment_parameters$use_junctions) {
-    bed_file <- tempfile(tmpdir = pipeline@outdir, fileext = ".bed")
-    paftoolsjs_status <- base::system2(
-      command = pipeline@k8,
-      args = c(paftoolsjs, "gff2bed", pipeline@annotation, ">", bed_file)
+    minimap2_args <- base::append(
+      minimap2_args, 
+      c("--junc-bed", pipeline@bed, "--junc-bonus", "1")
     )
-    if (!is.null(base::attr(paftoolsjs_status, "status")) && base::attr(paftoolsjs_status, "status") != 0) {
-      stop(sprintf(
-        "Error running %s\nAre you using NCBI GFF3? It is not well supported by minimap2's paftools.js, see https://github.com/lh3/minimap2/issues/422",
-        paste(c(pipeline@k8, paftoolsjs, "gff2bed", pipeline@annotation, ">", bed_file), collapse = " ")
-      ))
-    }
-    minimap2_args <- base::append(minimap2_args, c("--junc-bed", bed_file, "--junc-bonus", "1"))
   }
 
   res <- lapply(
@@ -407,14 +400,14 @@ setMethod("genome_alignment_raw", "FLAMES.Pipeline", function(pipeline, fastqs) 
         sort_by = "coordinates",
         minimap2 = pipeline@minimap2,
         samtools = pipeline@samtools,
-        threads = pipeline@config$pipeline_parameters$threads
+        threads = pipeline@config$pipeline_parameters$threads,
+        tmpdir = pipeline@outdir
       )
     }
   )
   if (!is.null(names(fastqs))) {
     names(res) <- names(fastqs)
   }
-  unlink(bed_file)
   pipeline@metadata$genome_alignment <- res
   return(pipeline)
 })
@@ -512,7 +505,8 @@ setMethod(
           sort_by = sort_by,
           minimap2 = pipeline@minimap2,
           samtools = pipeline@samtools,
-          threads = pipeline@config$pipeline_parameters$threads
+          threads = pipeline@config$pipeline_parameters$threads,
+          tmpdir = pipeline@outdir
         )
       }
     )
