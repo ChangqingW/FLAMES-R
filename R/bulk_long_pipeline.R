@@ -36,7 +36,6 @@
 #'   use a copy from bioconda via \code{basilisk}.
 #' @param samtools (optional) The path to the samtools binary. If not provided, FLAMES will
 #'   use a copy from bioconda via \code{basilisk}.
-#' @param k8 (optional) The path to the k8 binary to run paftools.js from minimap2. If not
 #'   provided, FLAMES will use a copy from bioconda via \code{basilisk}.
 #'
 #' @return A \code{FLAMES.Pipeline} object. The pipeline could be run using \code{\link{run_FLAMES}}, and / or resumed using \code{\link{resume_FLAMES}}.
@@ -74,7 +73,7 @@
 #' experiment(ppl) # get the result as SummarizedExperiment
 #'
 #' @export
-BulkPipeline <- function(config_file, outdir, fastq, annotation, genome_fa, minimap2, samtools, k8) {
+BulkPipeline <- function(config_file, outdir, fastq, annotation, genome_fa, minimap2, samtools) {
   pipeline <- new("FLAMES.Pipeline")
   config <- check_arguments(annotation, fastq, genome_bam = NULL, outdir, genome_fa, config_file)$config
 
@@ -127,13 +126,6 @@ BulkPipeline <- function(config_file, outdir, fastq, annotation, genome_fa, mini
     }
   }
   pipeline@minimap2 <- minimap2
-  if (missing(k8) || !is.character(k8)) {
-    k8 <- find_bin("k8")
-    if (is.na(k8)) {
-      stop("k8 not found, please make sure it is installed and provide its path as the k8 argument")
-    }
-  }
-  pipeline@k8 <- k8
   if (missing(samtools) || !is.character(samtools)) {
     samtools <- find_bin("samtools")
   }
@@ -577,7 +569,6 @@ setMethod("transcript_quantification", "FLAMES.Pipeline", function(pipeline, ref
 #' @param genome_fa The file path to the reference genome in FASTA format.
 #' @param minimap2 (optional) The path to the minimap2 binary. If not provided, FLAMES will
 #'   use a copy from bioconda via \code{basilisk}.
-#' @param k8 (optional) The path to the k8 binary to run paftools.js from minimap2. If not
 #'   provided, FLAMES will use a copy from bioconda via \code{basilisk}.
 #' @param config_file Path to the JSON configuration file. See \code{\link{create_config}} for creating one.
 #'
@@ -610,7 +601,7 @@ setMethod("transcript_quantification", "FLAMES.Pipeline", function(pipeline, ref
 #' @export
 bulk_long_pipeline <- function(
     annotation, fastq, outdir, genome_fa,
-    minimap2 = NULL, k8 = NULL, config_file) {
+    minimap2 = NULL, config_file) {
   message("bulk_long_pipeline() is deprecated. Use BulkPipeline() instead.")
   pipeline <- BulkPipeline(
     config_file = config_file,
@@ -618,8 +609,7 @@ bulk_long_pipeline <- function(
     fastq = fastq,
     annotation = annotation,
     genome_fa = genome_fa,
-    minimap2 = minimap2,
-    k8 = k8
+    minimap2 = minimap2
   )
   pipeline <- run_FLAMES(pipeline)
   saveRDS(pipeline, file.path(outdir, "pipeline.rds"))

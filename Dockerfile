@@ -8,9 +8,7 @@ RUN Rscript -e "options(repos = c(CRAN = 'https://cran.r-project.org')); BiocMan
 
 RUN Rscript -e "options(repos = c(CRAN = 'https://cran.r-project.org')); devtools::install('.', dependencies=TRUE, build_vignettes=TRUE, repos = BiocManager::repositories())"
 
-RUN sudo apt-get update && sudo apt-get install -y samtools minimap2 && wget -O- https://github.com/attractivechaos/k8/releases/download/v1.2/k8-1.2.tar.bz2 | tar -jx
-
-RUN sudo ln -s /home/rstudio/k8-1.2/k8-x86_64-Linux /bin/k8
+RUN sudo apt-get update && sudo apt-get install -y samtools
 
 USER rstudio
 

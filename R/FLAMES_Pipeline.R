@@ -19,7 +19,6 @@ setClass(
 
     # binaries
     minimap2 = "character",     # Path to the minimap2 binary
-    k8 = "character",           # Path to the k8 binary
     samtools = "character",     # Path to the samtools binary
 
     # pipeline state
@@ -43,7 +42,6 @@ setClass(
     # experiment = NA,
 
     minimap2 = NA_character_,
-    k8 = NA_character_,
     samtools = NA_character_,
     steps = logical(),
     completed_steps = logical(),

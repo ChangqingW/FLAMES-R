@@ -10,7 +10,6 @@ sc_long_pipeline(
   outdir,
   genome_fa,
   minimap2 = NULL,
-  k8 = NULL,
   barcodes_file = NULL,
   expect_cell_number = NULL,
   config_file = NULL
@@ -26,8 +25,6 @@ sc_long_pipeline(
 \item{genome_fa}{The file path to genome fasta file.}
 
 \item{minimap2}{Path to minimap2, optional.}
-
-\item{k8}{Path to the k8 Javascript shell binary, optional.}
 
 \item{barcodes_file}{The file with expected cell barcodes, with each barcode on a new line.}
 

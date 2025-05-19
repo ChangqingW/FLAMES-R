@@ -11,8 +11,7 @@ BulkPipeline(
   annotation,
   genome_fa,
   minimap2,
-  samtools,
-  k8
+  samtools
 )
 }
 \arguments{
@@ -31,9 +30,7 @@ will be processed as an individual sample.}
 use a copy from bioconda via \code{basilisk}.}
 
 \item{samtools}{(optional) The path to the samtools binary. If not provided, FLAMES will
-use a copy from bioconda via \code{basilisk}.}
-
-\item{k8}{(optional) The path to the k8 binary to run paftools.js from minimap2. If not
+use a copy from bioconda via \code{basilisk}.
 provided, FLAMES will use a copy from bioconda via \code{basilisk}.}
 }
 \value{

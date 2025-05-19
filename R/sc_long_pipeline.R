@@ -72,7 +72,7 @@
 #'
 #' @export
 SingleCellPipeline <- function(
-  config_file, outdir, fastq, annotation, genome_fa, minimap2, samtools, k8,
+  config_file, outdir, fastq, annotation, genome_fa, minimap2, samtools, 
   barcodes_file, expect_cell_number
 ) {
   pipeline <- new("FLAMES.SingleCellPipeline")
@@ -125,13 +125,6 @@ SingleCellPipeline <- function(
     }
   }
   pipeline@minimap2 <- minimap2
-  if (missing(k8) || !is.character(k8)) {
-    k8 <- find_bin("k8")
-    if (is.na(k8)) {
-      stop("k8 not found, please make sure it is installed and provide its path as the k8 argument")
-    }
-  }
-  pipeline@k8 <- k8
   if (missing(samtools) || !is.character(samtools)) {
     samtools <- find_bin("samtools")
   }
@@ -372,7 +365,6 @@ setMethod("read_realignment", "FLAMES.SingleCellPipeline", function(pipeline, in
 #' @param outdir The path to directory to store all output files.
 #' @param genome_fa The file path to genome fasta file.
 #' @param minimap2 Path to minimap2, optional.
-#' @param k8 Path to the k8 Javascript shell binary, optional.
 #' @param config_file File path to the JSON configuration file.
 #' @param barcodes_file The file with expected cell barcodes, with each barcode on a new line.
 #' @param expect_cell_number The expected number of cells in the sample. This is used if
@@ -407,7 +399,7 @@ setMethod("read_realignment", "FLAMES.SingleCellPipeline", function(pipeline, in
 #' )
 #' @export
 sc_long_pipeline <- function(
-    annotation, fastq, outdir, genome_fa, minimap2 = NULL, k8 = NULL,
+    annotation, fastq, outdir, genome_fa, minimap2 = NULL, 
     barcodes_file = NULL, expect_cell_number = NULL, config_file = NULL) {
   pipeline <- SingleCellPipeline(
     config_file = config_file,
@@ -416,7 +408,6 @@ sc_long_pipeline <- function(
     annotation = annotation,
     genome_fa = genome_fa,
     minimap2 = minimap2,
-    k8 = k8,
     barcodes_file = barcodes_file,
     expect_cell_number = expect_cell_number
   )
