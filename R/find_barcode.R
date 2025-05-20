@@ -255,7 +255,7 @@ convert_cellranger_bc <- function(bc_allow, bc_from, bc_to) {
 #'   reads_out = file.path(outdir, "demultiplexed.fq"),
 #'   barcodes_file = bc_allow, TSO_seq = "CCCATGTACTCTGCGTTGATACCACTGCTT"
 #' ) |>
-#'   plot_demultiplex()
+#'   plot_demultiplex_raw()
 #' @return a list of ggplot objects:
 #' \itemize{
 #' \item reads_count_plot: stacked barplot of: demultiplexed reads
@@ -266,7 +266,8 @@ convert_cellranger_bc <- function(bc_allow, bc_from, bc_to) {
 #' }
 #' @md
 #' @export
-plot_demultiplex <- function(find_barcode_result) {
+#' @keywords internal
+plot_demultiplex_raw <- function(find_barcode_result) {
 
   knee_plot <- sapply(find_barcode_result, function(x) {
     x$reads_tb

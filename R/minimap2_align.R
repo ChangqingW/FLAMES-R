@@ -50,8 +50,9 @@ minimap2_align <- function(fq_in, fa_file, config, outfile, minimap2_args, sort_
         c(fa_file, fq_in, "|", samtools, "view -b -o", tmp_bam, "-")
       )
     )
-    if (!is.null(base::attr(minimap2_status, "status")) &&
-      base::attr(minimap2_status, "status") != 0) {
+    if ((!is.null(base::attr(minimap2_status, "status")) &&
+      base::attr(minimap2_status, "status") != 0) ||
+      minimap2_status != 0) {
       stop(paste0("error running minimap2:\n", minimap2_status))
     }
   } else {
@@ -65,8 +66,9 @@ minimap2_align <- function(fq_in, fa_file, config, outfile, minimap2_args, sort_
         c(fa_file, fq_in, ">", tmp_sam)
       )
     )
-    if (!is.null(base::attr(minimap2_status, "status")) &&
-      base::attr(minimap2_status, "status") != 0) {
+    if ((!is.null(base::attr(minimap2_status, "status")) &&
+      base::attr(minimap2_status, "status") != 0) ||
+      minimap2_status != 0) {
       stop(paste0("error running minimap2:\n", minimap2_status))
     }
     Rsamtools::asBam(
@@ -100,8 +102,9 @@ minimap2_align <- function(fq_in, fa_file, config, outfile, minimap2_args, sort_
         command = samtools,
         args = sort_args
       )
-      if (!is.null(base::attr(sort_status, "status")) &&
-        base::attr(sort_status, "status") != 0) {
+      if ((!is.null(base::attr(sort_status, "status")) &&
+        base::attr(sort_status, "status") != 0) ||
+        sort_status != 0) {
         stop(paste0("error running samtools sort:\n", sort_status))
       }
     } else {
@@ -132,8 +135,9 @@ minimap2_align <- function(fq_in, fa_file, config, outfile, minimap2_args, sort_
         command = samtools,
         args = c("index", outfile)
       )
-      if (!is.null(base::attr(index_status, "status")) &&
-        base::attr(index_status, "status") != 0) {
+      if ((!is.null(base::attr(index_status, "status")) &&
+        base::attr(index_status, "status") != 0) ||
+        index_status != 0) {
         stop(paste0("error running samtools index:\n", index_status))
       }
     } else {

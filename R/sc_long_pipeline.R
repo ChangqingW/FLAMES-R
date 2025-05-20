@@ -358,6 +358,36 @@ setMethod("read_realignment", "FLAMES.SingleCellPipeline", function(pipeline, in
   )
 })
 
+#' Plot Cell Barcode demultiplex statistics
+#'
+#' @description produce a barplot of cell barcode demultiplex statistics
+#' @param pipeline A \code{FLAMES.SingleCellPipeline} object
+#' @return a list of ggplot objects:
+#' \itemize{
+#' \item reads_count_plot: stacked barplot of: demultiplexed reads
+#' \item knee_plot: knee plot of UMI counts before TSO trimming
+#' \item flank_editdistance_plot: flanking sequence (adaptor) edit-distance plot
+#' \item barcode_editdistance_plot: barcode edit-distance plot
+#' \item cutadapt_plot: if TSO trimming is performed, number of reads kept by cutadapt
+#' }
+#' @examples
+#' pipeline <- example_pipeline("MultiSampleSCPipeline") |>
+#'   run_step("barcode_demultiplex")
+#' plot_demultiplex(pipeline)
+#' @rdname plot_demultiplex
+#' @export
+setGeneric("plot_demultiplex", function(pipeline) {
+  standardGeneric("plot_demultiplex")
+})
+#' @rdname plot_demultiplex
+#' @export
+setMethod("plot_demultiplex", "FLAMES.SingleCellPipeline", function(pipeline) {
+  if (is.null(pipeline@metadata$barcode_demultiplex)) {
+    stop("No barcode demultiplexing results found, have you run the demultiplex step?")
+  }
+  plot_demultiplex_raw(pipeline@metadata$barcode_demultiplex)
+})
+
 #' Pipeline for Single Cell Data (deprecated)
 #'
 #' @description This function is deprecated. Please use [SingleCellPipeline()] instead.
