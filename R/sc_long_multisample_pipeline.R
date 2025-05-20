@@ -131,14 +131,13 @@ MultiSampleSCPipeline <- function(
       )
     }
     pipeline@expect_cell_number <- expect_cell_number
-  } else {
+  } else if (steps["barcode_demultiplex"]) {
     stop("Either barcodes_file or expect_cell_number must be provided.")
   }
 
   ## outputs
   # metadata
   pipeline@bed <- file.path(outdir, "reference.bed")
-  gff2bed(gff = pipeline@annotation, bed = pipeline@bed)
   pipeline@genome_bam <- file.path(outdir, paste0(names(fastq), "_", "align2genome.bam"))
   pipeline@transcriptome_bam <- file.path(outdir, paste0(names(fastq), "_", "realign2transcript.bam"))
   pipeline@transcriptome_assembly <- file.path(outdir, "transcript_assembly.fa")
@@ -178,6 +177,9 @@ setMethod("experiment", "FLAMES.MultiSampleSCPipeline", function(pipeline) {
 })
 
 setMethod("barcode_demultiplex", "FLAMES.MultiSampleSCPipeline", function(pipeline) {
+  if (any(is.na(pipeline@barcodes_file)) && any(is.na(pipeline@expect_cell_number))) {
+    stop("Either barcodes_file or expect_cell_number must be provided.")
+  }
   if (any(is.na(pipeline@barcodes_file))) {
     message("No barcodes file provided, running BLAZE to generate barcode list from long reads...")
     for (i in seq_along(pipeline@fastq)) {

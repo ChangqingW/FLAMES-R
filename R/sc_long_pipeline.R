@@ -103,14 +103,13 @@ SingleCellPipeline <- function(
     pipeline@barcodes_file <- barcodes_file
   } else if (!missing(expect_cell_number) && is.numeric(expect_cell_number)) {
     pipeline@expect_cell_number <- expect_cell_number
-  } else {
+  } else if (steps["barcode_demultiplex"]) {
     stop("Either barcodes_file or expect_cell_number must be provided.")
   }
 
   ## outputs
   # metadata
   pipeline@bed <- file.path(outdir, "reference.bed")
-  gff2bed(gff = pipeline@annotation, bed = pipeline@bed)
   pipeline@genome_bam <- file.path(outdir, "align2genome.bam")
   pipeline@transcriptome_bam <- file.path(outdir, "realign2transcript.bam")
   pipeline@transcriptome_assembly <- file.path(outdir, "transcript_assembly.fa")
@@ -252,6 +251,9 @@ example_pipeline <- function(type = "SingleCellPipeline") {
 }
 
 setMethod("barcode_demultiplex", "FLAMES.SingleCellPipeline", function(pipeline) {
+  if (any(is.na(pipeline@barcodes_file)) && any(is.na(pipeline@expect_cell_number))) {
+    stop("Either barcodes_file or expect_cell_number must be provided.")
+  }
   if (any(is.na(pipeline@barcodes_file))) {
     message("No barcodes file provided, running BLAZE to generate barcode list from long reads...")
     blaze(

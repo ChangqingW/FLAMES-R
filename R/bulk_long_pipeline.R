@@ -113,7 +113,6 @@ BulkPipeline <- function(config_file, outdir, fastq, annotation, genome_fa, mini
   ## outputs
   # metadata
   pipeline@bed <- file.path(outdir, "reference.bed")
-  gff2bed(gff = pipeline@annotation, bed = pipeline@bed)
   pipeline@genome_bam <- file.path(outdir, paste0(names(fastq), "_", "align2genome.bam"))
   pipeline@transcriptome_bam <- file.path(outdir, paste0(names(fastq), "_", "realign2transcript.bam"))
   pipeline@transcriptome_assembly <- file.path(outdir, "transcript_assembly.fa")
@@ -368,8 +367,15 @@ setMethod("genome_alignment_raw", "FLAMES.Pipeline", function(pipeline, fastqs) 
 
   # replace k8 paftools.js gff2bed gff > bed12 with rtracklayer::export.bed
   if (pipeline@config$alignment_parameters$use_junctions) {
+    if (is.na(pipeline@bed)) {
+      pipeline@bed <- file.path(pipeline@outdir, "reference.bed")
+    }
+    if (!file.exists(pipeline@bed)) {
+      message("Creating junction bed file from GFF3 annotation.")
+      gff2bed(gff = pipeline@annotation, bed = pipeline@bed)
+    }
     minimap2_args <- base::append(
-      minimap2_args, 
+      minimap2_args,
       c("--junc-bed", pipeline@bed, "--junc-bonus", "1")
     )
   }
