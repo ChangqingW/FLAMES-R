@@ -34,8 +34,12 @@ MINIMAP2_CFLAGS = $(CFLAGS) -Wno-unused-result
 # Define architecture
 UNAME_M := $(shell uname -m)
 
+# Define Rust build variables
+RUSTC := $(shell command -v rustc 2>/dev/null)
+CARGO := $(shell command -v cargo 2>/dev/null)
+
 # Targets
-all: strippedLib ../inst/bin/minimap2
+all: strippedLib ../inst/bin/minimap2 ../inst/bin/oarfish
 
 strippedLib: $(SHLIB)
 	if test -e "/usr/bin/strip" & test -e "/bin/uname" & [[ `uname` == "Linux" ]] ; then /usr/bin/strip --strip-debug $(SHLIB); fi
@@ -54,6 +58,20 @@ endif
 	echo "Installing binary to $(PWD)/../inst/bin"
 	mkdir -p ../inst/bin
 	cp submodule/minimap2/minimap2 ../inst/bin/
+
+# smuggle oarfish if cargo is available
+../inst/bin/oarfish:
+ifeq ($(CARGO),)
+	@echo "Cargo not found, skipping oarfish installation."
+else
+	@echo "Building oarfish with cargo"
+	mkdir -p ../inst/bin
+	mkdir cargo_temp
+	(cargo install oarfish --root cargo_temp --bin oarfish --vers 0.8.0)
+	cp cargo_temp/bin/oarfish ../inst/bin/
+	cargo uninstall oarfish --root cargo_temp
+	rm -rf cargo_temp
+endif
 
 clean:
 	rm $(OBJECTS)
