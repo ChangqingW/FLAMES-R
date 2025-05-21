@@ -36,25 +36,34 @@ A \code{SummarizedExperiment} object containing the transcript counts.
 This function is deprecated. Use \code{\link{BulkPipeline}} instead.
 }
 \examples{
-temp_path <- tempfile()
-bfc <- BiocFileCache::BiocFileCache(temp_path, ask = FALSE)
-file_url <-
-  "https://raw.githubusercontent.com/OliverVoogd/FLAMESData/master/data"
-# download the required fastq files, and move them to new folder
-fastq1 <- bfc[[names(BiocFileCache::bfcadd(bfc, "Fastq1", paste(file_url, "fastq/sample1.fastq.gz", sep = "/")))]]
-fastq2 <- bfc[[names(BiocFileCache::bfcadd(bfc, "Fastq2", paste(file_url, "fastq/sample2.fastq.gz", sep = "/")))]]
-annotation <- bfc[[names(BiocFileCache::bfcadd(bfc, "annot.gtf", paste(file_url, "SIRV_isoforms_multi-fasta-annotation_C_170612a.gtf", sep = "/")))]]
-genome_fa <- bfc[[names(BiocFileCache::bfcadd(bfc, "genome.fa", paste(file_url, "SIRV_isoforms_multi-fasta_170612a.fasta", sep = "/")))]]
-fastq_dir <- paste(temp_path, "fastq_dir", sep = "/") # the downloaded fastq files need to be in a directory to be merged together
-dir.create(fastq_dir)
-file.copy(c(fastq1, fastq2), fastq_dir)
-unlink(c(fastq1, fastq2)) # the original files can be deleted
 outdir <- tempfile()
 dir.create(outdir)
+# simulate 3 samples via sampling
+reads <- ShortRead::readFastq(
+  system.file("extdata", "fastq", "musc_rps24.fastq.gz", package = "FLAMES")
+)
+dir.create(file.path(outdir, "fastq"))
+ShortRead::writeFastq(reads[1:100],
+  file.path(outdir, "fastq/sample1.fq.gz"), mode = "w", full = FALSE)
+reads <- reads[-(1:100)]
+ShortRead::writeFastq(reads[1:100],
+  file.path(outdir, "fastq/sample2.fq.gz"), mode = "w", full = FALSE)
+reads <- reads[-(1:100)]
+ShortRead::writeFastq(reads,
+  file.path(outdir, "fastq/sample3.fq.gz"), mode = "w", full = FALSE)
+# prepare the reference genome
+genome_fa <- file.path(outdir, "rps24.fa")
+R.utils::gunzip(
+  filename = system.file("extdata", "rps24.fa.gz", package = "FLAMES"),
+  destname = genome_fa, remove = FALSE
+)
 se <- bulk_long_pipeline(
-  annotation = annotation, fastq = fastq_dir, outdir = outdir, genome_fa = genome_fa,
+  fastq = file.path(outdir, "fastq"),
+  annotation = system.file("extdata", "rps24.gtf.gz", package = "FLAMES"),
+  outdir = outdir, genome_fa = genome_fa,
   config_file = create_config(outdir, type = "sc_3end", threads = 1, no_flank = TRUE)
 )
+se
 }
 \seealso{
 \code{\link{BulkPipeline}} for the new pipeline function.

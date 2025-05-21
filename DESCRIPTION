@@ -32,7 +32,6 @@ Imports:
     bambu,
     BiocParallel,
     Biostrings,
-    BiocFileCache,
     BiocGenerics,
     circlize,
     ComplexHeatmap,

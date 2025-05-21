@@ -24,14 +24,14 @@ The details of the output files can be found at https://github.com/shimlab/BLAZE
 Uses BLAZE to generate barcode list and assign reads to cell barcodes.
 }
 \examples{
-temp_path <- tempfile()
-bfc <- BiocFileCache::BiocFileCache(temp_path, ask = FALSE)
-fastq1_url <- 'https://raw.githubusercontent.com/shimlab/BLAZE/main/test/data/FAR20033_pass_51e510db_100.fastq'
-fastq1 <- bfc[[names(BiocFileCache::bfcadd(bfc, 'Fastq1', fastq1_url))]]
 outdir <- tempfile()
 dir.create(outdir)
-\dontrun{
-blaze(expect_cells=10, fastq1, overwrite=TRUE)
-} 
+fastq <- system.file("extdata", "fastq", "musc_rps24.fastq.gz", package = "FLAMES")
+blaze(
+  expect_cells = 10, fastq,
+  "output-prefix" = file.path(outdir, ""),
+  "output-fastq" = file.path(outdir, "output.fastq"),
+  overwrite=TRUE
+)
 
 }

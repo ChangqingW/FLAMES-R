@@ -161,7 +161,6 @@ SingleCellPipeline <- function(
 #' example_pipeline("SingleCellPipeline")
 #'
 #' @importFrom R.utils gunzip
-#' @importFrom BiocFileCache BiocFileCache bfcadd
 #' @importFrom ShortRead readFastq writeFastq
 #'
 #' @export
@@ -190,22 +189,33 @@ example_pipeline <- function(type = "SingleCellPipeline") {
       )
     },
     "BulkPipeline" = {
-      temp_path <- tempfile()
-      bfc <- BiocFileCache::BiocFileCache(temp_path, ask = FALSE)
-      file_url <-
-        "https://raw.githubusercontent.com/OliverVoogd/FLAMESData/master/data"
-      fastq1 <- bfc[[names(BiocFileCache::bfcadd(bfc, "Fastq1", paste(file_url, "fastq/sample1.fastq.gz", sep = "/")))]]
-      fastq2 <- bfc[[names(BiocFileCache::bfcadd(bfc, "Fastq2", paste(file_url, "fastq/sample2.fastq.gz", sep = "/")))]]
-      annotation <- bfc[[names(BiocFileCache::bfcadd(bfc, "annot.gtf", paste(file_url, "SIRV_isoforms_multi-fasta-annotation_C_170612a.gtf", sep = "/")))]]
-      genome_fa <- bfc[[names(BiocFileCache::bfcadd(bfc, "genome.fa", paste(file_url, "SIRV_isoforms_multi-fasta_170612a.fasta", sep = "/")))]]
-      fastq_dir <- paste(temp_path, "fastq_dir", sep = "/") 
-      dir.create(fastq_dir)
-      file.copy(c(fastq1, fastq2), fastq_dir)
-      unlink(c(fastq1, fastq2))
+      reads <- ShortRead::readFastq(
+        system.file("extdata", "fastq", "musc_rps24.fastq.gz", package = "FLAMES")
+      )
       outdir <- tempfile()
       dir.create(outdir)
+      dir.create(file.path(outdir, "fastq"))
+      genome_fa <- file.path(outdir, "rps24.fa")
+      R.utils::gunzip(
+        filename = system.file("extdata", "rps24.fa.gz", package = "FLAMES"),
+        destname = genome_fa, remove = FALSE
+      )
+      ShortRead::writeFastq(reads[1:100],
+        file.path(outdir, "fastq/sample1.fq.gz"), mode = "w", full = FALSE)
+      reads <- reads[-(1:100)]
+      ShortRead::writeFastq(reads[1:100],
+        file.path(outdir, "fastq/sample2.fq.gz"), mode = "w", full = FALSE)
+      reads <- reads[-(1:100)]
+      ShortRead::writeFastq(reads,
+        file.path(outdir, "fastq/sample3.fq.gz"), mode = "w", full = FALSE)
       BulkPipeline(
-        fastq = fastq_dir, annotation = annotation, genome_fa = genome_fa,
+        fastq = c(
+          "sample1" = file.path(outdir, "fastq", "sample1.fq.gz"),
+          "sample2" = file.path(outdir, "fastq", "sample2.fq.gz"),
+          "sample3" = file.path(outdir, "fastq", "sample3.fq.gz")
+        ),
+        annotation = system.file("extdata", "rps24.gtf.gz", package = "FLAMES"),
+        genome_fa = genome_fa,
         config_file = create_config(outdir, type = "sc_3end", threads = 1, no_flank = TRUE),
         outdir = outdir
       )
@@ -259,7 +269,7 @@ setMethod("barcode_demultiplex", "FLAMES.SingleCellPipeline", function(pipeline)
     blaze(
       expect_cells = pipeline@expect_cell_number,
       fq_in = pipeline@fastq,
-      # "output-prefix" = dirname(pipeline@demultiplexed_fastq),
+      "output-prefix" = file.path(pipeline@outdir, ""),
       "output-fastq" = pipeline@demultiplexed_fastq,
       "threads" = pipeline@config$pipeline_parameters$threads,
       "max-edit-distance" = pipeline@config$barcode_parameters$max_bc_editdistance,
