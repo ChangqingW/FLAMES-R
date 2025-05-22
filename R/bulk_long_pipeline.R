@@ -209,11 +209,12 @@ setMethod("prerun_check", "FLAMES.Pipeline", function(pipeline, overwrite = FALS
 setGeneric("run_step", function(pipeline, step) {
   standardGeneric("run_step")
 })
+#' @importFrom cli cli_rule
 #' @rdname run_step
 #' @export
 setMethod("run_step", "FLAMES.Pipeline", function(pipeline, step) {
   start_time <- Sys.time()
-  message(sprintf("Running step: %s", step))
+  cli::cli_rule(sprintf("Running step: %s @ %s", step, date()))
   pipeline <- switch(step,
     barcode_demultiplex = barcode_demultiplex(pipeline),
     genome_alignment = genome_alignment(pipeline),
