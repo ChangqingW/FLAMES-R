@@ -42,6 +42,7 @@ This function wraps the \code{ggbio::geom_alignment} function to plot the isofor
 the isoforms by expression levels (when specifying a gene) or by the order of the transcript_ids.
 }
 \examples{
+data(scmixology_lib10_transcripts)
 plot_isoforms(scmixology_lib10_transcripts, gene_id = "ENSG00000108107")
 
 }

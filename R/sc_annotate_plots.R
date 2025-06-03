@@ -209,6 +209,7 @@ get_top_transcript_ids <- function(sce, gene_id, transcript_ids, n) {
 #' Otherwise, a grid of the plots is returned.
 #'
 #' @examples
+#' data(scmixology_lib10_transcripts)
 #' plot_isoforms(scmixology_lib10_transcripts, gene_id = "ENSG00000108107")
 #' 
 #' @importFrom SummarizedExperiment rowRanges rowData
@@ -299,6 +300,7 @@ plot_isoforms <- function(sce, gene_id, transcript_ids, n = 4, format = "plot_gr
 #' @return a \code{ComplexHeatmap}
 #'
 #' @examples
+#' data(scmixology_lib10_transcripts)
 #' scmixology_lib10_transcripts |>
 #'   scuttle::logNormCounts() |>
 #'   plot_isoform_heatmap(gene = "ENSG00000108107")
@@ -420,6 +422,7 @@ plot_isoform_heatmap <- function(
 #' @return a \code{ggplot} object of the UMAP(s)
 #'
 #' @examples
+#' data(scmixology_lib10_transcripts, scmixology_lib10, scmixology_lib90)
 #' scmixology_lib10 <- 
 #'   scmixology_lib10[, colSums(SingleCellExperiment::counts(scmixology_lib10)) > 0]
 #' sce_lr <- scmixology_lib10[, colnames(scmixology_lib10) %in% colnames(scmixology_lib10_transcripts)]

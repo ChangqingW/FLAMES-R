@@ -63,6 +63,7 @@ Takes \code{SingleCellExperiment} object and plots an expression on reduced dime
 with the isoform visualizations along genomic coordinates.
 }
 \examples{
+data(scmixology_lib10_transcripts, scmixology_lib10, scmixology_lib90)
 scmixology_lib10 <- 
   scmixology_lib10[, colSums(SingleCellExperiment::counts(scmixology_lib10)) > 0]
 sce_lr <- scmixology_lib10[, colnames(scmixology_lib10) \%in\% colnames(scmixology_lib10_transcripts)]

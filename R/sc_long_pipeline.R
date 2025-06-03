@@ -548,8 +548,8 @@ generate_bulk_summarized <- function(out_files) {
 #' sce_2 <- create_sce_from_dir(outdir, annotation)
 create_sce_from_dir <- function(outdir, annotation, quantification = "FLAMES") {
 
-  samples <- list.files(outdir, pattern = "_?transcript_count.csv.gz$", full.names = TRUE)
-  samples_oarfish <- list.files(outdir, pattern = "\\.count\\.mtx$", full.names = TRUE) |>
+  samples <- list.files(outdir, pattern = "_?transcript_count.csv.gz$", full.names = TRUE, all.files = TRUE)
+  samples_oarfish <- list.files(outdir, pattern = "\\.count\\.mtx$", full.names = TRUE, all.files = TRUE) |>
     stringr::str_remove("\\.count\\.mtx$")
 
   if (length(samples) > 0 && quantification == "FLAMES") {
@@ -625,6 +625,7 @@ addRowRanges <- function(sce, annotation, outdir) {
     novel_annotation <- S4Vectors::metadata(sce)$OutputFiles$isoform_annotated
   } else {
     message(sprintf("isoform_annotated.gff3/gtf file not found in %s, this can be safely ignored if the pipeline was run with do_isoform_identification = FALSE", outdir))
+    novel_annotation <- NULL
   }
 
   annotation_grl <- get_GRangesList(annotation)
@@ -680,32 +681,41 @@ addRowRanges <- function(sce, annotation, outdir) {
 create_se_from_dir <- function(outdir, annotation, quantification = "FLAMES") {
   if (missing(quantification)) {
     quantification <- ifelse(
-      length(list.files(outdir, pattern = "^transcript_count.csv.gz$")) > 0,
+      length(list.files(outdir, pattern = "^transcript_count.csv.gz$", all.files = TRUE)) > 0,
       "FLAMES",
       "Oarfish"
     )
   }
   if (quantification == "FLAMES") {
+    if (missing(annotation) || !is.character(annotation)) {
+      annotation_file <- NULL
+    } else {
+      annotation_file <- annotation
+    }
     out_files <- list(
       counts = file.path(outdir, "transcript_count.csv.gz"),
       outdir = outdir,
-      annotation = annotation,
+      annotation = annotation_file,
       transcript_assembly = file.path(outdir, "transcript_assembly.fa"),
       align_bam = file.path(outdir, "align2genome.bam"),
       realign2transcript = file.path(outdir, "realign2transcript.bam"),
       tss_tes = file.path(outdir, "tss_tes.bedgraph")
     )
-    se <- generate_bulk_summarized(out_files) |>
-      addRowRanges(annotation, outdir)
+    se <- generate_bulk_summarized(out_files)
+    if (!missing(annotation)) {
+      se <- addRowRanges(se, annotation, outdir)
+    }
     return(se)
   } else if (quantification == "Oarfish") {
-    oarfish_samples <- list.files(outdir, pattern = "\\.quant$", full.names = TRUE) |>
+    oarfish_samples <- list.files(outdir, pattern = "\\.quant$", full.names = TRUE, all.files = TRUE) |>
       stringr::str_remove("\\.quant$")
     se <- parse_oarfish_bulk_output(
       oarfish_outs = oarfish_samples,
       sample_names = basename(oarfish_samples)
-    ) |>
-      addRowRanges(annotation, outdir)
+    )
+    if (!missing(annotation)) {
+      se <- addRowRanges(se, annotation, outdir)
+    }
     return(se)
   } else {
     stop("Unknown quantification method: ", quantification)

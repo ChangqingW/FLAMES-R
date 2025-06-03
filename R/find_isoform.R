@@ -197,16 +197,22 @@ annotation_to_fasta <- function(isoform_annotation, genome_fa, outfile, extract_
 #' @return A Genomic Ranges List
 #' @keywords internal
 get_GRangesList <- function(file) {
-  isoform_gr <- rtracklayer::import(file, feature.type = c("exon", "utr"))
-  if (grepl("\\.gff3(\\.gz)?$", file)) {
-    isoform_gr$Parent <- as.character(isoform_gr$Parent)
-    isoform_gr$transcript_id <- unlist(lapply(strsplit(isoform_gr$Parent, split = ":"), function(x) {
-      x[2]
-    }))
+  if (is.character(file)) {
+    isoform_gr <- rtracklayer::import(file, feature.type = c("exon", "utr"))
+    if (grepl("\\.gff3(\\.gz)?$", file)) {
+      isoform_gr$Parent <- as.character(isoform_gr$Parent)
+      isoform_gr$transcript_id <- unlist(lapply(strsplit(isoform_gr$Parent, split = ":"), function(x) {
+        x[2]
+      }))
+    }
+  } else if (is(file, "GRanges")) {
+    isoform_gr <- file
+  } else if (is(file, "GRangesList")) {
+    return(file)
+  } else {
+    stop(sprintf("Unsupported input type: %s", class(file)))
   }
-  #    if (!is.null("gene")) {
-  #        isoform_gr <- isoform_gr[isoform_gr$gene_id == gene]
-  #    }
+
   isoform_grl <- S4Vectors::split(isoform_gr, isoform_gr$transcript_id)
   return(isoform_grl)
 }

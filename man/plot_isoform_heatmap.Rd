@@ -53,6 +53,7 @@ Takes \code{SingleCellExperiment} object and plots an expression heatmap with th
 isoform visualizations along genomic coordinates.
 }
 \examples{
+data(scmixology_lib10_transcripts)
 scmixology_lib10_transcripts |>
   scuttle::logNormCounts() |>
   plot_isoform_heatmap(gene = "ENSG00000108107")
