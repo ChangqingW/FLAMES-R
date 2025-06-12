@@ -45,7 +45,7 @@
 #' find_barcode(
 #'   fastq = system.file("extdata", "fastq", "musc_rps24.fastq.gz", package = "FLAMES"),
 #'   stats_out = file.path(outdir, "bc_stat"),
-#'   reads_out = file.path(outdir, "demultiplexed.fq"),
+#'   reads_out = file.path(outdir, "demultiplexed.fastq.gz"),
 #'   barcodes_file = bc_allow, 
 #'   TSO_seq = "AAGCAGTGGTATCAACGCAGAGTACATGGG", TSO_prime = 5,
 #'   strand = '-', cutadapt_minimum_length = 10, full_length_only = TRUE
@@ -61,7 +61,7 @@
 #'   # you can mix folders and files. each path will be considered as a sample
 #'   fastq = c(fastq_dir, system.file("extdata", "fastq", "musc_rps24.fastq.gz", package = "FLAMES")),
 #'   stats_out = file.path(outdir, "bc_stat"),
-#'   reads_out = file.path(outdir, "demultiplexed.fq"),
+#'   reads_out = file.path(outdir, c("demultiplexed1.fastq.gz", "demultiplexed2.fastq.gz")),
 #'   barcodes_file = bc_allow, TSO_seq = "CCCATGTACTCTGCGTTGATACCACTGCTT"
 #' )
 #' @md
@@ -123,7 +123,7 @@ find_barcode <- function(
       pattern <- rep(list(pattern), length(fastq))
     }
     stats_out <- default_values(stats_out, paste0(stats_out[[1]], "_", names(fastq), ".tsv"))
-    reads_out <- default_values(reads_out, paste0(reads_out[[1]], "_", names(fastq), ".fastq"))
+    reads_out <- default_values(reads_out, paste0(reads_out[[1]], "_", names(fastq), ".fastq.gz"))
     barcodes_file <- default_values(barcodes_file, rep(barcodes_file[[1]], length(fastq)))
     stats_out <- default_names(stats_out, names(fastq))
     reads_out <- default_names(reads_out, names(fastq))

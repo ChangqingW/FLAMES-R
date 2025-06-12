@@ -141,8 +141,8 @@ MultiSampleSCPipeline <- function(
   pipeline@genome_bam <- file.path(outdir, paste0(names(fastq), "_", "align2genome.bam"))
   pipeline@transcriptome_bam <- file.path(outdir, paste0(names(fastq), "_", "realign2transcript.bam"))
   pipeline@transcriptome_assembly <- file.path(outdir, "transcript_assembly.fa")
-  pipeline@demultiplexed_fastq <- file.path(outdir, paste0(names(fastq), "_matched_reads.fastq"))
-  pipeline@deduped_fastq <- file.path(outdir, paste0(names(fastq), "_matched_reads_dedup.fastq"))
+  pipeline@demultiplexed_fastq <- file.path(outdir, paste0(names(fastq), "_matched_reads.fastq.gz"))
+  pipeline@deduped_fastq <- file.path(outdir, paste0(names(fastq), "_matched_reads_dedup.fastq.gz"))
 
   ## binaries
   if (missing(minimap2) || !is.character(minimap2)) {

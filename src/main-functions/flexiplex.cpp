@@ -424,21 +424,31 @@ void print_stats(const std::string &read_id, const std::vector<Barcode> &vec_bc,
 }
 
 void print_line(const std::string &id, const std::string &read,
-                const std::string &quals, bool reverseCompliment, std::ostream &out_stream) {
+                const std::string &quals, bool reverseCompliment, gzFile gzfile) {
 
   const char delimiter = quals.empty() ? '>' : '@';
 
   // output to the new read file
   if (reverseCompliment) {
-    out_stream << delimiter << id << '\n' << reverse_compliment(read) << '\n';
+    // reformat for gzFile output
+    // out_stream << delimiter << id << '\n' << reverse_compliment(read) << '\n';
+    gzprintf(gzfile, "%c%s\n%s\n", delimiter, id.c_str(), reverse_compliment(read).c_str());
     if (!quals.empty()) {
       // reverse the order of the quality scores
-      out_stream << '+' << id << '\n' << std::string(quals.rbegin(), quals.rend()) << '\n';
+      // out_stream << '+' << id << '\n' << std::string(quals.rbegin(), quals.rend()) << '\n';
+      // gzprintf(gzfile, "+%s\n%s\n", id.c_str(),
+      //          std::string(quals.rbegin(), quals.rend()).c_str());
+      // omit id to reduce file size
+      gzprintf(gzfile, "+\n%s\n",
+              std::string(quals.rbegin(), quals.rend()).c_str());
     }
   } else {
-    out_stream << delimiter << id << '\n' << read << '\n';
+    // out_stream << delimiter << id << '\n' << read << '\n';
+    gzprintf(gzfile, "%c%s\n%s\n", delimiter, id.c_str(), read.c_str());
     if (!quals.empty()) {
-      out_stream << '+' << id << '\n' << quals << '\n';
+      //out_stream << '+' << id << '\n' << quals << '\n';
+      // gzprintf(gzfile, "+%s\n%s\n", id.c_str(), quals.c_str());
+      gzprintf(gzfile, "+\n%s\n", quals.c_str());
     }
   }
 }
@@ -446,8 +456,7 @@ void print_line(const std::string &id, const std::string &read,
 // print fastq or fasta lines..
 void print_read(const std::string &read_id, const std::string &read,
                 const std::string &qual, const std::vector<Barcode> &vec_bc,
-                std::ofstream &outstream,
-                std::unordered_set<std::string> &found_barcodes,
+                gzFile gzfile, std::unordered_set<std::string> &found_barcodes,
                 bool trim_barcodes, bool chimeric, bool reverseCompliment) {
   // loop over the barcodes found... usually will just be one
   for (int b = 0; b < vec_bc.size(); b++) {
@@ -486,7 +495,7 @@ void print_read(const std::string &read_id, const std::string &read,
       b = vec_bc.size(); // force loop to exit after this iteration
     }
 
-    print_line(new_read_id, read_new, qual_new, reverseCompliment, outstream);
+    print_line(new_read_id, read_new, qual_new, reverseCompliment, gzfile);
   }
 }
 
@@ -635,7 +644,8 @@ Rcpp::IntegerVector flexiplex_cpp(Rcpp::StringVector reads_in, Rcpp::String barc
                 << "\n";
   }
 
-  std::ofstream outstream(reads_out, std::ios_base::app);
+  // std::ofstream outstream(reads_out, std::ios_base::app);
+  gzFile outGz = gzopen(reads_out.get_cstring(), "w6");
   /********* FIND BARCODE IN READS ********/
   std::string sequence;
   int r_count = 0; // reads processed
@@ -769,7 +779,7 @@ Rcpp::IntegerVector flexiplex_cpp(Rcpp::StringVector reads_in, Rcpp::String barc
                         out_stat_file);
 
             print_read(sr_v[t][r].read_id + "_+", sr_v[t][r].line,
-                       sr_v[t][r].qual_scores, sr_v[t][r].vec_bc_for, outstream,
+                       sr_v[t][r].qual_scores, sr_v[t][r].vec_bc_for, outGz,
                        found_barcodes, remove_barcodes, sr_v[t][r].chimeric, reverseCompliment);
             reverse(sr_v[t][r].qual_scores.begin(),
                     sr_v[t][r].qual_scores.end());
@@ -778,7 +788,7 @@ Rcpp::IntegerVector flexiplex_cpp(Rcpp::StringVector reads_in, Rcpp::String barc
                                           // once if multiple bc found.
               print_read(sr_v[t][r].read_id + "_-", sr_v[t][r].rev_line,
                          sr_v[t][r].qual_scores, sr_v[t][r].vec_bc_rev,
-                         outstream, found_barcodes, remove_barcodes, sr_v[t][r].chimeric, reverseCompliment);
+                         outGz, found_barcodes, remove_barcodes, sr_v[t][r].chimeric, reverseCompliment);
           }
         }
       }
@@ -786,6 +796,7 @@ Rcpp::IntegerVector flexiplex_cpp(Rcpp::StringVector reads_in, Rcpp::String barc
     kseq_destroy(kseq);
     gzclose(gz_reads_in);
   }
+  gzclose(outGz);
 
   Rcpp::Rcout << "Number of reads processed: " << r_count << "\n";
   Rcpp::Rcout << "Number of reads where at least one barcode was found: "
