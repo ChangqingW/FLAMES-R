@@ -139,6 +139,10 @@ SingleCellPipeline <- function(
     rep(FALSE, length(steps)), names(steps)
   )
 
+  if (pipeline@config$pipeline_parameters$multithread_isoform_identification &
+    !pipeline@config$pipeline_parameters$bambu_isoform_identification) {
+    warning("The multithreaded isoform identification implmentation is currently unstable and may throw errors. Set `multithread_isoform_identification` to `FALSE` in the config file or with `pipeline@config$pipeline_parameters$multithread_isoform_identification <- FALSE` to fall back to the single-threaded implementation. Report to https://github.com/mritchielab/FLAMES/issues if you encounter any problems.")
+  }
   return(pipeline)
 }
 
