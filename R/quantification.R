@@ -67,45 +67,72 @@ wrt_tr_to_csv <- function(
 #'
 #' @param annotation The file path to the annotation file in GFF3 format
 #' @param outdir The path to directory to store all output files.
+#' @param pipeline The pipeline type as a character string, either \code{sc_single_sample}
+#' (single-cell, single-sample), \code{bulk} (bulk, single or multi-sample),
+#' or \code{sc_multi_sample} (single-cell, multiple samples)
 #' @param infq The input FASTQ file.
+#' @param in_bam The input BAM file(s) from the genome alignment step.
+#' @param out_fastq The output FASTQ file(s) to store deduplicated reads.
 #' @param n_process The number of processes to use for parallelization.
-#' @param pipeline The pipeline type as a character string, either \code{sc_single_sample} (single-cell, single-sample),
-#' @param samples A vector of sample names, default to the file names of input fastq files,
+#' @param saturation_curve Logical, whether to generate a saturation curve figure.
+#' @param sample_names A vector of sample names, default to the file names of input fastq files,
 #' or folder names if \code{fastqs} is a vector of folders.
-#' \code{bulk} (bulk, single or multi-sample), or \code{sc_multi_sample} (single-cell, multiple samples)
 #' @param random_seed The random seed for reproducibility.
 #' @return The count matrix will be saved in the output folder as \code{transcript_count.csv.gz}.
 #' @importFrom reticulate import_from_path dict
 #' @importFrom basilisk basiliskRun
-quantify_gene <- function(annotation, outdir, infq, n_process, pipeline = "sc_single_sample", samples = NULL, random_seed = 2024) {
+#' @importFrom cli cli_text
+quantify_gene <- function(
+    annotation, outdir, pipeline = "sc_single_sample",
+    infq, in_bam, out_fastq, n_process, saturation_curve = TRUE,
+    sample_names = NULL, random_seed = 2024) {
   cat(format(Sys.time(), "%X %a %b %d %Y"), "quantify genes \n")
 
   if (grepl("\\.gff3?(\\.gz)?$", annotation)) {
     warning("Annotation in GFF format may cause errors. Please consider using GTF formats.\n")
   }
 
-  genome_bam <- list.files(outdir)[grepl("_?align2genome\\.bam$", list.files(outdir))]
-  cat("Found genome alignment file(s): ")
-  cat(paste0("\t", paste(genome_bam, collapse = "\n\t"), "\n"))
+  if (all(file.exists(in_bam))) {
+    cli::cli_text("Using BAM(s): {.file {in_bam}}")
+  } else {
+    missing_bam <- in_bam[!file.exists(in_bam)]
+    stop(
+      "The following BAM files are missing:\n",
+      paste(missing_bam, collapse = "\n"),
+      "Have you run the genome alignment step before quantifying genes?\n"
+    )
+  }
 
-  if (length(genome_bam) != 1 && grepl("single_sample", pipeline)) {
+  if (length(in_bam) != 1 && grepl("single_sample", pipeline)) {
     stop("Incorrect number of genome alignment files found.\n")
   }
 
   tryCatch(
     {
       basiliskRun(
-        env = flames_env, fun = function(annotation, outdir, pipeline, n_process, infq, samples, random_seed) {
+        env = flames_env,
+        fun = function(
+          annotation, outdir, pipeline, infq, in_bam,
+          out_fastq, n_process, saturation_curve,
+          sample_names, random_seed
+        ) {
           python_path <- system.file("python", package = "FLAMES")
           count <- reticulate::import_from_path("count_gene", python_path)
-          count$quantification(annotation, outdir, pipeline, n_process, infq = infq, sample_names = samples, random_seed = random_seed)
+          count$quantification(
+            annotation, outdir, pipeline, infq, in_bam,
+            out_fastq, n_process, saturation_curve,
+            sample_names, random_seed
+          )
         },
         annotation = annotation,
         outdir = outdir,
         pipeline = pipeline,
-        n_process = n_process,
         infq = infq,
-        samples = samples,
+        in_bam = in_bam,
+        out_fastq = out_fastq,
+        n_process = n_process,
+        saturation_curve = saturation_curve,
+        sample_names = sample_names,
         random_seed = random_seed
       )
     },
@@ -115,7 +142,10 @@ quantify_gene <- function(annotation, outdir, infq, n_process, pipeline = "sc_si
       if (!is.null(py_error)) {
         py_error_message <- py_error$message
         # Print the actual function call
-        cat(annotation, outdir, pipeline, n_process, infq, samples, random_seed)
+        cat(
+          annotation, outdir, pipeline, infq, in_bam,
+          out_fastq, n_process, sample_names, random_seed
+        )
         stop("Error when quantifying genes:\n", py_error_message)
       } else {
         stop("Error when quantifying genes:\n", e$message)

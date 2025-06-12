@@ -82,7 +82,7 @@ R.utils::gunzip(
 find_barcode(
   fastq = system.file("extdata", "fastq", "musc_rps24.fastq.gz", package = "FLAMES"),
   stats_out = file.path(outdir, "bc_stat"),
-  reads_out = file.path(outdir, "demultiplexed.fq"),
+  reads_out = file.path(outdir, "demultiplexed.fastq.gz"),
   barcodes_file = bc_allow, 
   TSO_seq = "AAGCAGTGGTATCAACGCAGAGTACATGGG", TSO_prime = 5,
   strand = '-', cutadapt_minimum_length = 10, full_length_only = TRUE
@@ -98,7 +98,7 @@ result <- find_barcode(
   # you can mix folders and files. each path will be considered as a sample
   fastq = c(fastq_dir, system.file("extdata", "fastq", "musc_rps24.fastq.gz", package = "FLAMES")),
   stats_out = file.path(outdir, "bc_stat"),
-  reads_out = file.path(outdir, "demultiplexed.fq"),
+  reads_out = file.path(outdir, c("demultiplexed1.fastq.gz", "demultiplexed2.fastq.gz")),
   barcodes_file = bc_allow, TSO_seq = "CCCATGTACTCTGCGTTGATACCACTGCTT"
 )
 }

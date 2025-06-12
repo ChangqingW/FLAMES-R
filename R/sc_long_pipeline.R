@@ -323,10 +323,13 @@ setMethod("gene_quantification", "FLAMES.SingleCellPipeline", function(pipeline)
   quantify_gene(
     annotation = pipeline@annotation,
     outdir = pipeline@outdir,
-    infq = infq,
-    n_process = pipeline@config$pipeline_parameters$threads,
     pipeline = pipeline_class,
-    samples = names(pipeline@fastq),
+    infq = infq,
+    in_bam = pipeline@genome_bam,
+    out_fastq = pipeline@deduped_fastq,
+    n_process = pipeline@config$pipeline_parameters$threads,
+    saturation_curve = TRUE,
+    sample_names = names(pipeline@fastq),
     random_seed = pipeline@config$pipeline_parameters$seed
   )
   return(pipeline)
@@ -441,7 +444,7 @@ setMethod("plot_demultiplex", "FLAMES.SingleCellPipeline", function(pipeline) {
 #' )
 #' @export
 sc_long_pipeline <- function(
-    annotation, fastq, outdir, genome_fa, minimap2 = NULL, 
+    annotation, fastq, outdir, genome_fa, minimap2 = NULL,
     barcodes_file = NULL, expect_cell_number = NULL, config_file = NULL) {
   pipeline <- SingleCellPipeline(
     config_file = config_file,
