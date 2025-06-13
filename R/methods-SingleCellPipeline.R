@@ -72,8 +72,8 @@
 #'
 #' @export
 SingleCellPipeline <- function(
-  config_file, outdir, fastq, annotation, genome_fa, minimap2, samtools, 
-  barcodes_file, expect_cell_number
+  config_file, outdir, fastq, annotation, genome_fa, genome_mmi,
+  minimap2, samtools, barcodes_file, expect_cell_number
 ) {
   pipeline <- new("FLAMES.SingleCellPipeline")
   config <- check_arguments(annotation, fastq, genome_bam = NULL, outdir, genome_fa, config_file)$config
@@ -99,6 +99,9 @@ SingleCellPipeline <- function(
   pipeline@fastq <- fastq
   pipeline@annotation <- annotation
   pipeline@genome_fa <- genome_fa
+  if (!missing(genome_mmi) && is.character(genome_mmi)) {
+    pipeline@genome_mmi <- genome_mmi
+  }
   if (!missing(barcodes_file) && is.character(barcodes_file)) {
     pipeline@barcodes_file <- barcodes_file
   } else if (!missing(expect_cell_number) && is.numeric(expect_cell_number)) {

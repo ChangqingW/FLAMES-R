@@ -64,8 +64,8 @@
 #' experiment(ppl)
 #' @export
 MultiSampleSCPipeline <- function(
-  config_file, outdir, fastq, annotation, genome_fa, minimap2, samtools,
-  barcodes_file, expect_cell_number
+  config_file, outdir, fastq, annotation, genome_fa, genome_mmi,
+  minimap2, samtools, barcodes_file, expect_cell_number
 ) {
   pipeline <- new("FLAMES.MultiSampleSCPipeline")
   config <- check_arguments(annotation, fastq, genome_bam = NULL, outdir, genome_fa, config_file)$config
@@ -107,6 +107,9 @@ MultiSampleSCPipeline <- function(
   pipeline@fastq <- fastq
   pipeline@annotation <- annotation
   pipeline@genome_fa <- genome_fa
+  if (!missing(genome_mmi) && is.character(genome_mmi)) {
+    pipeline@genome_mmi <- genome_mmi
+  }
   if (!missing(barcodes_file) && is.character(barcodes_file)) {
     if (length(barcodes_file) == 1) {
       barcodes_file <- rep(barcodes_file, length(fastq))

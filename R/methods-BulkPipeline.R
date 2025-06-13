@@ -32,6 +32,7 @@
 #'   will be processed as an individual sample.
 #' @param annotation The file path to the annotation file in GFF3 / GTF format.
 #' @param genome_fa The file path to the reference genome in FASTA format.
+#' @param genome_mmi (optional) The file path to minimap2's index reference genome.
 #' @param minimap2 (optional) The path to the minimap2 binary. If not provided, FLAMES will
 #'   use a copy from bioconda via \code{basilisk}.
 #' @param samtools (optional) The path to the samtools binary. If not provided, FLAMES will
@@ -84,7 +85,10 @@
 #' experiment(ppl) # get the result as SummarizedExperiment
 #'
 #' @export
-BulkPipeline <- function(config_file, outdir, fastq, annotation, genome_fa, minimap2, samtools) {
+BulkPipeline <- function(
+  config_file, outdir, fastq, annotation, genome_fa, genome_mmi,
+  minimap2, samtools
+) {
   pipeline <- new("FLAMES.Pipeline")
   config <- check_arguments(annotation, fastq, genome_bam = NULL, outdir, genome_fa, config_file)$config
 
@@ -120,6 +124,9 @@ BulkPipeline <- function(config_file, outdir, fastq, annotation, genome_fa, mini
   pipeline@fastq <- fastq
   pipeline@annotation <- annotation
   pipeline@genome_fa <- genome_fa
+  if (!missing(genome_mmi) && is.character(genome_mmi)) {
+    pipeline@genome_mmi <- genome_mmi
+  }
 
   ## outputs
   # metadata
@@ -392,6 +399,13 @@ setMethod("genome_alignment_raw", "FLAMES.Pipeline", function(pipeline, fastqs) 
     )
   }
 
+  # use genome_mmi if provided
+  if (!is.na(pipeline@genome_mmi) && file.exists(pipeline@genome_mmi)) {
+    genome <- pipeline@genome_mmi
+  } else {
+    genome <- pipeline@genome_fa
+  }
+
   res <- lapply(
     seq_along(fastqs),
     function(i) {
@@ -403,7 +417,7 @@ setMethod("genome_alignment_raw", "FLAMES.Pipeline", function(pipeline, fastqs) 
       message(sprintf("Aligning sample %s -> %s", sample, pipeline@genome_bam[i]))
       minimap2_align(
         fq_in = fastqs[i],
-        fa_file = pipeline@genome_fa,
+        fa_file = genome,
         config = pipeline@config,
         outfile = pipeline@genome_bam[i],
         minimap2_args = minimap2_args,
@@ -572,6 +586,43 @@ setMethod("transcript_quantification", "FLAMES.Pipeline", function(pipeline, ref
   } else {
     pipeline@experiment <- x
   }
+  return(pipeline)
+})
+
+#' Index the reference genome for minimap2
+#'
+#' @description Calls minimap2 to index the reference genome.
+#' @param pipeline A FLAMES.Pipeline object.
+#' @param path The file path to save the minimap2 index. If not provided, it will be saved
+#'   to the output directory with the name "genome.mmi".
+#' @param additional_args (optional) Additional arguments to pass to minimap2.
+#' @return A \code{SummarizedExperiment} object, a \code{SingleCellExperiment} object,
+#' or a list of \code{SingleCellExperiment} objects.
+#' @examples
+#' pipeline <- example_pipeline(type = "BulkPipeline")
+#' pipeline <- index_genome(pipeline)
+#' @export
+setGeneric("index_genome", function(pipeline, path, additional_args = NULL) {
+  standardGeneric("index_genome")
+})
+#' @rdname index_genome
+#' @export
+setMethod("index_genome", "FLAMES.Pipeline", function(pipeline, path, additional_args = NULL) {
+  if (missing(path) || !is.character(path) || is.na(path)) {
+    path <- file.path(pipeline@outdir, "genome.mmi")
+  }
+  minimap2_status <- base::system2(
+    command = pipeline@minimap2,
+    args = c("-d", path, pipeline@genome_fa, additional_args),
+  )
+
+  if ((!is.null(base::attr(minimap2_status, "status")) &&
+    base::attr(minimap2_status, "status") != 0) ||
+    minimap2_status != 0) {
+    stop(paste0("error running minimap2:\n", minimap2_status))
+  }
+
+  pipeline@genome_mmi <- path
   return(pipeline)
 })
 

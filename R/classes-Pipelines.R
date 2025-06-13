@@ -7,6 +7,7 @@ setClass(
     fastq = "character",        # Path to the FASTQ files
     annotation = "character",   # Path to the annotation file
     genome_fa = "character",    # Path to the genome FASTA file
+    genome_mmi = "character",   # Path to the indexed genome file (minimap2)
 
     # outputs
     metadata = "list",          # Metadata for the pipeline
@@ -33,6 +34,7 @@ setClass(
     fastq = NA_character_,
     annotation = NA_character_,
     genome_fa = NA_character_,
+    genome_mmi = NA_character_,
     metadata = list(),
     bed = NA_character_,
     genome_bam = NA_character_,
@@ -145,6 +147,7 @@ display_inputs <- function(object, input_slots) {
         }
         for (i in seq_along(paths)) {
           if (is.na(paths[i])) {
+            if (slot == "genome_mmi") next
             if (slot == "barcodes_file" && !is.na(object@expect_cell_number[i])) {
               cli::cli_alert_info("  [not set] (set to expect {object@expect_cell_number[i]} cells)")
             } else {
@@ -264,7 +267,7 @@ display_pipeline_steps <- function(object) {
 #' @export
 setMethod("show", "FLAMES.Pipeline", function(object) {
   display_pipeline_class(object)
-  display_inputs(object, c("fastq", "annotation", "genome_fa"))
+  display_inputs(object, c("fastq", "annotation", "genome_fa", "genome_mmi"))
   display_outputs(object, c(
     "genome_bam", "novel_isoform_annotation", "transcriptome_assembly", "transcriptome_bam"
   ))
@@ -275,7 +278,7 @@ setMethod("show", "FLAMES.Pipeline", function(object) {
 #' @export
 setMethod("show", "FLAMES.SingleCellPipeline", function(object) {
   display_pipeline_class(object)
-  display_inputs(object, c("fastq", "annotation", "genome_fa", "barcodes_file"))
+  display_inputs(object, c("fastq", "annotation", "genome_fa", "genome_mmi", "barcodes_file"))
   display_outputs(object, c(
     "demultiplexed_fastq", "deduped_fastq",
     "genome_bam", "novel_isoform_annotation", "transcriptome_assembly", "transcriptome_bam"
@@ -287,7 +290,7 @@ setMethod("show", "FLAMES.SingleCellPipeline", function(object) {
 #' @export
 setMethod("show", "FLAMES.MultiSampleSCPipeline", function(object) {
   display_pipeline_class(object)
-  display_inputs(object, c("fastq", "annotation", "genome_fa", "barcodes_file"))
+  display_inputs(object, c("fastq", "annotation", "genome_fa", "genome_mmi", "barcodes_file"))
   display_outputs(object, c(
     "novel_isoform_annotation", "transcriptome_assembly",
     "demultiplexed_fastq", "deduped_fastq",
