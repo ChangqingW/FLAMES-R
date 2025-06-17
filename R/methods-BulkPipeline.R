@@ -391,6 +391,116 @@ setMethod("resume_FLAMES", "FLAMES.Pipeline", function(pipeline) {
 
 # Getters and setters
 
+#' Steps to perform in the pipeline
+#'
+#' @param object An object of class `FLAMES.Pipeline`
+#' @return A named logical vector containing all possible steps
+#' for the pipeline. The names of the vector are the step names,
+#' and the values are logical indicating whether the step is
+#' configured to be performed.
+#' @examples
+#' ppl <- example_pipeline()
+#' steps(ppl)
+#' @export
+setGeneric("steps", function(object) standardGeneric("steps"))
+#' @rdname steps
+#' @export
+setMethod("steps", "FLAMES.Pipeline", function(object) {
+  object@steps
+})
+
+#' Set steps to perform in the pipeline
+#'
+#' @param object An object of class `FLAMES.Pipeline`
+#' @param value A named logical vector containing all possible steps
+#' for the pipeline. The names of the vector are the step names,
+#' and the values are logical indicating whether the step is
+#' configured to be performed.
+#' @return An object of class `FLAMES.Pipeline` with the updated steps.
+#' @examples
+#' ppl <- example_pipeline()
+#' steps(ppl) <- c(
+#'   barcode_demultiplex = TRUE,
+#'   genome_alignment = TRUE,
+#'   gene_quantification = TRUE,
+#'   isoform_identification = FALSE,
+#'   read_realignment = FALSE,
+#'   transcript_quantification = TRUE
+#' )
+#' ppl
+#' # or partially change a step:
+#' steps(ppl)["read_realignment"] <- TRUE
+#' ppl
+#' @export
+setGeneric("steps<-", function(object, value) standardGeneric("steps<-"))
+#' @rdname steps-set
+#' @export
+setMethod("steps<-", "FLAMES.Pipeline", function(object, value) {
+  # validate the names
+  if (any(is.null(names(value))) || any(is.na(names(value)))) {
+    stop("Steps must be a named logical vector.")
+  }
+  if (!all(names(value) %in% names(object@steps))) {
+    stop(sprintf(
+      "Invalid step names. Expected: %s, but got: %s",
+      paste(names(object@steps), collapse = ", "),
+      paste(names(value)[!names(value) %in% names(object@steps)], collapse = ", ")
+    ))
+  }
+  object@steps[names(value)] <- value
+  object
+})
+
+#' Get controllers
+#'
+#' @description Gets the controllers for the pipeline.
+#' @param pipeline A FLAMES.Pipeline object.
+#' @return A named list of \code{crew_class_controller} objects, where each
+#' controller corresponds to a step in the pipeline.
+#' @examples
+#' pipeline <- example_pipeline(type = "MultiSampleSCPipeline")
+#' controllers(pipeline) # get the controllers
+#' @export
+setGeneric("controllers", function(pipeline) {
+  standardGeneric("controllers")
+})
+#' @rdname controllers
+#' @export
+setMethod("controllers", "FLAMES.Pipeline", function(pipeline) {
+  pipeline@controllers
+})
+#' Set controllers
+#'
+#' @description Sets the controllers for the pipeline.
+#' @param pipeline A FLAMES.Pipeline object.
+#' @param value A \code{crew_class_controller} object or a named list of
+#' \code{crew_class_controller} objects. If a single controller is provided,
+#' it will be used for all steps in the pipeline. If a named list is provided,
+#' steps with names that match the names of the list will use the corresponding
+#' controller, and steps without a specified controller will use the current R
+#' session.
+#' @return An updated FLAMES.Pipeline object with the specified controllers.
+#' @examples
+#' pipeline <- example_pipeline()
+#' # Only set the genome alignment controller
+#' controllers(pipeline) <- list(genome_alignment = crew::crew_controller_local())
+#' # Same as above
+#' controllers(pipeline)[["genome_alignment"]] <- crew::crew_controller_local()
+#' # Set a controller for all steps
+#' controllers(pipeline) <- crew::crew_controller_local()
+#' # Unset all controllers and use the current R session
+#' controllers(pipeline) <- list()
+#' @export
+setGeneric("controllers<-", function(pipeline, value) {
+  standardGeneric("controllers<-")
+})
+#' @rdname controllers-set
+#' @export
+setMethod("controllers<-", "FLAMES.Pipeline", function(pipeline, value) {
+  pipeline@controllers <- normalize_controllers(value, names(pipeline@steps))
+  pipeline
+})
+
 #' Get pipeline results
 #'
 #' @description This function returns the results of the pipeline as a

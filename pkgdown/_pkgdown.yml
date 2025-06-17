@@ -27,6 +27,8 @@ reference:
     contents:
       - steps
       - steps<-
+      - controllers
+      - controllers<-
       - experiment
   - title: Barcode demultiplexing
     contents:
