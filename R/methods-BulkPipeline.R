@@ -176,10 +176,7 @@ BulkPipeline <- function(
 normalize_controllers <- function(controllers, step_names) {
   if (inherits(controllers, "crew_class_controller")) {
     # Use the same controller for all steps
-    setNames(
-      replicate(length(step_names), controllers, simplify = FALSE),
-      step_names
-    )
+    list(default = controllers)
   } else if (is.list(controllers) && all(sapply(controllers, inherits, "crew_class_controller"))) {
     controllers
   } else {
@@ -253,7 +250,7 @@ setMethod("run_step", "FLAMES.Pipeline", function(pipeline, step, disable_contro
     pipeline@controllers <- list()
   }
 
-  if (!step %in% names(pipeline@controllers)) {
+  if (!any(c(step, "default") %in% names(pipeline@controllers))) {
     pipeline <- switch(step,
       barcode_demultiplex = barcode_demultiplex(pipeline),
       genome_alignment = genome_alignment(pipeline),
@@ -264,7 +261,13 @@ setMethod("run_step", "FLAMES.Pipeline", function(pipeline, step, disable_contro
       stop(sprintf("Unknown step: %s", step))
     )
   } else {
-    controller <- pipeline@controllers[[step]]
+    controller <- if (step %in% names(pipeline@controllers)) {
+      pipeline@controllers[[step]]
+    } else if ("default" %in% names(pipeline@controllers)) {
+      pipeline@controllers[["default"]]
+    } else {
+      stop("Unexpected error: no controller found for step ", step)
+    }
     controller$start()
     controller$push(
       command =
@@ -576,7 +579,7 @@ setMethod("genome_alignment_raw", "FLAMES.Pipeline", function(pipeline, fastqs) 
 
 
   samples <- if (!is.null(names(fastqs))) names(fastqs) else fastqs
-  if (!"genome_alignment" %in% names(pipeline@controllers)) {
+  if (!any(c("genome_alignment", "default") %in% names(pipeline@controllers))) {
     res <- lapply(
       seq_along(fastqs),
       function(i) {
@@ -596,7 +599,13 @@ setMethod("genome_alignment_raw", "FLAMES.Pipeline", function(pipeline, fastqs) 
       }
     )
   } else {
-    controller <- pipeline@controllers[["genome_alignment"]]
+    controller <- if ("genome_alignment" %in% names(pipeline@controllers)) {
+      pipeline@controllers[["genome_alignment"]]
+    } else if ("default" %in% names(pipeline@controllers)) {
+      pipeline@controllers[["default"]]
+    } else {
+      stop("Unexpected error: no controller found for genome alignment step.")
+    }
     controller$start()
     crew_result <- controller$map(
       command = {
@@ -719,7 +728,7 @@ setMethod(
     }
 
     samples <- if (!is.null(names(fastqs))) names(fastqs) else fastqs
-    if (!"read_realignment" %in% names(pipeline@controllers)) {
+    if (!any(c("read_realignment", "default") %in% names(pipeline@controllers))) {
       res <- lapply(
         seq_along(fastqs),
         function(i) {
@@ -742,7 +751,13 @@ setMethod(
         }
       )
     } else {
-      controller <- pipeline@controllers[["read_realignment"]]
+      controller <- if ("read_realignment" %in% names(pipeline@controllers)) {
+        pipeline@controllers[["read_realignment"]]
+      } else if ("default" %in% names(pipeline@controllers)) {
+        pipeline@controllers[["default"]]
+      } else {
+        stop("Unexpected error: no controller found for read realignment step.")
+      }
       controller$start()
       crew_result <- controller$map(
         command = {
