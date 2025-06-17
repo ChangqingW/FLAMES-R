@@ -4,11 +4,14 @@
 \alias{example_pipeline}
 \title{Example pipelins}
 \usage{
-example_pipeline(type = "SingleCellPipeline")
+example_pipeline(type = "SingleCellPipeline", outdir)
 }
 \arguments{
 \item{type}{The type of pipeline to create. Options are "SingleCellPipeline",
 "BulkPipeline", and "MultiSampleSCPipeline".}
+
+\item{outdir}{(Optional) The output directory where the example pipeline will
+be created. If not provided, a temporary directory will be created.}
 }
 \value{
 A pipeline object of the specified type.

@@ -12,7 +12,8 @@ BulkPipeline(
   genome_fa,
   genome_mmi,
   minimap2,
-  samtools
+  samtools,
+  controllers
 )
 }
 \arguments{
@@ -35,6 +36,8 @@ use a copy from bioconda via \code{basilisk}.}
 \item{samtools}{(optional) The path to the samtools binary. If not provided, FLAMES will
 use a copy from bioconda via \code{basilisk}.
 provided, FLAMES will use a copy from bioconda via \code{basilisk}.}
+
+\item{controllers}{(optional, \strong{experimental}) A \code{crew_class_controller} object for running certain steps}
 }
 \value{
 A \code{FLAMES.Pipeline} object. The pipeline could be run using \code{\link{run_FLAMES}}, and / or resumed using \code{\link{resume_FLAMES}}.
@@ -73,13 +76,19 @@ reads <- ShortRead::readFastq(
 )
 dir.create(file.path(outdir, "fastq"))
 ShortRead::writeFastq(reads[1:100],
-  file.path(outdir, "fastq/sample1.fq.gz"), mode = "w", full = FALSE)
+  file.path(outdir, "fastq/sample1.fq.gz"),
+  mode = "w", full = FALSE
+)
 reads <- reads[-(1:100)]
 ShortRead::writeFastq(reads[1:100],
-  file.path(outdir, "fastq/sample2.fq.gz"), mode = "w", full = FALSE)
+  file.path(outdir, "fastq/sample2.fq.gz"),
+  mode = "w", full = FALSE
+)
 reads <- reads[-(1:100)]
 ShortRead::writeFastq(reads,
-  file.path(outdir, "fastq/sample3.fq.gz"), mode = "w", full = FALSE)
+  file.path(outdir, "fastq/sample3.fq.gz"),
+  mode = "w", full = FALSE
+)
 # prepare the reference genome
 genome_fa <- file.path(outdir, "rps24.fa")
 R.utils::gunzip(

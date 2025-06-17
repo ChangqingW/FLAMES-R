@@ -73,7 +73,7 @@
 #' @export
 SingleCellPipeline <- function(
   config_file, outdir, fastq, annotation, genome_fa, genome_mmi,
-  minimap2, samtools, barcodes_file, expect_cell_number
+  minimap2, samtools, barcodes_file, expect_cell_number, controllers
 ) {
   pipeline <- new("FLAMES.SingleCellPipeline")
   config <- check_arguments(annotation, fastq, genome_bam = NULL, outdir, genome_fa, config_file)$config
@@ -142,6 +142,10 @@ SingleCellPipeline <- function(
     rep(FALSE, length(steps)), names(steps)
   )
 
+  if (!missing(controllers)) {
+    pipeline@controllers <- normalize_controllers(controllers, names(steps))
+  }
+
   if (pipeline@config$pipeline_parameters$multithread_isoform_identification &
     !pipeline@config$pipeline_parameters$bambu_isoform_identification) {
     warning("The multithreaded isoform identification implmentation is currently unstable and may throw errors. Set `multithread_isoform_identification` to `FALSE` in the config file or with `pipeline@config$pipeline_parameters$multithread_isoform_identification <- FALSE` to fall back to the single-threaded implementation. Report to https://github.com/mritchielab/FLAMES/issues if you encounter any problems.")
@@ -156,6 +160,8 @@ SingleCellPipeline <- function(
 #'
 #' @param type The type of pipeline to create. Options are "SingleCellPipeline",
 #'   "BulkPipeline", and "MultiSampleSCPipeline".
+#' @param outdir (Optional) The output directory where the example pipeline will
+#'   be created. If not provided, a temporary directory will be created.
 #'
 #' @return A pipeline object of the specified type.
 #'
@@ -171,11 +177,13 @@ SingleCellPipeline <- function(
 #' @importFrom ShortRead readFastq writeFastq
 #'
 #' @export
-example_pipeline <- function(type = "SingleCellPipeline") {
+example_pipeline <- function(type = "SingleCellPipeline", outdir) {
+  if (missing(outdir)) {
+    outdir <- tempfile()
+    dir.create(outdir)
+  }
   switch(type,
     "SingleCellPipeline" = {
-      outdir <- tempfile()
-      dir.create(outdir)
       bc_allow <- file.path(outdir, "bc_allow.tsv")
       genome_fa <- file.path(outdir, "rps24.fa")
       R.utils::gunzip(
@@ -199,8 +207,6 @@ example_pipeline <- function(type = "SingleCellPipeline") {
       reads <- ShortRead::readFastq(
         system.file("extdata", "fastq", "musc_rps24.fastq.gz", package = "FLAMES")
       )
-      outdir <- tempfile()
-      dir.create(outdir)
       dir.create(file.path(outdir, "fastq"))
       genome_fa <- file.path(outdir, "rps24.fa")
       R.utils::gunzip(
@@ -231,8 +237,6 @@ example_pipeline <- function(type = "SingleCellPipeline") {
       reads <- ShortRead::readFastq(
         system.file("extdata", "fastq", "musc_rps24.fastq.gz", package = "FLAMES")
       )
-      outdir <- tempfile()
-      dir.create(outdir)
       dir.create(file.path(outdir, "fastq"))
       bc_allow <- file.path(outdir, "bc_allow.tsv")
       genome_fa <- file.path(outdir, "rps24.fa")
@@ -261,7 +265,8 @@ example_pipeline <- function(type = "SingleCellPipeline") {
           "sample3" = file.path(outdir, "fastq", "sample3.fq.gz")),
         annotation = system.file("extdata", "rps24.gtf.gz", package = "FLAMES"),
         genome_fa = genome_fa,
-        barcodes_file = rep(bc_allow, 4)
+        barcodes_file = rep(bc_allow, 4),
+        controllers = crew::crew_controller_local()
       )
     }
   )

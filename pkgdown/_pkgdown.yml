@@ -37,6 +37,7 @@ reference:
   - title: Alignment
     contents:
       - annotation_to_fasta
+      - index_genome
   - title: Transcript identification
     contents:
       - find_isoform

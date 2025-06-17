@@ -26,7 +26,9 @@ setClass(
     steps = "logical",           # Steps to perform
     completed_steps = "logical", # Completed steps
     durations = "difftime",      # Durations of each step
-    last_error = "list"
+    last_error = "list",
+
+    controllers = "list"
   ),
   prototype = list(
     config = list(),
@@ -48,7 +50,9 @@ setClass(
     steps = logical(),
     completed_steps = logical(),
     durations = structure(numeric(0), class = "difftime", units = "secs"),
-    last_error = list()
+    last_error = list(),
+
+    controllers = list()
   )
 )
 
@@ -127,6 +131,7 @@ display_inputs <- function(object, input_slots) {
   for (slot in input_slots) {
     paths <- slot(object, slot)
     if (length(paths) == 0 || (length(paths) == 1 && is.na(paths))) {
+      if (slot == "genome_mmi") next
       if (slot == "barcodes_file" && !is.na(object@expect_cell_number)) {
         cli::cli_alert_info("{.field {slot}}: [not set] (set to expect {object@expect_cell_number} cells)")
       } else {

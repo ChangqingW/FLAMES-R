@@ -44,13 +44,19 @@ reads <- ShortRead::readFastq(
 )
 dir.create(file.path(outdir, "fastq"))
 ShortRead::writeFastq(reads[1:100],
-  file.path(outdir, "fastq/sample1.fq.gz"), mode = "w", full = FALSE)
+  file.path(outdir, "fastq/sample1.fq.gz"),
+  mode = "w", full = FALSE
+)
 reads <- reads[-(1:100)]
 ShortRead::writeFastq(reads[1:100],
-  file.path(outdir, "fastq/sample2.fq.gz"), mode = "w", full = FALSE)
+  file.path(outdir, "fastq/sample2.fq.gz"),
+  mode = "w", full = FALSE
+)
 reads <- reads[-(1:100)]
 ShortRead::writeFastq(reads,
-  file.path(outdir, "fastq/sample3.fq.gz"), mode = "w", full = FALSE)
+  file.path(outdir, "fastq/sample3.fq.gz"),
+  mode = "w", full = FALSE
+)
 # prepare the reference genome
 genome_fa <- file.path(outdir, "rps24.fa")
 R.utils::gunzip(

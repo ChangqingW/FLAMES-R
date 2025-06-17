@@ -5,9 +5,9 @@
 \alias{run_step,FLAMES.Pipeline-method}
 \title{Execute a single step of the FLAMES pipeline}
 \usage{
-run_step(pipeline, step)
+run_step(pipeline, step, disable_controller = TRUE)
 
-\S4method{run_step}{FLAMES.Pipeline}(pipeline, step)
+\S4method{run_step}{FLAMES.Pipeline}(pipeline, step, disable_controller = TRUE)
 }
 \arguments{
 \item{pipeline}{A FLAMES.Pipeline object.}
@@ -15,6 +15,9 @@ run_step(pipeline, step)
 \item{step}{The step to run. One of "barcode_demultiplex", "genome_alignment",
  "gene_quantification", "isoform_identification", "read_realignment", or
 "transcript_quantification".}
+
+\item{disable_controller}{(optional) If TRUE, the step will be executed in
+the current R session, instead of using crew controllers.}
 }
 \value{
 An updated FLAMES.Pipeline object.

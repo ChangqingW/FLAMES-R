@@ -14,7 +14,8 @@ SingleCellPipeline(
   minimap2,
   samtools,
   barcodes_file,
-  expect_cell_number
+  expect_cell_number,
+  controllers
 )
 }
 \arguments{
@@ -42,6 +43,8 @@ provided, FLAMES will use a copy from bioconda via \code{basilisk}.}
 
 \item{expect_cell_number}{The expected number of cells in the sample. This is used if
 \code{barcodes_file} is not provided. See \code{BLAZE} for more details.}
+
+\item{controllers}{(optional, \strong{experimental}) A \code{crew_class_controller} object for running certain steps}
 }
 \value{
 A \code{FLAMES.SingleCellPipeline} object. The pipeline can be run using

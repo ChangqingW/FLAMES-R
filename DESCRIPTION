@@ -33,6 +33,7 @@ Imports:
     BiocParallel,
     Biostrings,
     BiocGenerics,
+    crew,
     circlize,
     ComplexHeatmap,
     cowplot,

@@ -38,7 +38,7 @@
 #' @param samtools (optional) The path to the samtools binary. If not provided, FLAMES will
 #'   use a copy from bioconda via \code{basilisk}.
 #'   provided, FLAMES will use a copy from bioconda via \code{basilisk}.
-#'
+#' @param controllers (optional, **experimental**) A \code{crew_class_controller} object for running certain steps
 #' @return A \code{FLAMES.Pipeline} object. The pipeline could be run using \code{\link{run_FLAMES}}, and / or resumed using \code{\link{resume_FLAMES}}.
 #'
 #' @seealso
@@ -57,13 +57,19 @@
 #' )
 #' dir.create(file.path(outdir, "fastq"))
 #' ShortRead::writeFastq(reads[1:100],
-#'   file.path(outdir, "fastq/sample1.fq.gz"), mode = "w", full = FALSE)
+#'   file.path(outdir, "fastq/sample1.fq.gz"),
+#'   mode = "w", full = FALSE
+#' )
 #' reads <- reads[-(1:100)]
 #' ShortRead::writeFastq(reads[1:100],
-#'   file.path(outdir, "fastq/sample2.fq.gz"), mode = "w", full = FALSE)
+#'   file.path(outdir, "fastq/sample2.fq.gz"),
+#'   mode = "w", full = FALSE
+#' )
 #' reads <- reads[-(1:100)]
 #' ShortRead::writeFastq(reads,
-#'   file.path(outdir, "fastq/sample3.fq.gz"), mode = "w", full = FALSE)
+#'   file.path(outdir, "fastq/sample3.fq.gz"),
+#'   mode = "w", full = FALSE
+#' )
 #' # prepare the reference genome
 #' genome_fa <- file.path(outdir, "rps24.fa")
 #' R.utils::gunzip(
@@ -86,9 +92,8 @@
 #'
 #' @export
 BulkPipeline <- function(
-  config_file, outdir, fastq, annotation, genome_fa, genome_mmi,
-  minimap2, samtools
-) {
+    config_file, outdir, fastq, annotation, genome_fa, genome_mmi,
+    minimap2, samtools, controllers) {
   pipeline <- new("FLAMES.Pipeline")
   config <- check_arguments(annotation, fastq, genome_bam = NULL, outdir, genome_fa, config_file)$config
 
@@ -157,10 +162,29 @@ BulkPipeline <- function(
   pipeline@completed_steps <- setNames(
     rep(FALSE, length(steps)), names(steps)
   )
+
+  if (!missing(controllers)) {
+    pipeline@controllers <- normalize_controllers(controllers, names(steps))
+  }
+
   # TODO: add resume option
   # validate if e.g. genome_bam exists, skip genome alignment step
 
   return(pipeline)
+}
+
+normalize_controllers <- function(controllers, step_names) {
+  if (inherits(controllers, "crew_class_controller")) {
+    # Use the same controller for all steps
+    setNames(
+      replicate(length(step_names), controllers, simplify = FALSE),
+      step_names
+    )
+  } else if (is.list(controllers) && all(sapply(controllers, inherits, "crew_class_controller"))) {
+    controllers
+  } else {
+    stop("`controllers` must be a crew_class_controller or a named list of crew_class_controller objects.")
+  }
 }
 
 setGeneric("prerun_check", function(pipeline, overwrite = FALSE) {
@@ -202,6 +226,8 @@ setMethod("prerun_check", "FLAMES.Pipeline", function(pipeline, overwrite = FALS
 #' @param step The step to run. One of "barcode_demultiplex", "genome_alignment",
 #'   "gene_quantification", "isoform_identification", "read_realignment", or
 #'  "transcript_quantification".
+#' @param disable_controller (optional) If TRUE, the step will be executed in
+#' the current R session, instead of using crew controllers.
 #' @return An updated FLAMES.Pipeline object.
 #'
 #' @seealso
@@ -213,24 +239,52 @@ setMethod("prerun_check", "FLAMES.Pipeline", function(pipeline, overwrite = FALS
 #' pipeline <- run_step(pipeline, "genome_alignment")
 #'
 #' @export
-setGeneric("run_step", function(pipeline, step) {
+setGeneric("run_step", function(pipeline, step, disable_controller = TRUE) {
   standardGeneric("run_step")
 })
 #' @importFrom cli cli_rule
 #' @rdname run_step
 #' @export
-setMethod("run_step", "FLAMES.Pipeline", function(pipeline, step) {
+setMethod("run_step", "FLAMES.Pipeline", function(pipeline, step, disable_controller = TRUE) {
   start_time <- Sys.time()
   cli::cli_rule(sprintf("Running step: %s @ %s", step, date()))
-  pipeline <- switch(step,
-    barcode_demultiplex = barcode_demultiplex(pipeline),
-    genome_alignment = genome_alignment(pipeline),
-    gene_quantification = gene_quantification(pipeline),
-    isoform_identification = isoform_identification(pipeline),
-    read_realignment = read_realignment(pipeline),
-    transcript_quantification = transcript_quantification(pipeline),
-    stop(sprintf("Unknown step: %s", step))
-  )
+  controllers <- pipeline@controllers
+  if (disable_controller) {
+    pipeline@controllers <- list()
+  }
+
+  if (!step %in% names(pipeline@controllers)) {
+    pipeline <- switch(step,
+      barcode_demultiplex = barcode_demultiplex(pipeline),
+      genome_alignment = genome_alignment(pipeline),
+      gene_quantification = gene_quantification(pipeline),
+      isoform_identification = isoform_identification(pipeline),
+      read_realignment = read_realignment(pipeline),
+      transcript_quantification = transcript_quantification(pipeline),
+      stop(sprintf("Unknown step: %s", step))
+    )
+  } else {
+    controller <- pipeline@controllers[[step]]
+    controller$start()
+    controller$push(
+      command =
+        switch(step,
+          barcode_demultiplex = FLAMES:::barcode_demultiplex(pipeline),
+          genome_alignment = FLAMES:::genome_alignment(pipeline),
+          gene_quantification = FLAMES:::gene_quantification(pipeline),
+          isoform_identification = FLAMES:::isoform_identification(pipeline),
+          read_realignment = FLAMES:::read_realignment(pipeline),
+          transcript_quantification = FLAMES:::transcript_quantification(pipeline),
+          stop(sprintf("Unknown step: %s", step))
+        ),
+      data = list(pipeline = pipeline, step = step),
+    )
+    controller$wait(mode = "all")
+    task <- controller$pop()
+    pipeline <- task$result[[1]]
+    controller$terminate()
+  }
+
   end_time <- Sys.time()
   pipeline@completed_steps[step] <- TRUE
   # clear last error if it was successfully completed
@@ -238,6 +292,10 @@ setMethod("run_step", "FLAMES.Pipeline", function(pipeline, step) {
     pipeline@last_error <- list()
   }
   pipeline@durations[step] <- difftime(end_time, start_time, units = "secs")
+  if (disable_controller) {
+    pipeline@controllers <- controllers
+  }
+
   return(pipeline)
 })
 
@@ -266,7 +324,7 @@ setMethod("run_FLAMES", "FLAMES.Pipeline", function(pipeline) {
     # S4 objects are immutable
     # Need R6 for passing by reference
     pipeline <- tryCatch(
-      run_step(pipeline, step),
+      run_step(pipeline, step, disable_controller = FALSE),
       error = function(e) {
         warning(sprintf("Error in step %s: %s, pipeline stopped.", step, e$message))
         pipeline@last_error <- list(
@@ -406,29 +464,68 @@ setMethod("genome_alignment_raw", "FLAMES.Pipeline", function(pipeline, fastqs) 
     genome <- pipeline@genome_fa
   }
 
-  res <- lapply(
-    seq_along(fastqs),
-    function(i) {
-      if (!is.null(names(fastqs))) {
-        sample <- names(fastqs)[i]
-      } else {
-        sample <- fastqs[i]
+
+  samples <- if (!is.null(names(fastqs))) names(fastqs) else fastqs
+  if (!"genome_alignment" %in% names(pipeline@controllers)) {
+    res <- lapply(
+      seq_along(fastqs),
+      function(i) {
+        message(sprintf("Aligning sample %s -> %s", samples[i], pipeline@genome_bam[i]))
+        FLAMES:::minimap2_align(
+          fq_in = fastqs[i],
+          fa_file = genome,
+          config = pipeline@config,
+          outfile = pipeline@genome_bam[i],
+          minimap2_args = minimap2_args,
+          sort_by = "coordinates",
+          minimap2 = pipeline@minimap2,
+          samtools = pipeline@samtools,
+          threads = pipeline@config$pipeline_parameters$threads,
+          tmpdir = pipeline@outdir
+        )
       }
-      message(sprintf("Aligning sample %s -> %s", sample, pipeline@genome_bam[i]))
-      minimap2_align(
-        fq_in = fastqs[i],
-        fa_file = genome,
+    )
+  } else {
+    controller <- pipeline@controllers[["genome_alignment"]]
+    controller$start()
+    crew_result <- controller$map(
+      command = {
+        minimap2_align(
+          fq_in = fastqs[j],
+          fa_file = genome,
+          config = config,
+          outfile = genome_bam[j],
+          minimap2_args = minimap2_args,
+          sort_by = "coordinates",
+          minimap2 = minimap2,
+          samtools = samtools,
+          threads = threads,
+          tmpdir = outdir
+        )
+      },
+      iterate = list(j = seq_along(fastqs)),
+      data = list(
+        minimap2_align = FLAMES:::minimap2_align,
+        samples = samples,
+        fastqs = fastqs,
+        genome_bam = pipeline@genome_bam,
+        genome = genome,
         config = pipeline@config,
-        outfile = pipeline@genome_bam[i],
         minimap2_args = minimap2_args,
-        sort_by = "coordinates",
         minimap2 = pipeline@minimap2,
         samtools = pipeline@samtools,
         threads = pipeline@config$pipeline_parameters$threads,
-        tmpdir = pipeline@outdir
+        outdir = pipeline@outdir
       )
-    }
-  )
+    )
+    controller$terminate()
+    res <- crew_result$result
+    message("Alignment complete for the following samples:")
+    message(
+      paste0(samples, " ->", pipeline@genome_bam, collapse = "\n")
+    )
+  }
+
   if (!is.null(names(fastqs))) {
     names(res) <- names(fastqs)
   }
@@ -511,29 +608,70 @@ setMethod(
       }
     }
 
-    res <- lapply(
-      seq_along(fastqs),
-      function(i) {
-        if (!is.null(names(fastqs))) {
-          sample <- names(fastqs)[i]
-        } else {
-          sample <- fastqs[i]
+    samples <- if (!is.null(names(fastqs))) names(fastqs) else fastqs
+    if (!"read_realignment" %in% names(pipeline@controllers)) {
+      res <- lapply(
+        seq_along(fastqs),
+        function(i) {
+          message(sprintf(
+            "Realigning sample %s -> %s",
+            samples[i], pipeline@transcriptome_bam[i]
+          ))
+          minimap2_align(
+            fq_in = fastqs[i],
+            fa_file = pipeline@transcriptome_assembly,
+            config = pipeline@config,
+            outfile = pipeline@transcriptome_bam[i],
+            minimap2_args = minimap2_args,
+            sort_by = sort_by,
+            minimap2 = pipeline@minimap2,
+            samtools = pipeline@samtools,
+            threads = pipeline@config$pipeline_parameters$threads,
+            tmpdir = pipeline@outdir
+          )
         }
-        message(sprintf("Realigning sample %s -> %s", sample, pipeline@transcriptome_bam[i]))
-        minimap2_align(
-          fq_in = fastqs[i],
-          fa_file = pipeline@transcriptome_assembly,
+      )
+    } else {
+      controller <- pipeline@controllers[["read_realignment"]]
+      controller$start()
+      crew_result <- controller$map(
+        command = {
+          minimap2_align(
+            fq_in = fastqs[j],
+            fa_file = transcriptome_assembly,
+            config = config,
+            outfile = transcriptome_bam[j],
+            minimap2_args = minimap2_args,
+            sort_by = sort_by,
+            minimap2 = minimap2,
+            samtools = samtools,
+            threads = config$pipeline_parameters$threads,
+            tmpdir = outdir
+          )
+        },
+        iterate = list(j = seq_along(fastqs)),
+        data = list(
+          minimap2_align = FLAMES:::minimap2_align,
+          samples = samples,
+          fastqs = fastqs,
+          transcriptome_assembly = pipeline@transcriptome_assembly,
           config = pipeline@config,
-          outfile = pipeline@transcriptome_bam[i],
+          transcriptome_bam = pipeline@transcriptome_bam,
           minimap2_args = minimap2_args,
           sort_by = sort_by,
           minimap2 = pipeline@minimap2,
           samtools = pipeline@samtools,
-          threads = pipeline@config$pipeline_parameters$threads,
-          tmpdir = pipeline@outdir
+          outdir = pipeline@outdir
         )
-      }
-    )
+      )
+      controller$terminate()
+      res <- crew_result$result
+      message("Realignment complete for the following samples:")
+      message(
+        paste0(samples, " ->", pipeline@transcriptome_bam, collapse = "\n")
+      )
+    }
+
     if (!is.null(names(fastqs))) {
       names(res) <- names(fastqs)
     }
@@ -567,8 +705,7 @@ setMethod("transcript_quantification", "FLAMES.Pipeline", function(pipeline, ref
   } else {
     annotation <- pipeline@novel_isoform_annotation
   }
-  pipeline_class <- switch(
-    class(pipeline),
+  pipeline_class <- switch(class(pipeline),
     "FLAMES.Pipeline" = "bulk",
     "FLAMES.SingleCellPipeline" = "sc_single_sample",
     "FLAMES.MultiSampleSCPipeline" = "sc_multi_sample"
@@ -628,7 +765,7 @@ setMethod("index_genome", "FLAMES.Pipeline", function(pipeline, path, additional
 
 # Deprecated functions
 #' Pipeline for bulk long read RNA-seq data processing (deprecated)
-#' 
+#'
 #' @description This function is deprecated. Use \code{\link{BulkPipeline}} instead.
 #'
 #' @param annotation The file path to the annotation file in GFF3 / GTF format.
@@ -656,13 +793,19 @@ setMethod("index_genome", "FLAMES.Pipeline", function(pipeline, path, additional
 #' )
 #' dir.create(file.path(outdir, "fastq"))
 #' ShortRead::writeFastq(reads[1:100],
-#'   file.path(outdir, "fastq/sample1.fq.gz"), mode = "w", full = FALSE)
+#'   file.path(outdir, "fastq/sample1.fq.gz"),
+#'   mode = "w", full = FALSE
+#' )
 #' reads <- reads[-(1:100)]
 #' ShortRead::writeFastq(reads[1:100],
-#'   file.path(outdir, "fastq/sample2.fq.gz"), mode = "w", full = FALSE)
+#'   file.path(outdir, "fastq/sample2.fq.gz"),
+#'   mode = "w", full = FALSE
+#' )
 #' reads <- reads[-(1:100)]
 #' ShortRead::writeFastq(reads,
-#'   file.path(outdir, "fastq/sample3.fq.gz"), mode = "w", full = FALSE)
+#'   file.path(outdir, "fastq/sample3.fq.gz"),
+#'   mode = "w", full = FALSE
+#' )
 #' # prepare the reference genome
 #' genome_fa <- file.path(outdir, "rps24.fa")
 #' R.utils::gunzip(

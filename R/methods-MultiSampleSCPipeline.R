@@ -65,7 +65,7 @@
 #' @export
 MultiSampleSCPipeline <- function(
   config_file, outdir, fastq, annotation, genome_fa, genome_mmi,
-  minimap2, samtools, barcodes_file, expect_cell_number
+  minimap2, samtools, barcodes_file, expect_cell_number, controllers
 ) {
   pipeline <- new("FLAMES.MultiSampleSCPipeline")
   config <- check_arguments(annotation, fastq, genome_bam = NULL, outdir, genome_fa, config_file)$config
@@ -169,6 +169,10 @@ MultiSampleSCPipeline <- function(
   pipeline@completed_steps <- setNames(
     rep(FALSE, length(steps)), names(steps)
   )
+
+  if (!missing(controllers)) {
+    pipeline@controllers <- normalize_controllers(controllers, names(steps))
+  }
 
   return(pipeline)
 }
