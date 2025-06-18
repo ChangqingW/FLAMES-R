@@ -47,7 +47,7 @@ perticular isoform
 }
 \examples{
 ppl <- example_pipeline("BulkPipeline")
-ppl@steps["isoform_identification"] <- FALSE
+steps(ppl)["isoform_identification"] <- FALSE
 ppl <- run_step(ppl, "read_realignment")
 # Plot the coverages directly from the BAM file
 plot_coverage(ppl@transcriptome_bam[[1]])

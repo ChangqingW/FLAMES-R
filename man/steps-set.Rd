@@ -5,12 +5,12 @@
 \alias{steps<-,FLAMES.Pipeline-method}
 \title{Set steps to perform in the pipeline}
 \usage{
-steps(object) <- value
+steps(pipeline) <- value
 
-\S4method{steps}{FLAMES.Pipeline}(object) <- value
+\S4method{steps}{FLAMES.Pipeline}(pipeline) <- value
 }
 \arguments{
-\item{object}{An object of class `FLAMES.Pipeline`}
+\item{pipeline}{An object of class `FLAMES.Pipeline`}
 
 \item{value}{A named logical vector containing all possible steps
 for the pipeline. The names of the vector are the step names,
@@ -18,7 +18,7 @@ and the values are logical indicating whether the step is
 configured to be performed.}
 }
 \value{
-An object of class `FLAMES.Pipeline` with the updated steps.
+An pipeline of class `FLAMES.Pipeline` with the updated steps.
 }
 \description{
 Set steps to perform in the pipeline

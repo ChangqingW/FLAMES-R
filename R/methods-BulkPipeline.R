@@ -405,7 +405,7 @@ setMethod("resume_FLAMES", "FLAMES.Pipeline", function(pipeline) {
 
 #' Steps to perform in the pipeline
 #'
-#' @param object An object of class `FLAMES.Pipeline`
+#' @param pipeline An object of class `FLAMES.Pipeline`
 #' @return A named logical vector containing all possible steps
 #' for the pipeline. The names of the vector are the step names,
 #' and the values are logical indicating whether the step is
@@ -414,21 +414,21 @@ setMethod("resume_FLAMES", "FLAMES.Pipeline", function(pipeline) {
 #' ppl <- example_pipeline()
 #' steps(ppl)
 #' @export
-setGeneric("steps", function(object) standardGeneric("steps"))
+setGeneric("steps", function(pipeline) standardGeneric("steps"))
 #' @rdname steps
 #' @export
-setMethod("steps", "FLAMES.Pipeline", function(object) {
-  object@steps
+setMethod("steps", "FLAMES.Pipeline", function(pipeline) {
+  pipeline@steps
 })
 
 #' Set steps to perform in the pipeline
 #'
-#' @param object An object of class `FLAMES.Pipeline`
+#' @param pipeline An object of class `FLAMES.Pipeline`
 #' @param value A named logical vector containing all possible steps
 #' for the pipeline. The names of the vector are the step names,
 #' and the values are logical indicating whether the step is
 #' configured to be performed.
-#' @return An object of class `FLAMES.Pipeline` with the updated steps.
+#' @return An pipeline of class `FLAMES.Pipeline` with the updated steps.
 #' @examples
 #' ppl <- example_pipeline()
 #' steps(ppl) <- c(
@@ -444,23 +444,64 @@ setMethod("steps", "FLAMES.Pipeline", function(object) {
 #' steps(ppl)["read_realignment"] <- TRUE
 #' ppl
 #' @export
-setGeneric("steps<-", function(object, value) standardGeneric("steps<-"))
+setGeneric("steps<-", function(pipeline, value) standardGeneric("steps<-"))
 #' @rdname steps-set
 #' @export
-setMethod("steps<-", "FLAMES.Pipeline", function(object, value) {
+setMethod("steps<-", "FLAMES.Pipeline", function(pipeline, value) {
   # validate the names
   if (any(is.null(names(value))) || any(is.na(names(value)))) {
     stop("Steps must be a named logical vector.")
   }
-  if (!all(names(value) %in% names(object@steps))) {
+  if (!all(names(value) %in% names(pipeline@steps))) {
     stop(sprintf(
       "Invalid step names. Expected: %s, but got: %s",
-      paste(names(object@steps), collapse = ", "),
-      paste(names(value)[!names(value) %in% names(object@steps)], collapse = ", ")
+      paste(names(pipeline@steps), collapse = ", "),
+      paste(names(value)[!names(value) %in% names(pipeline@steps)], collapse = ", ")
     ))
   }
-  object@steps[names(value)] <- value
-  object
+  pipeline@steps[names(value)] <- value
+  pipeline
+})
+
+#' Get pipeline configurations
+#'
+#' @description This function returns the configuration of the pipeline.
+#' @param pipeline An object of class `FLAMES.Pipeline`.
+#' @return A list containing the configuration of the pipeline.
+#' @examples
+#' pipeline <- example_pipeline(type = "BulkPipeline")
+#' config(pipeline)
+#' @export
+setGeneric("config", function(pipeline) standardGeneric("config"))
+#' @rdname config
+#' @export
+setMethod("config", "FLAMES.Pipeline", function(pipeline) {
+  pipeline@config
+})
+
+#' Set pipeline configurations
+#'
+#' @description This function sets the configuration of the pipeline.
+#' @param pipeline An pipeline of class `FLAMES.Pipeline`.
+#' @param value A list containing the configuration of the pipeline, or
+#' a path to a JSON configuration file.
+#' @return An pipeline of class `FLAMES.Pipeline` with the updated configuration.
+#' @examples
+#' pipeline <- example_pipeline(type = "BulkPipeline")
+#' # Set a new configuration
+#' config(pipeline) <- create_config(outdir = tempdir())
+#' @export
+setGeneric("config<-", function(pipeline, value) standardGeneric("config<-"))
+#' @rdname config-set
+#' @export
+setMethod("config<-", "FLAMES.Pipeline", function(pipeline, value) {
+  if (is.character(value) && file.exists(value)) {
+    value <- jsonlite::fromJSON(value)
+  } else if (!is.list(value)) {
+    stop("Configuration must be a list or a path to a JSON configuration file.")
+  }
+  pipeline@config <- value
+  pipeline
 })
 
 #' Get controllers

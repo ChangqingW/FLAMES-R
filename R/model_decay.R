@@ -183,7 +183,7 @@ convolution_filter <- function(x, threshold = 0.15, width = 2, trim = 0.05) {
 #' }
 #' @examples
 #' ppl <- example_pipeline("BulkPipeline")
-#' ppl@steps["isoform_identification"] <- FALSE
+#' steps(ppl)["isoform_identification"] <- FALSE
 #' ppl <- run_step(ppl, "read_realignment")
 #' x <- get_coverage(ppl@transcriptome_bam[[1]])
 #' head(x)
@@ -237,7 +237,7 @@ get_coverage <- function(bam, min_counts = 10, remove_UTR = FALSE, annotation) {
 #' pass the filter
 #' @examples
 #' ppl <- example_pipeline("BulkPipeline")
-#' ppl@steps["isoform_identification"] <- FALSE
+#' steps(ppl)["isoform_identification"] <- FALSE
 #' ppl <- run_step(ppl, "read_realignment")
 #' x <- get_coverage(ppl@transcriptome_bam[[1]])
 #' nrow(x)
@@ -300,7 +300,7 @@ filter_coverage <- function(x, filter_fn = convolution_filter) {
 #' @return a ggplot2 object of the coverage plot(s)
 #' @examples
 #' ppl <- example_pipeline("BulkPipeline")
-#' ppl@steps["isoform_identification"] <- FALSE
+#' steps(ppl)["isoform_identification"] <- FALSE
 #' ppl <- run_step(ppl, "read_realignment")
 #' # Plot the coverages directly from the BAM file
 #' plot_coverage(ppl@transcriptome_bam[[1]])

@@ -5,12 +5,12 @@
 \alias{steps,FLAMES.Pipeline-method}
 \title{Steps to perform in the pipeline}
 \usage{
-steps(object)
+steps(pipeline)
 
-\S4method{steps}{FLAMES.Pipeline}(object)
+\S4method{steps}{FLAMES.Pipeline}(pipeline)
 }
 \arguments{
-\item{object}{An object of class `FLAMES.Pipeline`}
+\item{pipeline}{An object of class `FLAMES.Pipeline`}
 }
 \value{
 A named logical vector containing all possible steps
