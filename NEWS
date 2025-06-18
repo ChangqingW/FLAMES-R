@@ -19,3 +19,7 @@ Changes in version 2.3.1 (2025-05-22)
 + Refactored pipelines to S4 classes
 + Included minimap2, oarfish binaries
 + Added a permutation based DTU method in sc_DTU_analysis
+Changes in version 2.3.3 (2025-06-18)
++ Gzipped FASTQ outputs to reduce file size
++ Support adding minimap2 indexed genome (as `genome_mmi`)
++ Added crew controllers support, steps can now be submitted to slurm etc.
