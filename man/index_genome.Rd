@@ -5,9 +5,9 @@
 \alias{index_genome,FLAMES.Pipeline-method}
 \title{Index the reference genome for minimap2}
 \usage{
-index_genome(pipeline, path, additional_args = NULL)
+index_genome(pipeline, path, additional_args = c("-k", "14"))
 
-\S4method{index_genome}{FLAMES.Pipeline}(pipeline, path, additional_args = NULL)
+\S4method{index_genome}{FLAMES.Pipeline}(pipeline, path, additional_args = c("-k", "14"))
 }
 \arguments{
 \item{pipeline}{A FLAMES.Pipeline object.}

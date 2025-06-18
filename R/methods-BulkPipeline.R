@@ -873,25 +873,22 @@ setMethod("transcript_quantification", "FLAMES.Pipeline", function(pipeline, ref
 #' pipeline <- example_pipeline(type = "BulkPipeline")
 #' pipeline <- index_genome(pipeline)
 #' @export
-setGeneric("index_genome", function(pipeline, path, additional_args = NULL) {
+setGeneric("index_genome", function(pipeline, path, additional_args = c("-k", "14")) {
   standardGeneric("index_genome")
 })
 #' @rdname index_genome
 #' @export
-setMethod("index_genome", "FLAMES.Pipeline", function(pipeline, path, additional_args = NULL) {
+setMethod("index_genome", "FLAMES.Pipeline", function(pipeline, path, additional_args = c("-k", "14")) {
   if (missing(path) || !is.character(path) || is.na(path)) {
     path <- file.path(pipeline@outdir, "genome.mmi")
   }
-  minimap2_status <- base::system2(
-    command = pipeline@minimap2,
-    args = c("-d", path, pipeline@genome_fa, additional_args),
-  )
 
-  if ((!is.null(base::attr(minimap2_status, "status")) &&
-    base::attr(minimap2_status, "status") != 0) ||
-    minimap2_status != 0) {
-    stop(paste0("error running minimap2:\n", minimap2_status))
-  }
+  cmd <- paste(
+    shQuote(pipeline@minimap2), "-d", shQuote(path), shQuote(pipeline@genome_fa),
+    paste(shQuote(additional_args), collapse = " ")
+  )
+  minimap2_status <- system(cmd, intern = FALSE)
+  check_status_code(minimap2_status, cmd, "Minimap2")
 
   pipeline@genome_mmi <- path
   return(pipeline)

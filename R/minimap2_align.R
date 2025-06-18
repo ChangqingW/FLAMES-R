@@ -12,6 +12,27 @@ gff2bed <- function(gff, bed) {
   return(invisible(rtracklayer::export.bed(gff, bed)))
 }
 
+check_status_code <- function(status_code, command, command_name = "Process") {
+  if (status_code != 0) {
+    warning(
+      shQuote(command),
+      " exited with status code ",
+      status_code, ". ",
+    )
+    stop(
+      sprintf(
+        "%s exited with status code %d. %s",
+        command_name,
+        status_code,
+        ifelse(
+          status_code == 137,
+          "This is likely due to running out of memory.",
+        )
+      )
+    )
+  }
+}
+
 #' Minimap2 Align to Genome
 #'
 #' @description
@@ -43,34 +64,37 @@ minimap2_align <- function(fq_in, fa_file, config, outfile, minimap2_args, sort_
   tmp_bam <- tempfile(fileext = ".bam", tmpdir = tmpdir)
   if (is.character(samtools) && !is.na(samtools) && file.exists(samtools)) {
     have_samtools <- TRUE
-    minimap2_status <- base::system2(
-      command = minimap2,
-      args = base::append(
-        minimap2_args,
-        c(fa_file, fq_in, "|", samtools, "view -b -o", tmp_bam, "-")
-      )
+    cmd <- paste(
+      "set -o pipefail;",
+      shQuote(minimap2),
+      paste(shQuote(minimap2_args), collapse = " "),
+      shQuote(fa_file),
+      shQuote(fq_in),
+      "|",
+      shQuote(samtools),
+      "view -b -o", shQuote(tmp_bam)
     )
-    if ((!is.null(base::attr(minimap2_status, "status")) &&
-      base::attr(minimap2_status, "status") != 0) ||
-      minimap2_status != 0) {
-      stop(paste0("error running minimap2:\n", minimap2_status))
-    }
+    minimap2_status <- base::system(
+      command = cmd,
+      intern = FALSE
+    )
+    check_status_code(minimap2_status, cmd, "Minimap2 and samtools")
   } else {
     warning("samtools not found, using Rsamtools instead, this could be slower and might fail for large BAM files.")
     have_samtools <- FALSE
     tmp_sam <- tempfile(fileext = ".sam", tmpdir = tmpdir)
-    minimap2_status <- base::system2(
-      command = minimap2,
-      args = base::append(
-        minimap2_args,
-        c(fa_file, fq_in, ">", tmp_sam)
-      )
+    cmd <- paste(
+      shQuote(minimap2),
+      paste(shQuote(minimap2_args), collapse = " "),
+      shQuote(fa_file),
+      shQuote(fq_in),
+      ">", shQuote(tmp_sam)
     )
-    if ((!is.null(base::attr(minimap2_status, "status")) &&
-      base::attr(minimap2_status, "status") != 0) ||
-      minimap2_status != 0) {
-      stop(paste0("error running minimap2:\n", minimap2_status))
-    }
+    minimap2_status <- base::system(
+      command = cmd,
+      intern = FALSE
+    )
+    check_status_code(minimap2_status, cmd, "Minimap2")
     Rsamtools::asBam(
       tmp_sam,
       # great, destination is not the destination in Rsamtools
@@ -98,15 +122,15 @@ minimap2_align <- function(fq_in, fa_file, config, outfile, minimap2_args, sort_
     }
 
     if (have_samtools) {
-      sort_status <- base::system2(
-        command = samtools,
-        args = sort_args
+      cmd <- paste(
+        shQuote(samtools),
+        paste(sort_args, collapse = " ")
       )
-      if ((!is.null(base::attr(sort_status, "status")) &&
-        base::attr(sort_status, "status") != 0) ||
-        sort_status != 0) {
-        stop(paste0("error running samtools sort:\n", sort_status))
-      }
+      sort_status <- base::system(
+        command = cmd,
+        intern = FALSE
+      )
+      check_status_code(sort_status, cmd, "Samtools sort")
     } else {
       Rsamtools::sortBam(
         file = tmp_bam,
@@ -131,15 +155,16 @@ minimap2_align <- function(fq_in, fa_file, config, outfile, minimap2_args, sort_
   if (sort_by == "coordinates") {
     cat("Indexing bam files\n")
     if (have_samtools) {
-      index_status <- base::system2(
-        command = samtools,
-        args = c("index", outfile)
+      cmd <- paste(
+        shQuote(samtools),
+        "index",
+        shQuote(outfile)
       )
-      if ((!is.null(base::attr(index_status, "status")) &&
-        base::attr(index_status, "status") != 0) ||
-        index_status != 0) {
-        stop(paste0("error running samtools index:\n", index_status))
-      }
+      index_status <- base::system(
+        command = cmd,
+        intern = FALSE
+      )
+      check_status_code(index_status, cmd, "Samtools index")
     } else {
       Rsamtools::indexBam(outfile)
     }
