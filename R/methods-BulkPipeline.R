@@ -243,6 +243,7 @@ setGeneric("run_step", function(pipeline, step, disable_controller = TRUE) {
 #' @rdname run_step
 #' @export
 setMethod("run_step", "FLAMES.Pipeline", function(pipeline, step, disable_controller = TRUE) {
+
   start_time <- Sys.time()
   cli::cli_rule(sprintf("Running step: %s @ %s", step, date()))
   controllers <- pipeline@controllers
@@ -250,7 +251,15 @@ setMethod("run_step", "FLAMES.Pipeline", function(pipeline, step, disable_contro
     pipeline@controllers <- list()
   }
 
-  if (!any(c(step, "default") %in% names(pipeline@controllers))) {
+  controller_handling_steps <- c(
+    # these steps handles controllers internally
+    "genome_alignment",
+    "read_realignment"
+    # TODO: add barcode_demultiplex to handle controllers internally as well
+  )
+
+  if (!any(c(step, "default") %in% names(pipeline@controllers)) ||
+        step %in% controller_handling_steps) {
     pipeline <- switch(step,
       barcode_demultiplex = barcode_demultiplex(pipeline),
       genome_alignment = genome_alignment(pipeline),
@@ -273,12 +282,12 @@ setMethod("run_step", "FLAMES.Pipeline", function(pipeline, step, disable_contro
       command =
         switch(step,
           barcode_demultiplex = FLAMES:::barcode_demultiplex(pipeline),
-          genome_alignment = FLAMES:::genome_alignment(pipeline),
+          # genome_alignment = FLAMES:::genome_alignment(pipeline),
           gene_quantification = FLAMES:::gene_quantification(pipeline),
           isoform_identification = FLAMES:::isoform_identification(pipeline),
-          read_realignment = FLAMES:::read_realignment(pipeline),
+          # read_realignment = FLAMES:::read_realignment(pipeline),
           transcript_quantification = FLAMES:::transcript_quantification(pipeline),
-          stop(sprintf("Unknown step: %s", step))
+          stop(sprintf("Unknown / unexpected step: %s", step))
         ),
       data = list(pipeline = pipeline, step = step),
     )
@@ -373,7 +382,7 @@ setMethod("resume_FLAMES", "FLAMES.Pipeline", function(pipeline) {
     message("Resuming pipeline from step: ", unfinished_steps[1])
     for (step in unfinished_steps) {
       pipeline <- tryCatch(
-        run_step(pipeline, step),
+        run_step(pipeline, step, disable_controller = FALSE),
         error = function(e) {
           warning(sprintf("Error in step %s: %s, pipeline stopped.", step, e$message))
           pipeline@last_error <- list(
@@ -584,7 +593,7 @@ setMethod("genome_alignment_raw", "FLAMES.Pipeline", function(pipeline, fastqs) 
       seq_along(fastqs),
       function(i) {
         message(sprintf("Aligning sample %s -> %s", samples[i], pipeline@genome_bam[i]))
-        FLAMES:::minimap2_align(
+        minimap2_align(
           fq_in = fastqs[i],
           fa_file = genome,
           config = pipeline@config,
