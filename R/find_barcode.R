@@ -269,10 +269,9 @@ convert_cellranger_bc <- function(bc_allow, bc_from, bc_to) {
 #' @keywords internal
 plot_demultiplex_raw <- function(find_barcode_result) {
 
-  knee_plot <- sapply(find_barcode_result, function(x) {
-    x$reads_tb
-  }, simplify = FALSE) |>
-    dplyr::bind_rows() |>
+  knee_plot <- sapply(find_barcode_result, "[[", "reads_tb", simplify = FALSE) |>
+    dplyr::bind_rows(.id = "Sample") |>
+    dplyr::mutate(Sample = factor(Sample)) |>
     dplyr::group_by(CellBarcode, Sample) |>
     dplyr::summarise(
       UMI_count = dplyr::n_distinct(UMI)
@@ -295,10 +294,11 @@ plot_demultiplex_raw <- function(find_barcode_result) {
     knee_plot <- knee_plot + ggplot2::theme(legend.position = "none")
   }
 
-  flank_editdistance_plot <- sapply(find_barcode_result, function(x) {
-    x$reads_tb
-  }, simplify = FALSE) |>
-    dplyr::bind_rows() |>
+  flank_editdistance_plot <- sapply(
+    find_barcode_result, "[[", "reads_tb", simplify = FALSE
+  ) |>
+    dplyr::bind_rows(.id = "Sample") |>
+    dplyr::mutate(Sample = factor(Sample)) |>
     dplyr::group_by(FlankEditDist, Sample) |>
     dplyr::summarise(n_reads = dplyr::n()) |>
     dplyr::ungroup() |>
@@ -313,10 +313,11 @@ plot_demultiplex_raw <- function(find_barcode_result) {
   }
 
   # grouped (by sample) barplot
-  barcode_editdistance_plot <- sapply(find_barcode_result, function(x) {
-    x$reads_tb
-  }, simplify = FALSE) |>
-    dplyr::bind_rows() |>
+  barcode_editdistance_plot <- sapply(
+    find_barcode_result, "[[", "reads_tb", simplify = FALSE
+  ) |>
+    dplyr::bind_rows(.id = "Sample") |>
+    dplyr::mutate(Sample = factor(Sample)) |>
     dplyr::group_by(BarcodeEditDist, Sample) |>
     dplyr::ungroup() |>
     dplyr::mutate(BarcodeEditDist = factor(BarcodeEditDist)) |>

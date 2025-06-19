@@ -253,9 +253,9 @@ setMethod("run_step", "FLAMES.Pipeline", function(pipeline, step, disable_contro
 
   controller_handling_steps <- c(
     # these steps handles controllers internally
+    "barcode_demultiplex",
     "genome_alignment",
     "read_realignment"
-    # TODO: add barcode_demultiplex to handle controllers internally as well
   )
 
   if (!any(c(step, "default") %in% names(pipeline@controllers)) ||
@@ -281,7 +281,7 @@ setMethod("run_step", "FLAMES.Pipeline", function(pipeline, step, disable_contro
     controller$push(
       command =
         switch(step,
-          barcode_demultiplex = FLAMES:::barcode_demultiplex(pipeline),
+          # barcode_demultiplex = FLAMES:::barcode_demultiplex(pipeline),
           # genome_alignment = FLAMES:::genome_alignment(pipeline),
           gene_quantification = FLAMES:::gene_quantification(pipeline),
           isoform_identification = FLAMES:::isoform_identification(pipeline),
@@ -292,7 +292,7 @@ setMethod("run_step", "FLAMES.Pipeline", function(pipeline, step, disable_contro
       data = list(pipeline = pipeline, step = step),
     )
     controller$wait(mode = "all")
-    task <- controller$pop()
+    task <- controller$pop(error = "stop")
     pipeline <- task$result[[1]]
     controller$terminate()
   }
@@ -685,7 +685,8 @@ setMethod("genome_alignment_raw", "FLAMES.Pipeline", function(pipeline, fastqs) 
         samtools = pipeline@samtools,
         threads = pipeline@config$pipeline_parameters$threads,
         outdir = pipeline@outdir
-      )
+      ),
+      error = "stop"
     )
     controller$terminate()
     res <- crew_result$result

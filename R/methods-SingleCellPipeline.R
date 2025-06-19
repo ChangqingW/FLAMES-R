@@ -276,36 +276,109 @@ setMethod("barcode_demultiplex", "FLAMES.SingleCellPipeline", function(pipeline)
   if (any(is.na(pipeline@barcodes_file)) && any(is.na(pipeline@expect_cell_number))) {
     stop("Either barcodes_file or expect_cell_number must be provided.")
   }
+
+  using_controllers <- FALSE
+  if ("barcode_demultiplex" %in% names(pipeline@controllers)) {
+    using_controllers <- TRUE
+    controller <- pipeline@controllers[["barcode_demultiplex"]]
+  } else if ("default" %in% names(pipeline@controllers)) {
+    using_controllers <- TRUE
+    controller <- pipeline@controllers[["default"]]
+  }
+
   if (any(is.na(pipeline@barcodes_file))) {
     message("No barcodes file provided, running BLAZE to generate barcode list from long reads...")
-    blaze(
-      expect_cells = pipeline@expect_cell_number,
-      fq_in = pipeline@fastq,
-      "output-prefix" = file.path(pipeline@outdir, ""),
-      "output-fastq" = pipeline@demultiplexed_fastq,
-      "threads" = pipeline@config$pipeline_parameters$threads,
-      "max-edit-distance" = pipeline@config$barcode_parameters$max_bc_editdistance,
-      "overwrite" = TRUE
-    )
+    if (using_controllers) {
+      controller$start()
+      controller$push(
+        command = blaze(
+          expect_cells = expect_cell_number,
+          fq_in = fastq,
+          "output-prefix" = file.path(outdir, ""),
+          "output-fastq" = demultiplexed_fastq,
+          "threads" = config$pipeline_parameters$threads,
+          "max-edit-distance" = config$barcode_parameters$max_bc_editdistance,
+          "overwrite" = TRUE
+        ),
+        data = list(
+          expect_cell_number = pipeline@expect_cell_number,
+          fastq = pipeline@fastq,
+          outdir = pipeline@outdir,
+          demultiplexed_fastq = pipeline@demultiplexed_fastq,
+          config = pipeline@config,
+          blaze = FLAMES:::blaze
+        )
+      )
+      controller$wait(mode = "all")
+      task <- controller$pop(error = "stop")
+      # res <- task$result[[1]]
+      controller$terminate()
+    } else {
+      blaze(
+        expect_cells = pipeline@expect_cell_number,
+        fq_in = pipeline@fastq,
+        "output-prefix" = file.path(pipeline@outdir, ""),
+        "output-fastq" = pipeline@demultiplexed_fastq,
+        "threads" = pipeline@config$pipeline_parameters$threads,
+        "max-edit-distance" = pipeline@config$barcode_parameters$max_bc_editdistance,
+        "overwrite" = TRUE
+      )
+    }
   } else {
-    res <- find_barcode(
-      fastq = pipeline@fastq,
-      barcodes_file = pipeline@barcodes_file,
-      stats_out = file.path(pipeline@outdir, "matched_barcode_stat"),
-      reads_out = pipeline@demultiplexed_fastq,
-      pattern = setNames(
-        as.character(pipeline@config$barcode_parameters$pattern),
-        names(pipeline@config$barcode_parameters$pattern)
-      ),
-      TSO_seq = pipeline@config$barcode_parameters$TSO_seq,
-      TSO_prime = pipeline@config$barcode_parameters$TSO_prime,
-      cutadapt_minimum_length = pipeline@config$barcode_parameters$cutadapt_minimum_length,
-      full_length_only = pipeline@config$barcode_parameters$full_length_only,
-      max_bc_editdistance = pipeline@config$barcode_parameters$max_bc_editdistance,
-      max_flank_editdistance = pipeline@config$barcode_parameters$max_flank_editdistance,
-      strand = pipeline@config$barcode_parameters$strand,
-      threads = pipeline@config$pipeline_parameters$threads
-    )
+    if (using_controllers) {
+      controller$start()
+      controller$push(
+        command = find_barcode(
+          fastq = fastq,
+          barcodes_file = barcodes_file,
+          stats_out = file.path(outdir, "matched_barcode_stat"),
+          reads_out = demultiplexed_fastq,
+          pattern = setNames(
+            as.character(config$barcode_parameters$pattern),
+            names(config$barcode_parameters$pattern)
+          ),
+          TSO_seq = config$barcode_parameters$TSO_seq,
+          TSO_prime = config$barcode_parameters$TSO_prime,
+          cutadapt_minimum_length = config$barcode_parameters$cutadapt_minimum_length,
+          full_length_only = config$barcode_parameters$full_length_only,
+          max_bc_editdistance = config$barcode_parameters$max_bc_editdistance,
+          max_flank_editdistance = config$barcode_parameters$max_flank_editdistance,
+          strand = config$barcode_parameters$strand,
+          threads = config$pipeline_parameters$threads
+        ),
+        data = list(
+          fastq = pipeline@fastq,
+          barcodes_file = pipeline@barcodes_file,
+          outdir = pipeline@outdir,
+          demultiplexed_fastq = pipeline@demultiplexed_fastq,
+          config = pipeline@config,
+          find_barcode = FLAMES:::find_barcode
+        )
+      )
+      controller$wait(mode = "all")
+      task <- controller$pop(error = "stop")
+      res <- task$result[[1]]
+      controller$terminate()
+    } else {
+      res <- find_barcode(
+        fastq = pipeline@fastq,
+        barcodes_file = pipeline@barcodes_file,
+        stats_out = file.path(pipeline@outdir, "matched_barcode_stat"),
+        reads_out = pipeline@demultiplexed_fastq,
+        pattern = setNames(
+          as.character(pipeline@config$barcode_parameters$pattern),
+          names(pipeline@config$barcode_parameters$pattern)
+        ),
+        TSO_seq = pipeline@config$barcode_parameters$TSO_seq,
+        TSO_prime = pipeline@config$barcode_parameters$TSO_prime,
+        cutadapt_minimum_length = pipeline@config$barcode_parameters$cutadapt_minimum_length,
+        full_length_only = pipeline@config$barcode_parameters$full_length_only,
+        max_bc_editdistance = pipeline@config$barcode_parameters$max_bc_editdistance,
+        max_flank_editdistance = pipeline@config$barcode_parameters$max_flank_editdistance,
+        strand = pipeline@config$barcode_parameters$strand,
+        threads = pipeline@config$pipeline_parameters$threads
+      )
+    }
     pipeline@metadata$barcode_demultiplex <- res
   }
   return(pipeline)

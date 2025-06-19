@@ -27,6 +27,8 @@ reference:
     contents:
       - steps
       - steps<-
+      - config
+      - config<-
       - controllers
       - controllers<-
       - experiment
