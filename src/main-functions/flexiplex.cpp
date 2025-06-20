@@ -413,13 +413,12 @@ std::vector<Barcode> big_barcode_search(
 
 // print information about barcodes
 void print_stats(const std::string &read_id, const std::vector<Barcode> &vec_bc,
-                 std::ostream &out_stream) {
+                 gzFile gzfile) {
   for (const auto &barcode : vec_bc) {
-    out_stream << read_id << '\t' << barcode.barcode << "\t"
-               << barcode.flank_editd << "\t" << barcode.editd << "\t"
-               << barcode.umi << "\t"
-               << (barcode.flank_end == std::string::npos ? "True" : "False")
-               << "\n";
+    gzprintf(gzfile, "%s\t%s\t%d\t%d\t%s\t%s\n",
+            read_id.c_str(), barcode.barcode.c_str(),
+            barcode.flank_editd, barcode.editd, barcode.umi.c_str(),
+            (barcode.flank_end == std::string::npos ? "True" : "False"));
   }
 }
 
@@ -431,23 +430,15 @@ void print_line(const std::string &id, const std::string &read,
   // output to the new read file
   if (reverseCompliment) {
     // reformat for gzFile output
-    // out_stream << delimiter << id << '\n' << reverse_compliment(read) << '\n';
     gzprintf(gzfile, "%c%s\n%s\n", delimiter, id.c_str(), reverse_compliment(read).c_str());
     if (!quals.empty()) {
       // reverse the order of the quality scores
-      // out_stream << '+' << id << '\n' << std::string(quals.rbegin(), quals.rend()) << '\n';
-      // gzprintf(gzfile, "+%s\n%s\n", id.c_str(),
-      //          std::string(quals.rbegin(), quals.rend()).c_str());
-      // omit id to reduce file size
       gzprintf(gzfile, "+\n%s\n",
               std::string(quals.rbegin(), quals.rend()).c_str());
     }
   } else {
-    // out_stream << delimiter << id << '\n' << read << '\n';
     gzprintf(gzfile, "%c%s\n%s\n", delimiter, id.c_str(), read.c_str());
     if (!quals.empty()) {
-      //out_stream << '+' << id << '\n' << quals << '\n';
-      // gzprintf(gzfile, "+%s\n%s\n", id.c_str(), quals.c_str());
       gzprintf(gzfile, "+\n%s\n", quals.c_str());
     }
   }
@@ -658,16 +649,14 @@ Rcpp::IntegerVector flexiplex_cpp(Rcpp::StringVector reads_in, Rcpp::String barc
   int chimeric_single_count = 0; // chimeric reads, only one barcode
   int cherimic_multi_count = 0; // chimeric reads, multiple barcodes
 
-  std::ofstream out_stat_file;
+  gzFile statGz;
   if (known_barcodes.size() > 0) {
     if (file_exists(stats_out.get_cstring())) {
       Rcpp::Rcout << "Overwriting existing stats file: "
                   << stats_out.get_cstring() << "\n";
     }
-    out_stat_file.open(stats_out, std::ios_base::trunc);
-    out_stat_file
-        << "Read\tCellBarcode\tFlankEditDist\tBarcodeEditDist\tUMI\tTooShort"
-        << "\n";
+    statGz = gzopen(stats_out.get_cstring(), "w6");
+    gzprintf(statGz, "Read\tCellBarcode\tFlankEditDist\tBarcodeEditDist\tUMI\tTooShort\n");
   }
   std::unordered_map<std::string, int> barcode_counts;
 
@@ -774,9 +763,9 @@ Rcpp::IntegerVector flexiplex_cpp(Rcpp::StringVector reads_in, Rcpp::String barc
                    // output reads etc.
 
             print_stats(sr_v[t][r].read_id, sr_v[t][r].vec_bc_for,
-                        out_stat_file);
+                        statGz);
             print_stats(sr_v[t][r].read_id, sr_v[t][r].vec_bc_rev,
-                        out_stat_file);
+                        statGz);
 
             print_read(sr_v[t][r].read_id + "_+", sr_v[t][r].line,
                        sr_v[t][r].qual_scores, sr_v[t][r].vec_bc_for, outGz,
@@ -819,7 +808,7 @@ Rcpp::IntegerVector flexiplex_cpp(Rcpp::StringVector reads_in, Rcpp::String barc
   );
 
   if (known_barcodes.size() > 0) {
-    out_stat_file.close();
+    gzclose(statGz);
     return read_counts;
   }
 

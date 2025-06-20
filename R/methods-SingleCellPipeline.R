@@ -331,7 +331,7 @@ setMethod("barcode_demultiplex", "FLAMES.SingleCellPipeline", function(pipeline)
         command = find_barcode(
           fastq = fastq,
           barcodes_file = barcodes_file,
-          stats_out = file.path(outdir, "matched_barcode_stat"),
+          stats_out = file.path(outdir, "matched_barcode_stat.tsv.gz"),
           reads_out = demultiplexed_fastq,
           pattern = setNames(
             as.character(config$barcode_parameters$pattern),
@@ -363,7 +363,7 @@ setMethod("barcode_demultiplex", "FLAMES.SingleCellPipeline", function(pipeline)
       res <- find_barcode(
         fastq = pipeline@fastq,
         barcodes_file = pipeline@barcodes_file,
-        stats_out = file.path(pipeline@outdir, "matched_barcode_stat"),
+        stats_out = file.path(pipeline@outdir, "matched_barcode_stat.tsv.gz"),
         reads_out = pipeline@demultiplexed_fastq,
         pattern = setNames(
           as.character(pipeline@config$barcode_parameters$pattern),

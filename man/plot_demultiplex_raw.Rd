@@ -38,7 +38,7 @@ R.utils::gunzip(
 )
 find_barcode(
   fastq = fastq_dir,
-  stats_out = file.path(outdir, "bc_stat"),
+  stats_out = file.path(outdir, "bc_stat.tsv.gz"),
   reads_out = file.path(outdir, "demultiplexed.fq"),
   barcodes_file = bc_allow, TSO_seq = "CCCATGTACTCTGCGTTGATACCACTGCTT"
 ) |>

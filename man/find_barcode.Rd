@@ -23,8 +23,7 @@ find_barcode(
 )
 }
 \arguments{
-\item{fastq}{character vector of paths to FASTQ files or folders, if
-named, the names will be used as sample names, otherwise the file names will be used}
+\item{fastq}{A path to a FASTQ file or a directory containing FASTQ files.}
 
 \item{barcodes_file}{path to file containing barcode allow-list, with one barcode in each line}
 
@@ -32,12 +31,9 @@ named, the names will be used as sample names, otherwise the file names will be 
 
 \item{max_flank_editdistance}{max edit distances for the flanking sequences (primer and polyT)}
 
-\item{reads_out}{path to output FASTQ file; if multiple samples are processed,
-the sample name will be appended to this argument, e.g. provide \code{path/out.fq} for single
-sample, and \code{path/prefix} for multiple samples.}
+\item{reads_out}{path to output FASTQ file}
 
-\item{stats_out}{path of output stats file; similar to \code{reads_out}, e.g. provide
-\code{path/stats.tsv} for single sample, and \code{path/prefix} for multiple samples.}
+\item{stats_out}{path of output stats file}
 
 \item{threads}{number of threads to be used}
 
@@ -65,10 +61,7 @@ demultiplex reads with flexiplex
 }
 \details{
 This function demultiplexes reads by searching for flanking sequences (adaptors)
-around the barcode sequence, and then matching against allowed barcodes. For single
-sample, either provide a single FASTQ file or a folder containing FASTQ files. For
-multiple samples, provide a vector of paths (either to FASTQ files or folders containing
-FASTQ files). Gzipped file input are supported but the output will be uncompressed.
+around the barcode sequence, and then matching against allowed barcodes.
 }
 \examples{
 outdir <- tempfile()
@@ -78,27 +71,12 @@ R.utils::gunzip(
   filename = system.file("extdata", "bc_allow.tsv.gz", package = "FLAMES"),
   destname = bc_allow, remove = FALSE
 )
-# single sample
 find_barcode(
   fastq = system.file("extdata", "fastq", "musc_rps24.fastq.gz", package = "FLAMES"),
-  stats_out = file.path(outdir, "bc_stat"),
+  stats_out = file.path(outdir, "bc_stat.tsv.gz"),
   reads_out = file.path(outdir, "demultiplexed.fastq.gz"),
   barcodes_file = bc_allow, 
   TSO_seq = "AAGCAGTGGTATCAACGCAGAGTACATGGG", TSO_prime = 5,
   strand = '-', cutadapt_minimum_length = 10, full_length_only = TRUE
-)
-# multi-sample
-fastq_dir <- tempfile()
-dir.create(fastq_dir)
-file.copy(system.file("extdata", "fastq", "musc_rps24.fastq.gz", package = "FLAMES"),
-  file.path(fastq_dir, "musc_rps24.fastq.gz"))
-sampled_lines <- readLines(file.path(fastq_dir, "musc_rps24.fastq.gz"), n = 400)
-writeLines(sampled_lines, file.path(fastq_dir, "copy.fastq"))
-result <- find_barcode(
-  # you can mix folders and files. each path will be considered as a sample
-  fastq = c(fastq_dir, system.file("extdata", "fastq", "musc_rps24.fastq.gz", package = "FLAMES")),
-  stats_out = file.path(outdir, "bc_stat"),
-  reads_out = file.path(outdir, c("demultiplexed1.fastq.gz", "demultiplexed2.fastq.gz")),
-  barcodes_file = bc_allow, TSO_seq = "CCCATGTACTCTGCGTTGATACCACTGCTT"
 )
 }
