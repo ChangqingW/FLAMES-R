@@ -85,7 +85,7 @@ find_barcode <- function(
       paste0("noTSO_", basename(reads_out))
     )
     stopifnot(file.rename(reads_out, untrimmed_reads))
-    tmp_json_file <- tempfile(fileext = ".json")
+    tmp_json_file <- tempfile(fileext = ".json", tmpdir = dirname(reads_out))
     # cutadapt -a 'TSO' -o reads_out --untrimmed-output noTSO_out in_fq(untrimmed.fq)
     cutadapt(
       c(
@@ -104,9 +104,9 @@ find_barcode <- function(
       )
     )
     # parse cutadapt json report
-    cutadapt_stats <- jsonlite::fromJSON(tmp_json_file)$read_counts
-    cutadapt_stats <- cutadapt_stats[c('read1_with_adapter', 'input', 'output')]
-    cutadapt_stats <- unlist(cutadapt_stats)
+    cutadapt_stats <- jsonlite::fromJSON(readLines(tmp_json_file, warn = FALSE))
+    # cutadapt_stats <- cutadapt_stats[c('read1_with_adapter', 'input', 'output')]
+    # cutadapt_stats <- unlist(cutadapt_stats)
     report$cutadapt <- cutadapt_stats
     unlink(tmp_json_file)
   } else {
@@ -281,7 +281,7 @@ plot_demultiplex_raw <- function(find_barcode_result) {
   # Cutadapt report
   if (all(sapply(find_barcode_result, function(x) "cutadapt" %in% names(x)))) {
     cutadapt_plot <- 
-      sapply(find_barcode_result, function(x) x$cutadapt, simplify = FALSE) |>
+      sapply(find_barcode_result, function(x) x$cutadapt$read_counts, simplify = FALSE) |>
       dplyr::bind_rows(.id = "Sample") |>
       tidyr::pivot_longer(
         cols = c(input, output, read1_with_adapter),
