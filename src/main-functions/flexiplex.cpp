@@ -411,14 +411,36 @@ std::vector<Barcode> big_barcode_search(
   return (return_vec);
 }
 
+// write gzstring to gzFile in chunks
+// Otherwise gzwrite will fail for large strings (> 8192 bytes)
+void write_gzstring(gzFile gzfile, const std::string& str) {
+    const char* data = str.c_str();
+    size_t len = str.length();
+    size_t chunk_size = 4096;  // Safe chunk size
+    
+    while (len > 0) {
+        unsigned write_size = (len > chunk_size) ? chunk_size : len;
+        int bytes_written = gzwrite(gzfile, data, write_size);
+        
+        if (bytes_written <= 0) {
+            Rcpp::Rcerr << "gzwrite error: " << gzerror(gzfile, NULL) << "\n";
+            break;
+        }
+        
+        data += bytes_written;
+        len -= bytes_written;
+    }
+}
+
 // print information about barcodes
 void print_stats(const std::string &read_id, const std::vector<Barcode> &vec_bc,
                  gzFile gzfile) {
   for (const auto &barcode : vec_bc) {
-    gzprintf(gzfile, "%s\t%s\t%d\t%d\t%s\t%s\n",
-            read_id.c_str(), barcode.barcode.c_str(),
-            barcode.flank_editd, barcode.editd, barcode.umi.c_str(),
-            (barcode.flank_end == std::string::npos ? "True" : "False"));
+    std::string line = read_id + "\t" + barcode.barcode + "\t" +
+                       std::to_string(barcode.flank_editd) + "\t" +
+                       std::to_string(barcode.editd) + "\t" + barcode.umi + "\t" +
+                       (barcode.flank_end == std::string::npos ? "True" : "False") + "\n";
+    write_gzstring(gzfile, line);
   }
 }
 
@@ -429,17 +451,21 @@ void print_line(const std::string &id, const std::string &read,
 
   // output to the new read file
   if (reverseCompliment) {
-    // reformat for gzFile output
-    gzprintf(gzfile, "%c%s\n%s\n", delimiter, id.c_str(), reverse_compliment(read).c_str());
+    std::string rev_seq_lines = delimiter + id + "\n" +
+                           reverse_compliment(read) + "\n";
+    write_gzstring(gzfile, rev_seq_lines);
     if (!quals.empty()) {
       // reverse the order of the quality scores
-      gzprintf(gzfile, "+\n%s\n",
-              std::string(quals.rbegin(), quals.rend()).c_str());
+      std::string rev_qual_lines = "+\n" +
+                              std::string(quals.rbegin(), quals.rend()) + "\n";
+      write_gzstring(gzfile, rev_qual_lines);
     }
   } else {
-    gzprintf(gzfile, "%c%s\n%s\n", delimiter, id.c_str(), read.c_str());
+    std::string seq_lines = delimiter + id + "\n" + read + "\n";
+    write_gzstring(gzfile, seq_lines);
     if (!quals.empty()) {
-      gzprintf(gzfile, "+\n%s\n", quals.c_str());
+      std::string qual_lines = "+\n" + quals + "\n";
+      write_gzstring(gzfile, qual_lines);
     }
   }
 }
