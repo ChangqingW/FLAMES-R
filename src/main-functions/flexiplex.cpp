@@ -24,6 +24,7 @@
 
 #include "../utility/edlib-1.2.7/edlib.h"
 #include "htslib/kseq.h"
+#include "htslib/bgzf.h"
 #include "zlib.h"
 
 const static std::string VERSION = "0.96.2";
@@ -411,61 +412,53 @@ std::vector<Barcode> big_barcode_search(
   return (return_vec);
 }
 
-// write gzstring to gzFile in chunks
-// Otherwise gzwrite will fail for large strings (> 8192 bytes)
-void write_gzstring(gzFile gzfile, const std::string& str) {
-    const char* data = str.c_str();
-    size_t len = str.length();
-    size_t chunk_size = 4096;  // Safe chunk size
-    
-    while (len > 0) {
-        unsigned write_size = (len > chunk_size) ? chunk_size : len;
-        int bytes_written = gzwrite(gzfile, data, write_size);
-        
-        if (bytes_written <= 0) {
-            Rcpp::Rcerr << "gzwrite error: " << gzerror(gzfile, NULL) << "\n";
-            break;
-        }
-        
-        data += bytes_written;
-        len -= bytes_written;
-    }
+void write_bgzfstring(BGZF *bgzf, const std::string &str) {
+  const char *data = str.c_str();
+  size_t len = str.length();
+
+  int bytes_written = bgzf_write(bgzf, data, len);
+  if (bytes_written != str.size()) {
+    Rcpp::stop("BGZF write error while writing string: %s\n, "
+               "expected %zu bytes, wrote %d bytes",
+               str.c_str(), str.size(), bytes_written);
+  }
 }
 
 // print information about barcodes
 void print_stats(const std::string &read_id, const std::vector<Barcode> &vec_bc,
-                 gzFile gzfile) {
+                 BGZF *bgzf) {
   for (const auto &barcode : vec_bc) {
-    std::string line = read_id + "\t" + barcode.barcode + "\t" +
-                       std::to_string(barcode.flank_editd) + "\t" +
-                       std::to_string(barcode.editd) + "\t" + barcode.umi + "\t" +
-                       (barcode.flank_end == std::string::npos ? "True" : "False") + "\n";
-    write_gzstring(gzfile, line);
+    std::string line =
+        read_id + "\t" + barcode.barcode + "\t" +
+        std::to_string(barcode.flank_editd) + "\t" +
+        std::to_string(barcode.editd) + "\t" + barcode.umi + "\t" +
+        (barcode.flank_end == std::string::npos ? "True" : "False") + "\n";
+    write_bgzfstring(bgzf, line);
   }
 }
 
 void print_line(const std::string &id, const std::string &read,
-                const std::string &quals, bool reverseCompliment, gzFile gzfile) {
+                const std::string &quals, bool reverseCompliment, BGZF *bgzf) {
 
   const char delimiter = quals.empty() ? '>' : '@';
 
   // output to the new read file
   if (reverseCompliment) {
-    std::string rev_seq_lines = delimiter + id + "\n" +
-                           reverse_compliment(read) + "\n";
-    write_gzstring(gzfile, rev_seq_lines);
+    std::string rev_seq_lines =
+        delimiter + id + "\n" + reverse_compliment(read) + "\n";
+    write_bgzfstring(bgzf, rev_seq_lines);
     if (!quals.empty()) {
       // reverse the order of the quality scores
-      std::string rev_qual_lines = "+\n" +
-                              std::string(quals.rbegin(), quals.rend()) + "\n";
-      write_gzstring(gzfile, rev_qual_lines);
+      std::string rev_qual_lines =
+          "+\n" + std::string(quals.rbegin(), quals.rend()) + "\n";
+      write_bgzfstring(bgzf, rev_qual_lines);
     }
   } else {
     std::string seq_lines = delimiter + id + "\n" + read + "\n";
-    write_gzstring(gzfile, seq_lines);
+    write_bgzfstring(bgzf, seq_lines);
     if (!quals.empty()) {
       std::string qual_lines = "+\n" + quals + "\n";
-      write_gzstring(gzfile, qual_lines);
+      write_bgzfstring(bgzf, qual_lines);
     }
   }
 }
@@ -473,7 +466,7 @@ void print_line(const std::string &id, const std::string &read,
 // print fastq or fasta lines..
 void print_read(const std::string &read_id, const std::string &read,
                 const std::string &qual, const std::vector<Barcode> &vec_bc,
-                gzFile gzfile, std::unordered_set<std::string> &found_barcodes,
+                BGZF *bgzf, std::unordered_set<std::string> &found_barcodes,
                 bool trim_barcodes, bool chimeric, bool reverseCompliment) {
   // loop over the barcodes found... usually will just be one
   for (int b = 0; b < vec_bc.size(); b++) {
@@ -512,7 +505,7 @@ void print_read(const std::string &read_id, const std::string &read,
       b = vec_bc.size(); // force loop to exit after this iteration
     }
 
-    print_line(new_read_id, read_new, qual_new, reverseCompliment, gzfile);
+    print_line(new_read_id, read_new, qual_new, reverseCompliment, bgzf);
   }
 }
 
@@ -661,8 +654,19 @@ Rcpp::IntegerVector flexiplex_cpp(Rcpp::StringVector reads_in, Rcpp::String barc
                 << "\n";
   }
 
-  // std::ofstream outstream(reads_out, std::ios_base::app);
-  gzFile outGz = gzopen(reads_out.get_cstring(), "w6");
+  for (const auto &file : {reads_out, stats_out}) {
+    if (file_exists(file.get_cstring())) {
+      Rcpp::Rcout << "Warning: file " << file.get_cstring()
+                  << " already exists, overwriting.\n";
+    }
+  }
+  BGZF *outBgzf = bgzf_open(reads_out.get_cstring(), "w");
+  BGZF *statBgzf = bgzf_open(stats_out.get_cstring(), "w");
+  // Enable multi-threading for BGZF output
+  bgzf_mt(outBgzf, n_threads, 256);
+  bgzf_mt(statBgzf, n_threads, 256);
+
+
   /********* FIND BARCODE IN READS ********/
   std::string sequence;
   int r_count = 0; // reads processed
@@ -675,15 +679,7 @@ Rcpp::IntegerVector flexiplex_cpp(Rcpp::StringVector reads_in, Rcpp::String barc
   int chimeric_single_count = 0; // chimeric reads, only one barcode
   int cherimic_multi_count = 0; // chimeric reads, multiple barcodes
 
-  gzFile statGz;
-  if (known_barcodes.size() > 0) {
-    if (file_exists(stats_out.get_cstring())) {
-      Rcpp::Rcout << "Overwriting existing stats file: "
-                  << stats_out.get_cstring() << "\n";
-    }
-    statGz = gzopen(stats_out.get_cstring(), "w6");
-    gzprintf(statGz, "Read\tCellBarcode\tFlankEditDist\tBarcodeEditDist\tUMI\tTooShort\n");
-  }
+  write_bgzfstring(statBgzf, "Read\tCellBarcode\tFlankEditDist\tBarcodeEditDist\tUMI\tTooShort\n");
   std::unordered_map<std::string, int> barcode_counts;
 
   // loop over all files
@@ -789,12 +785,12 @@ Rcpp::IntegerVector flexiplex_cpp(Rcpp::StringVector reads_in, Rcpp::String barc
                    // output reads etc.
 
             print_stats(sr_v[t][r].read_id, sr_v[t][r].vec_bc_for,
-                        statGz);
+                        statBgzf);
             print_stats(sr_v[t][r].read_id, sr_v[t][r].vec_bc_rev,
-                        statGz);
+                        statBgzf);
 
             print_read(sr_v[t][r].read_id + "_+", sr_v[t][r].line,
-                       sr_v[t][r].qual_scores, sr_v[t][r].vec_bc_for, outGz,
+                       sr_v[t][r].qual_scores, sr_v[t][r].vec_bc_for, outBgzf,
                        found_barcodes, remove_barcodes, sr_v[t][r].chimeric, reverseCompliment);
             reverse(sr_v[t][r].qual_scores.begin(),
                     sr_v[t][r].qual_scores.end());
@@ -803,7 +799,7 @@ Rcpp::IntegerVector flexiplex_cpp(Rcpp::StringVector reads_in, Rcpp::String barc
                                           // once if multiple bc found.
               print_read(sr_v[t][r].read_id + "_-", sr_v[t][r].rev_line,
                          sr_v[t][r].qual_scores, sr_v[t][r].vec_bc_rev,
-                         outGz, found_barcodes, remove_barcodes, sr_v[t][r].chimeric, reverseCompliment);
+                         outBgzf, found_barcodes, remove_barcodes, sr_v[t][r].chimeric, reverseCompliment);
           }
         }
       }
@@ -811,7 +807,8 @@ Rcpp::IntegerVector flexiplex_cpp(Rcpp::StringVector reads_in, Rcpp::String barc
     kseq_destroy(kseq);
     gzclose(gz_reads_in);
   }
-  gzclose(outGz);
+  bgzf_close(outBgzf);
+  bgzf_close(statBgzf);
 
   Rcpp::Rcout << "Number of reads processed: " << r_count << "\n";
   Rcpp::Rcout << "Number of reads where at least one barcode was found: "
@@ -834,7 +831,6 @@ Rcpp::IntegerVector flexiplex_cpp(Rcpp::StringVector reads_in, Rcpp::String barc
   );
 
   if (known_barcodes.size() > 0) {
-    gzclose(statGz);
     return read_counts;
   }
 
