@@ -391,7 +391,8 @@ setMethod("genome_alignment", "FLAMES.SingleCellPipeline", function(pipeline) {
   }
   genome_alignment_raw(
     pipeline = pipeline,
-    fastqs = infq
+    fastqs = infq,
+    include_tags = pipeline@config$pipeline_parameters$oarfish_quantification
   )
 })
 

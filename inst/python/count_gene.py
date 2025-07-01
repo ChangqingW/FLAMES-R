@@ -4,6 +4,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 import pysam
 import gzip
+import pgzip
 import numpy as np
 import pandas as pd
 # from intervaltree import Interval, IntervalTree
@@ -746,7 +747,8 @@ def subset_reads_from_fastq(in_fastq, out_fastq, read_id_lst,
         f_in = open(in_fastq, "r")
         
     if out_fastq[-3:] == ".gz":
-        f_out = gzip.open(out_fastq, "wt")
+        # use chunk_size of 1MB
+        f_out = pgzip.open(out_fastq, "wt", thread = n_process, blocksize = 1024**2)
     else:
         f_out = open(out_fastq, "w")
 
@@ -754,7 +756,7 @@ def subset_reads_from_fastq(in_fastq, out_fastq, read_id_lst,
     read_id_lst = set(read_id_lst)
     results = helper.multiprocessing_submit( _subset_reads_from_fastq_chunk,
                                     read_chunks,
-                                    n_process=12,
+                                    n_process=max(n_process - 1, 4),
                                     pbar_func=lambda *x: chunk_size/4,
                                     read_id_set = read_id_lst,
                                     preserve_order=False,

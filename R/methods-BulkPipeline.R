@@ -592,15 +592,18 @@ setMethod("gene_quantification", "FLAMES.Pipeline", function(pipeline) {
   stop("Gene quantification is not implemented for bulk pipelines yet")
 })
 
-setGeneric("genome_alignment_raw", function(pipeline, fastqs) {
+setGeneric("genome_alignment_raw", function(pipeline, fastqs, include_tags = FALSE) {
   standardGeneric("genome_alignment_raw")
 })
-setMethod("genome_alignment_raw", "FLAMES.Pipeline", function(pipeline, fastqs) {
+setMethod("genome_alignment_raw", "FLAMES.Pipeline", function(pipeline, fastqs, include_tags = FALSE) {
   minimap2_args <- c(
     "-ax", "splice", "-k14", "--secondary=no", # "-y",
     "-t", pipeline@config$pipeline_parameters$threads,
     "--seed", pipeline@config$pipeline_parameters$seed
   )
+  if (include_tags) {
+    minimap2_args <- base::append(minimap2_args, "-y")
+  }
   if (pipeline@config$alignment_parameters$no_flank) {
     minimap2_args <- base::append(minimap2_args, "--splice-flank=no")
   }
