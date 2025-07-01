@@ -245,6 +245,11 @@ EdlibAlignConfig edlibConf = {flank_max_editd, EDLIB_MODE_HW, EDLIB_TASK_PATH,
     search_string += pair.second;
   }
 
+  // shorter than the pattern, skip search
+  if (seq.length() < search_string.length()) {
+    return barcode;
+  }
+
   // search for the concatenated pattern
   EdlibAlignResult result =
       edlibAlign(search_string.c_str(), search_string.length(), seq.c_str(),
@@ -683,18 +688,18 @@ Rcpp::IntegerVector flexiplex_cpp(Rcpp::StringVector reads_in, Rcpp::String barc
   std::unordered_map<std::string, int> barcode_counts;
 
   // loop over all files
+  int kseq_len = -5;
   for (int i = 0; i < reads_in.size(); i++) {
     Rcpp::Rcout << "Processing file: " << std::string(reads_in(i)) << "\n";
     gzFile gz_reads_in = gzopen(reads_in(i), "r");
     kseq_t *kseq;
-    int kseq_len;
     bool is_fastq = false;
     if (!gz_reads_in) {
       Rcpp::stop("Unable to open %s", std::string(reads_in(i)));
     } else {
       kseq = kseq_init(gz_reads_in);
       kseq_len = kseq_read(kseq);
-      if (!(kseq_len > 0)) {
+      if (!(kseq_len >= 0)) {
         Rcpp::stop("Unknown read format");
       } else {
         is_fastq = (bool)kseq->qual.s;
@@ -705,7 +710,7 @@ Rcpp::IntegerVector flexiplex_cpp(Rcpp::StringVector reads_in, Rcpp::String barc
 
     Rcpp::Rcout << "Searching for barcodes..." << "\n";
 
-    while (kseq_len > 0) {
+    while (kseq_len >= 0) {
       const int buffer_size = 2000; // number of reads to pass to one thread.
       std::vector<std::vector<SearchResult>> sr_v(n_threads);
       for (int i = 0; i < n_threads; i++)
@@ -715,7 +720,7 @@ Rcpp::IntegerVector flexiplex_cpp(Rcpp::StringVector reads_in, Rcpp::String barc
            t++) { // get n_threads*buffer number or reads..
         for (int b = 0; b < buffer_size; b++) {
           kseq_len = kseq_read(kseq);
-          if (kseq_len <= 0) {
+          if (kseq_len < 0) {
             sr_v[t].resize(b);
             for (int t2 = t + 1; t2 < n_threads; t2++) {
               sr_v[t2].resize(0);
@@ -807,6 +812,7 @@ Rcpp::IntegerVector flexiplex_cpp(Rcpp::StringVector reads_in, Rcpp::String barc
     kseq_destroy(kseq);
     gzclose(gz_reads_in);
   }
+
   bgzf_close(outBgzf);
   bgzf_close(statBgzf);
 
@@ -829,6 +835,30 @@ Rcpp::IntegerVector flexiplex_cpp(Rcpp::StringVector reads_in, Rcpp::String barc
     Rcpp::Named("both strands single barcode reads", chimeric_single_count),
     Rcpp::Named("both strands multiple barcode reads", cherimic_multi_count)
   );
+
+  if (kseq_len != -1) {
+      /*  kseq_read() return codes
+          >=0  length of the sequence (normal)
+          -1   end‑of‑file   (handled elsewhere)
+          -2   truncated quality string
+          -3   error reading stream
+          -4   overflow error
+      */
+      const char *msg;
+      switch (kseq_len) {
+          case -2: msg = "truncated quality string"; break;
+          case -3: msg = "error reading stream";     break;
+          case -4: msg = "overflow error";           break;
+          default: msg = "unknown error";            break;
+      }
+  
+      Rcpp::stop("Error reading input file %s at read %d: "
+                 "kseq_read returned %d (%s)",
+                 std::string(reads_in(0)).c_str(),   // file name
+                 r_count,                            // read counter
+                 kseq_len,                           // raw code
+                 msg);                               // descriptive text
+  }
 
   if (known_barcodes.size() > 0) {
     return read_counts;
