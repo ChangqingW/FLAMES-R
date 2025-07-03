@@ -40,6 +40,7 @@ Imports:
     cli,
     dplyr,
     DropletUtils,
+    DBI,
     GenomicRanges,
     GenomicFeatures,
     txdbmaker,

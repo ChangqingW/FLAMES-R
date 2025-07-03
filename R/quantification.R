@@ -372,12 +372,25 @@ parse_oarfish_sc_output <- function(oarfish_out, annotation, outdir) {
     GenomicRanges::mcols(annotation_grl)[, "gene_id"],
     error = function(e) {
       sprintf("Error when adding gene ID: %s, trying again with txdbmaker...", e$message)
-      gene_id_tb <- c(annotation, novel_annotation) |>
-        lapply(fake_stranded_gff) |>
-        lapply(txdbmaker::makeTxDbFromGFF) |>
-        lapply(\(x) GenomicFeatures::transcripts(x, columns = c("gene_id", "tx_name"))) |>
-        lapply(\(x) GenomicRanges::mcols(x)) |>
-        do.call(rbind, args = _)
+      gene_id_tb <- tryCatch({
+        txdb_list <- c(annotation, novel_annotation) |>
+          lapply(fake_stranded_gff) |>
+          lapply(txdbmaker::makeTxDbFromGFF)
+        
+        gene_id_tb <- txdb_list |>
+          lapply(\(x) GenomicFeatures::transcripts(x, columns = c("gene_id", "tx_name"))) |>
+          lapply(\(x) GenomicRanges::mcols(x)) |>
+          do.call(rbind, args = _)
+        
+        gene_id_tb
+      }, finally = {
+        if (exists("txdb_list")) {
+          for (txdb in txdb_list) {
+            DBI::dbDisconnect(txdb$conn)
+          }
+        }
+      })
+      
       gene_id_tb[match(rownames(sce), gene_id_tb$tx_name), "gene_id"] |>
         as.character()
     }

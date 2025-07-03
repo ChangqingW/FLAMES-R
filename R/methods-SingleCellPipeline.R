@@ -289,6 +289,13 @@ setMethod("barcode_demultiplex", "FLAMES.SingleCellPipeline", function(pipeline)
   if (any(is.na(pipeline@barcodes_file))) {
     message("No barcodes file provided, running BLAZE to generate barcode list from long reads...")
     if (using_controllers) {
+      if (controller$started()) {
+        tryCatch({
+          controller$terminate()
+        }, error = function(e) {
+          warning(sprintf("Error terminating controller: %s", e$message))
+        })
+      }
       controller$start()
       controller$push(
         command = blaze(
@@ -326,6 +333,13 @@ setMethod("barcode_demultiplex", "FLAMES.SingleCellPipeline", function(pipeline)
     }
   } else {
     if (using_controllers) {
+      if (controller$started()) {
+        tryCatch({
+          controller$terminate()
+        }, error = function(e) {
+          warning(sprintf("Error terminating controller: %s", e$message))
+        })
+      }
       controller$start()
       controller$push(
         command = find_barcode(

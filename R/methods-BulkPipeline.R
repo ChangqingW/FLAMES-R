@@ -37,7 +37,6 @@
 #'   use a copy from bioconda via \code{basilisk}.
 #' @param samtools (optional) The path to the samtools binary. If not provided, FLAMES will
 #'   use a copy from bioconda via \code{basilisk}.
-#'   provided, FLAMES will use a copy from bioconda via \code{basilisk}.
 #' @param controllers (optional, **experimental**) A \code{crew_class_controller} object for running certain steps
 #' @return A \code{FLAMES.Pipeline} object. The pipeline could be run using \code{\link{run_FLAMES}}, and / or resumed using \code{\link{resume_FLAMES}}.
 #'
@@ -277,6 +276,13 @@ setMethod("run_step", "FLAMES.Pipeline", function(pipeline, step, disable_contro
     } else {
       stop("Unexpected error: no controller found for step ", step)
     }
+    if (controller$started()) {
+      tryCatch({
+        controller$terminate()
+      }, error = function(e) {
+        warning(sprintf("Error terminating controller: %s", e$message))
+      })
+    }
     controller$start()
     controller$push(
       command =
@@ -322,13 +328,13 @@ setMethod("run_step", "FLAMES.Pipeline", function(pipeline, step, disable_contro
 #' pipeline <- example_pipeline("BulkPipeline")
 #' pipeline <- run_FLAMES(pipeline)
 #' @export
-setGeneric("run_FLAMES", function(pipeline) {
+setGeneric("run_FLAMES", function(pipeline, overwrite = FALSE) {
   standardGeneric("run_FLAMES")
 })
 #' @rdname run_FLAMES
 #' @export
-setMethod("run_FLAMES", "FLAMES.Pipeline", function(pipeline) {
-  if (!prerun_check(pipeline, overwrite = FALSE)) {
+setMethod("run_FLAMES", "FLAMES.Pipeline", function(pipeline, overwrite = FALSE) {
+  if (!prerun_check(pipeline, overwrite)) {
     return(pipeline)
   }
 
@@ -659,6 +665,13 @@ setMethod("genome_alignment_raw", "FLAMES.Pipeline", function(pipeline, fastqs, 
     } else {
       stop("Unexpected error: no controller found for genome alignment step.")
     }
+    if (controller$started()) {
+      tryCatch({
+        controller$terminate()
+      }, error = function(e) {
+        warning(sprintf("Error terminating controller: %s", e$message))
+      })
+    }
     controller$start()
     crew_result <- controller$map(
       command = {
@@ -812,6 +825,13 @@ setMethod(
       } else {
         stop("Unexpected error: no controller found for read realignment step.")
       }
+      if (controller$started()) {
+        tryCatch({
+          controller$terminate()
+        }, error = function(e) {
+          warning(sprintf("Error terminating controller: %s", e$message))
+        })
+      }
       controller$start()
       crew_result <- controller$map(
         command = {
@@ -951,7 +971,6 @@ setMethod("index_genome", "FLAMES.Pipeline", function(pipeline, path, additional
 #' @param genome_fa The file path to the reference genome in FASTA format.
 #' @param minimap2 (optional) The path to the minimap2 binary. If not provided, FLAMES will
 #'   use a copy from bioconda via \code{basilisk}.
-#'   provided, FLAMES will use a copy from bioconda via \code{basilisk}.
 #' @param config_file Path to the JSON configuration file. See \code{\link{create_config}} for creating one.
 #'
 #' @return A \code{SummarizedExperiment} object containing the transcript counts.

@@ -34,8 +34,7 @@ will be processed as an individual sample.}
 use a copy from bioconda via \code{basilisk}.}
 
 \item{samtools}{(optional) The path to the samtools binary. If not provided, FLAMES will
-use a copy from bioconda via \code{basilisk}.
-provided, FLAMES will use a copy from bioconda via \code{basilisk}.}
+use a copy from bioconda via \code{basilisk}.}
 
 \item{controllers}{(optional, \strong{experimental}) A \code{crew_class_controller} object for running certain steps}
 }

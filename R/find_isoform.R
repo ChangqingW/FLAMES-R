@@ -188,7 +188,12 @@ annotation_to_fasta <- function(isoform_annotation, genome_fa, outfile, extract_
 
   dna_string_set <- Biostrings::readDNAStringSet(genome_fa)
   names(dna_string_set) <- gsub(" .*$", "", names(dna_string_set))
+  
   txdb <- txdbmaker::makeTxDbFromGFF(isofile)
+  
+  # Close the database connection on exit
+  on.exit(DBI::dbDisconnect(txdb$conn), add = TRUE)
+
   if (missing(extract_fn)) {
     tr_string_set <- GenomicFeatures::extractTranscriptSeqs(dna_string_set, txdb,
       use.names = TRUE)

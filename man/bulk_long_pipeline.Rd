@@ -24,8 +24,7 @@ will be processed as an individual sample.}
 \item{genome_fa}{The file path to the reference genome in FASTA format.}
 
 \item{minimap2}{(optional) The path to the minimap2 binary. If not provided, FLAMES will
-use a copy from bioconda via \code{basilisk}.
-provided, FLAMES will use a copy from bioconda via \code{basilisk}.}
+use a copy from bioconda via \code{basilisk}.}
 
 \item{config_file}{Path to the JSON configuration file. See \code{\link{create_config}} for creating one.}
 }

@@ -27,13 +27,13 @@
 #' @export
 filter_annotation <- function(annotation, keep = "tss_differ") {
   if (is.character(annotation)) {
-    annotation <- annotation |>
-      txdbmaker::makeTxDbFromGFF() |>
-      GenomicFeatures::transcripts()
+    txdb <- txdbmaker::makeTxDbFromGFF(annotation)
+    on.exit(DBI::dbDisconnect(txdb$conn), add = TRUE)
+    annotation <- GenomicFeatures::transcripts(txdb)
   } else {
-    annotation <- annotation |>
-      txdbmaker::makeTxDbFromGRanges() |>
-      GenomicFeatures::transcripts()
+    txdb <- txdbmaker::makeTxDbFromGRanges(annotation)
+    on.exit(DBI::dbDisconnect(txdb$conn), add = TRUE)
+    annotation <- GenomicFeatures::transcripts(txdb)
   }
 
   unique_fn <- function(x, keep) {

@@ -5,9 +5,9 @@
 \alias{run_FLAMES,FLAMES.Pipeline-method}
 \title{Execute a FLAMES pipeline}
 \usage{
-run_FLAMES(pipeline)
+run_FLAMES(pipeline, overwrite = FALSE)
 
-\S4method{run_FLAMES}{FLAMES.Pipeline}(pipeline)
+\S4method{run_FLAMES}{FLAMES.Pipeline}(pipeline, overwrite = FALSE)
 }
 \arguments{
 \item{pipeline}{A FLAMES.Pipeline object.}

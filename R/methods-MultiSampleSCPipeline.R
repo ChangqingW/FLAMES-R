@@ -200,6 +200,13 @@ setMethod("barcode_demultiplex", "FLAMES.MultiSampleSCPipeline", function(pipeli
   if (any(is.na(pipeline@barcodes_file))) {
     message("No barcodes file provided, running BLAZE to generate barcode list from long reads...")
     if (using_controllers) {
+      if (controller$started()) {
+        tryCatch({
+          controller$terminate()
+        }, error = function(e) {
+          warning(sprintf("Error terminating controller: %s", e$message))
+        })
+      }
       controller$start()
       controller$map(
         command = blaze(
@@ -237,6 +244,13 @@ setMethod("barcode_demultiplex", "FLAMES.MultiSampleSCPipeline", function(pipeli
     }
   } else {
     if (using_controllers) {
+      if (controller$started()) {
+        tryCatch({
+          controller$terminate()
+        }, error = function(e) {
+          warning(sprintf("Error terminating controller: %s", e$message))
+        })
+      }
       controller$start()
       crew_result <- controller$map(
         command = find_barcode(

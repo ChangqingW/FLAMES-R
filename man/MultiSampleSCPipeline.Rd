@@ -37,8 +37,7 @@ If not named, the sample names will be generated from the file names.}
 use a copy from bioconda via \code{basilisk}.}
 
 \item{samtools}{(optional) The path to the samtools binary. If not provided, FLAMES will
-use a copy from bioconda via \code{basilisk}.
-provided, FLAMES will use a copy from bioconda via \code{basilisk}.}
+use a copy from bioconda via \code{basilisk}.}
 
 \item{barcodes_file}{The file with expected cell barcodes, with each barcode on a new line.}
 
