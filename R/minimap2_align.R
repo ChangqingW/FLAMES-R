@@ -74,9 +74,11 @@ minimap2_align <- function(fq_in, fa_file, config, outfile, minimap2_args, sort_
       shQuote(samtools),
       "view -b -o", shQuote(tmp_bam)
     )
-    minimap2_status <- base::system(
-      command = cmd,
-      intern = FALSE
+    minimap2_status <- base::system2(
+      command = "bash",
+      args = c("-c", shQuote(cmd)),
+      stdout = FALSE,
+      stderr = FALSE
     )
     check_status_code(minimap2_status, cmd, "Minimap2 and samtools")
   } else {
@@ -90,9 +92,11 @@ minimap2_align <- function(fq_in, fa_file, config, outfile, minimap2_args, sort_
       shQuote(fq_in),
       ">", shQuote(tmp_sam)
     )
-    minimap2_status <- base::system(
-      command = cmd,
-      intern = FALSE
+    minimap2_status <- base::system2(
+      command = "bash",
+      args = c("-c", shQuote(cmd)),
+      stdout = FALSE,
+      stderr = FALSE
     )
     check_status_code(minimap2_status, cmd, "Minimap2")
     Rsamtools::asBam(
@@ -126,9 +130,11 @@ minimap2_align <- function(fq_in, fa_file, config, outfile, minimap2_args, sort_
         shQuote(samtools),
         paste(sort_args, collapse = " ")
       )
-      sort_status <- base::system(
-        command = cmd,
-        intern = FALSE
+      sort_status <- base::system2(
+        "bash",
+        c("-c", shQuote(cmd)),
+        stdout = FALSE,
+        stderr = FALSE
       )
       check_status_code(sort_status, cmd, "Samtools sort")
     } else {
@@ -160,9 +166,11 @@ minimap2_align <- function(fq_in, fa_file, config, outfile, minimap2_args, sort_
         "index",
         shQuote(outfile)
       )
-      index_status <- base::system(
-        command = cmd,
-        intern = FALSE
+      index_status <- base::system2(
+        command = "bash",
+        args = c("-c", shQuote(cmd)),
+        stdout = FALSE,
+        stderr = FALSE
       )
       check_status_code(index_status, cmd, "Samtools index")
     } else {

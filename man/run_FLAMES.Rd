@@ -11,6 +11,8 @@ run_FLAMES(pipeline, overwrite = FALSE)
 }
 \arguments{
 \item{pipeline}{A FLAMES.Pipeline object.}
+
+\item{overwrite}{(optional) If TRUE, the pipeline will be re-run even if some steps are already completed.}
 }
 \value{
 An updated FLAMES.Pipeline object.

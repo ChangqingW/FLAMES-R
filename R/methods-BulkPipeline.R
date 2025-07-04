@@ -321,6 +321,7 @@ setMethod("run_step", "FLAMES.Pipeline", function(pipeline, step, disable_contro
 #'
 #' @description This function runs the FLAMES pipeline. It will run all steps in the pipeline.
 #' @param pipeline A FLAMES.Pipeline object.
+#' @param overwrite (optional) If TRUE, the pipeline will be re-run even if some steps are already completed.
 #' @return An updated FLAMES.Pipeline object.
 #' @seealso
 #' \code{\link{resume_FLAMES}} to resume a pipeline from the last completed step.
