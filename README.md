@@ -28,9 +28,31 @@ if (!require("BiocManager", quietly = TRUE))
 BiocManager::install("mritchielab/FLAMES")
 ```
 
+### ⚠️ Installing source packages inside a conda environment might cause various issues
+
+Please consider using Docker or Singularity instead if you cannot install FLAMES in your native R environment.
+
+### Docker
+
+```
+docker pull ghcr.io/mritchielab/flames:0191765
+# To start a Rstudio server with FLAMES installed, run:
+docker run -it -p 8787:8787 ghcr.io/mritchielab/flames:0191765
+# Or if you prefer the terminal:
+docker run -it --user rstudio ghcr.io/mritchielab/flames:0191765 /bin/bash
+```
+
+### Singularity
+
+```
+singularity pull flames.sif docker://ghcr.io/mritchielab/flames:0191765
+singularity shell -e --no-home --writable-tmpfs flames.sif
+```
+
+
 ## Documentation
 
-Function references can be found [here](https://mritchielab.github.io/FLAMES/reference/index.html).
+Function reference manual can be found [here](https://mritchielab.github.io/FLAMES/reference/index.html).
 
 [IgniteRNAseq](https://github.com/ChangqingW/IgniteRNAseq) is a workflow package and its rendered vignette can be found [here](https://changqingw.github.io/IgniteRNAseq/articles/FLAMESWorkflow.html).
 
