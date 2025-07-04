@@ -2,18 +2,16 @@ FROM bioconductor/bioconductor_docker:devel
 
 WORKDIR /home/rstudio
 
+# Install system dependencies first
+RUN apt-get update && apt-get install -y \
+    samtools \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Copy source files
 COPY --chown=rstudio:rstudio . /home/rstudio/
 
-RUN Rscript -e "options(repos = c(CRAN = 'https://cran.r-project.org')); BiocManager::install(ask=FALSE)"
+RUN Rscript -e "options(Ncpus = 8); BiocManager::install(ask=FALSE); devtools::install('.', dependencies=TRUE, build_vignettes=TRUE, repos = BiocManager::repositories())"
 
-RUN Rscript -e "options(repos = c(CRAN = 'https://cran.r-project.org')); devtools::install('.', dependencies=TRUE, build_vignettes=TRUE, repos = BiocManager::repositories())"
-
-RUN sudo apt-get update && sudo apt-get install -y samtools
-
-USER rstudio
-
-RUN Rscript -e "basilisk::basiliskRun(env = FLAMES:::flames_env, fun = function(){})"
-
-USER root
-
-RUN chmod -R 777 /home/rstudio
+# Pre-initialize basilisk environment
+RUN su - rstudio -c "Rscript -e 'basilisk::basiliskRun(env = FLAMES:::flames_env, fun = function(){})'" \
+    && chmod -R 777 /home/rstudio/.cache/R/basilisk
