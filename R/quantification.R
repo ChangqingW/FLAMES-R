@@ -198,13 +198,14 @@ add_gene_counts <- function(sce, gene_count_file) {
     }
   }
   mtx <- read.csv(gene_count_file, row.names = 1)
+  mtx[is.na(mtx)] <- 0
   mtx <- mtx[, colnames(mtx) %in% colnames(sce)] |>
     as.matrix()
   gene_mtx <- matrix(0, nrow = nrow(mtx), ncol = ncol(sce))
   gene_mtx[, match(colnames(mtx), colnames(sce))] <- mtx
 
   gene <- SingleCellExperiment::SingleCellExperiment(
-    assays = list(counts = gene_mtx)
+    assays = list(counts = as(gene_mtx, "TsparseMatrix"))
   )
   colnames(gene) <- colnames(sce)
   rownames(gene) <- rownames(mtx)

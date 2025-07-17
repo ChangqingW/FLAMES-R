@@ -301,7 +301,6 @@ setMethod("barcode_demultiplex", "FLAMES.SingleCellPipeline", function(pipeline)
         command = blaze(
           expect_cells = expect_cell_number,
           fq_in = fastq,
-          "output-prefix" = file.path(outdir, ""),
           "output-fastq" = demultiplexed_fastq,
           "threads" = config$pipeline_parameters$threads,
           "max-edit-distance" = config$barcode_parameters$max_bc_editdistance,
@@ -324,7 +323,6 @@ setMethod("barcode_demultiplex", "FLAMES.SingleCellPipeline", function(pipeline)
       blaze(
         expect_cells = pipeline@expect_cell_number,
         fq_in = pipeline@fastq,
-        "output-prefix" = file.path(pipeline@outdir, ""),
         "output-fastq" = pipeline@demultiplexed_fastq,
         "threads" = pipeline@config$pipeline_parameters$threads,
         "max-edit-distance" = pipeline@config$barcode_parameters$max_bc_editdistance,
@@ -402,6 +400,8 @@ setMethod("genome_alignment", "FLAMES.SingleCellPipeline", function(pipeline) {
   infq <- pipeline@fastq
   if (all(file.exists(pipeline@demultiplexed_fastq))) {
     infq <- pipeline@demultiplexed_fastq
+  } else if (pipeline@steps["barcode_demultiplex"] && pipeline@completed_steps["barcode_demultiplex"]) {
+    stop("Unexpected error: demultiplex step performed but the demultiplexed fastq file not found.")
   }
   genome_alignment_raw(
     pipeline = pipeline,
