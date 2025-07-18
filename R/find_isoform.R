@@ -161,19 +161,16 @@ fake_stranded_gff <- function(gff_file) {
 }
 
 #' GTF/GFF to FASTA conversion
-#' @description convert the transcript annotation to transcriptome assembly as FASTA file. The
-#' genome annotation is first imported as TxDb object and then used to extract transcript sequence
-#' from the genome assembly.
+#' @description convert the transcript annotation to transcriptome assembly as FASTA file.
 #' @param isoform_annotation Path to the annotation file (GTF/GFF3)
 #' @param genome_fa The file path to genome fasta file.
 #' @param outfile The file path to the output FASTA file.
-#' @param extract_fn (optional) Function to extract \code{GRangesList} from the genome TxDb object.
-#' E.g. \code{function(txdb){GenomicFeatures::cdsBy(txdb, by="tx", use.names=TRUE)}}
+#' @param extract_fn (optional) Function to extract a \code{GRangesList} object
+#' E.g. \code{function(txdb){GenomicFeatures::cdsBy(txdb, by="tx")}}
 #' @return This does not return anything. A FASTA file will be created at the specified location.
 #'
 #' @importFrom Biostrings readDNAStringSet writeXStringSet
 #' @importFrom GenomicFeatures extractTranscriptSeqs
-#' @importFrom txdbmaker makeTxDbFromGFF
 #' @importFrom Rsamtools indexFa
 #' @importFrom utils write.table
 #'
@@ -189,16 +186,12 @@ annotation_to_fasta <- function(isoform_annotation, genome_fa, outfile, extract_
   dna_string_set <- Biostrings::readDNAStringSet(genome_fa)
   names(dna_string_set) <- gsub(" .*$", "", names(dna_string_set))
   
-  txdb <- txdbmaker::makeTxDbFromGFF(isofile)
+  grg <- get_GRangesList(isofile)[["grl"]]
   
-  # Close the database connection on exit
-  on.exit(DBI::dbDisconnect(txdb$conn), add = TRUE)
-
   if (missing(extract_fn)) {
-    tr_string_set <- GenomicFeatures::extractTranscriptSeqs(dna_string_set, txdb,
-      use.names = TRUE)
+    tr_string_set <- GenomicFeatures::extractTranscriptSeqs(dna_string_set, grg)
   } else {
-    extracted_grl <- extract_fn(txdb)
+    extracted_grl <- extract_fn(grg)
     tr_string_set <- GenomicFeatures::extractTranscriptSeqs(dna_string_set, extracted_grl)
     # additional arguments are allowed only when 'transcripts' is not a GRangesList object
   }
@@ -216,25 +209,50 @@ annotation_to_fasta <- function(isoform_annotation, genome_fa, outfile, extract_
 #' Parse FLAMES' GFF output
 #' @description Parse FLAMES' GFF ouputs into a Genomic Ranges List
 #' @param file the GFF file to parse
-#' @return A Genomic Ranges List
+#' @param feature.type The type of features to extract from the GFF file. Default is \code{c("exon", "utr")}.
+#' @param drop.cols Columns to drop from the metadata. Default is \code{c("type", "exon_number", "exon_id", "level")},
+#' which are exon-specific metadata that may not be relevant when keeping just the first row (exon).
+#' @return A list containing a \code{GRangesList} of isoforms and a \code{DataFrame}, which have
+#' the same number of rows as the number of unique transcript IDs in the GFF file.
 #' @keywords internal
-get_GRangesList <- function(file) {
+get_GRangesList <- function(
+  file, feature.type = c("exon", "utr"), drop.cols = c("type", "exon_number", "exon_id", "level", "Parent")) {
+
   if (is.character(file)) {
-    isoform_gr <- rtracklayer::import(file, feature.type = c("exon", "utr"))
-    if (grepl("\\.gff3(\\.gz)?$", file)) {
+    isoform_gr <- rtracklayer::import(file, feature.type = feature.type)
+    if (!"transcript_id" %in% colnames(S4Vectors::mcols(isoform_gr))) {
+      # flames' output only has Parent column
       isoform_gr$Parent <- as.character(isoform_gr$Parent)
-      isoform_gr$transcript_id <- unlist(lapply(strsplit(isoform_gr$Parent, split = ":"), function(x) {
-        x[2]
-      }))
+      isoform_gr$transcript_id <- unlist(lapply(strsplit(isoform_gr$Parent, split = ":"), function(x) x[2]))
+      # add gene_id
+      transcript_gr <- rtracklayer::import(file, feature.type = "transcript")
+      transcript_gr$gene_id <- gsub("^gene:", "", as.character(transcript_gr$Parent))
+      isoform_gr$gene_id <- transcript_gr$gene_id[match(isoform_gr$transcript_id, transcript_gr$transcript_id)]
     }
   } else if (is(file, "GRanges")) {
     isoform_gr <- file
   } else if (is(file, "GRangesList")) {
-    return(file)
+    return(list(grl = file, rowdata = NULL))
   } else {
     stop(sprintf("Unsupported input type: %s", class(file)))
   }
 
-  isoform_grl <- S4Vectors::split(isoform_gr, isoform_gr$transcript_id)
-  return(isoform_grl)
+  # Save and remove metadata
+  rowdata <- S4Vectors::elementMetadata(isoform_gr)
+  S4Vectors::elementMetadata(isoform_gr) <- NULL
+
+  # Split by transcript_id
+  isoform_grl <- S4Vectors::split(isoform_gr, rowdata$transcript_id)
+
+  # Get transcript-level metadata: first occurrence for each transcript_id
+  rowdata <- rowdata[!duplicated(rowdata$transcript_id), setdiff(colnames(rowdata), drop.cols), drop = FALSE]
+  rownames(rowdata) <- rowdata$transcript_id
+  # Reorder to match isoform_grl
+  rowdata <- rowdata[match(names(isoform_grl), rowdata$transcript_id), , drop = FALSE]
+
+  ret <- list(
+    grl = isoform_grl,
+    rowdata = rowdata
+  )
+  return(ret)
 }
