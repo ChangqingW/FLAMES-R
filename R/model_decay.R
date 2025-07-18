@@ -28,11 +28,9 @@
 filter_annotation <- function(annotation, keep = "tss_differ") {
   if (is.character(annotation)) {
     txdb <- txdbmaker::makeTxDbFromGFF(annotation)
-    on.exit(DBI::dbDisconnect(txdb$conn), add = TRUE)
     annotation <- GenomicFeatures::transcripts(txdb)
   } else {
     txdb <- txdbmaker::makeTxDbFromGRanges(annotation)
-    on.exit(DBI::dbDisconnect(txdb$conn), add = TRUE)
     annotation <- GenomicFeatures::transcripts(txdb)
   }
 

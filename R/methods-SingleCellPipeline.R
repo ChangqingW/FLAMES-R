@@ -731,9 +731,9 @@ addRowRanges <- function(sce, annotation, outdir) {
     novel_annotation <- NULL
   }
 
-  annotation_grl <- get_GRangesList(annotation)
+  annotation_grl <- get_GRangesList(annotation)[["grl"]]
   if (!is.null(novel_annotation)) {
-    novel_grl <- get_GRangesList(novel_annotation)
+    novel_grl <- get_GRangesList(novel_annotation)[["grl"]]
     annotation_grl <- c(annotation_grl,
       novel_grl[!names(novel_grl) %in% names(annotation_grl)]
     )

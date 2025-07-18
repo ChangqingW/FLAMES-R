@@ -347,7 +347,9 @@ parse_oarfish_sc_output <- function(oarfish_out, annotation, outdir) {
   # mtx <- mtx[MatrixGenerics::rowSums(mtx) > 0, ]
   sce <- SingleCellExperiment::SingleCellExperiment(assays = list(counts = mtx))
 
-  annotation_grl <- get_GRangesList(annotation)
+  annotation <- get_GRangesList(annotation)
+  annotation_grl <- annotation[["grl"]]
+
   if (file.exists(file.path(outdir, "isoform_annotated.gff3"))) {
     novel_annotation <- file.path(outdir, "isoform_annotated.gff3")
   } else if (file.exists(file.path(outdir, "isoform_annotated.gtf"))) {
@@ -357,7 +359,8 @@ parse_oarfish_sc_output <- function(oarfish_out, annotation, outdir) {
     message("No novel annotation found.")
   }
   if (!is.null(novel_annotation)) {
-    novel_grl <- get_GRangesList(novel_annotation)
+    novel <- get_GRangesList(novel_annotation)
+    novel_grl <- novel[["grl"]]
     annotation_grl <- c(
       annotation_grl,
       novel_grl[!names(novel_grl) %in% names(annotation_grl)]
@@ -368,34 +371,29 @@ parse_oarfish_sc_output <- function(oarfish_out, annotation, outdir) {
   SummarizedExperiment::rowRanges(sce)[names(annotation_grl)] <- annotation_grl
   rowData(sce)$transcript_id <- rownames(sce)
 
-  # add gene ID
-  SummarizedExperiment::rowData(sce)$gene_id <- tryCatch(
-    GenomicRanges::mcols(annotation_grl)[, "gene_id"],
-    error = function(e) {
-      sprintf("Error when adding gene ID: %s, trying again with txdbmaker...", e$message)
-      gene_id_tb <- tryCatch({
-        txdb_list <- c(annotation, novel_annotation) |>
-          lapply(fake_stranded_gff) |>
-          lapply(txdbmaker::makeTxDbFromGFF)
-        
-        gene_id_tb <- txdb_list |>
-          lapply(\(x) GenomicFeatures::transcripts(x, columns = c("gene_id", "tx_name"))) |>
-          lapply(\(x) GenomicRanges::mcols(x)) |>
-          do.call(rbind, args = _)
-        
-        gene_id_tb
-      }, finally = {
-        if (exists("txdb_list")) {
-          for (txdb in txdb_list) {
-            DBI::dbDisconnect(txdb$conn)
-          }
-        }
-      })
-      
-      gene_id_tb[match(rownames(sce), gene_id_tb$tx_name), "gene_id"] |>
-        as.character()
-    }
-  )
+  # extend rowData
+  if (!is.null(novel_annotation)) {
+    rowdata <- rbind(
+      annotation[["rowdata"]][,
+        intersect(colnames(annotation[["rowdata"]]), colnames(novel[["rowdata"]])), drop = FALSE
+      ],
+      novel[["rowdata"]][,
+        intersect(colnames(novel[["rowdata"]]), colnames(annotation[["rowdata"]])), drop = FALSE
+      ]
+    )
+  } else {
+    rowdata <- annotation[["rowdata"]]
+  }
+  rowdata <- rowdata[!duplicated(rowdata$transcript_id), ]
+  extra_cols <- setdiff(colnames(rowdata), colnames(rowData(sce)))
+  if (all(rowData(sce)$transcript_id %in% rowdata$transcript_id)) {
+    rowData(sce) <- cbind(
+      rowData(sce),
+      rowdata[match(rowData(sce)$transcript_id, rowdata$transcript_id), extra_cols, drop = FALSE]
+    )
+  } else {
+    warning("Some transcripts in the SCE object are not found in the annotation.")
+  }
 
   return(sce)
 }
