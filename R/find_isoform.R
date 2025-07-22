@@ -38,7 +38,7 @@ find_isoform_bambu <- function(annotation, genome_fa, genome_bam, outdir, config
   # min.readCount seems to cause errors
   # https://github.com/GoekeLab/bambu/issues/364
 
-  bambu_out <- withr::with_package("GenomeInfoDb",
+  bambu_out <- withr::with_package("Seqinfo",
     bambu::bambu(
       reads = genome_bam,
       annotations = bambuAnnotations,
