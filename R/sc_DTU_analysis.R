@@ -343,3 +343,118 @@ mean_transcript_usage <- function(mtx, cell_labels, genes, gene_counts, diff_onl
   dimnames(diff_mtx)[[3]] <- c("transcript_usage", "transcript_usage_elsewhere", "usage_difference")
   return(diff_mtx)
 }
+
+#' Compute Gene Isoform Entropy Matrix
+#'
+#' Calculates normalized Shannon entropy for gene isoform expression across cells.
+#' Higher entropy indicates more diverse isoform usage, lower entropy indicates
+#' dominance by fewer isoforms.
+#'
+#' @param obj A \code{SingleCellExperiment} object
+#' @param genes Character vector of gene names/IDs to analyze
+#' @param assay Name of assay containing isoform counts (default: "counts")
+#' @param gene_col Column name in rowData containing gene identifiers (default: "gene_id")
+#' @param alpha Pseudocount added to avoid log(0) (default: 0.01)
+#' @param min_counts_per_cell Minimum total gene counts per cell to include (default: 5)
+#' @param isoform_min_pct_cells Minimum fraction of cells expressing each isoform (default: 0.05)
+#' @param isoform_cumulative_pct Keep top isoforms contributing to this cumulative proportion (default: 0.95)
+#' @param min_cell_fraction Minimum fraction of cells with valid entropy per gene (default: 0.25)
+#' @param show_progress Logical indicating whether to show progress (default: TRUE)
+#'
+#' @return Matrix with genes as rows and cells as columns containing normalized entropy values (0-1).
+#' @export
+#'
+#' @importFrom SingleCellExperiment counts
+#' @importFrom SummarizedExperiment assay rowData
+#' @importFrom cli cli_progress_bar cli_progress_update cli_progress_done
+#' @examples
+#' \dontrun{
+#' genes <- c("Gene1", "Gene2")
+#' res <- compute_gene_entropy_matrix(sce, genes = genes)
+#' }
+compute_gene_entropy_matrix <- function(obj,
+                                       genes,
+                                       assay = "counts",
+                                       gene_col = "gene_id",
+                                       alpha = 0.01,
+                                       min_counts_per_cell = 5,
+                                       isoform_min_pct_cells = 0.05,
+                                       isoform_cumulative_pct = 0.95,
+                                       min_cell_fraction = 0.25,
+                                       show_progress = TRUE) {
+  
+  if (!methods::is(obj, "SingleCellExperiment")) {
+    stop("obj must be a SingleCellExperiment object")
+  }
+  
+  if (show_progress) {
+    cli::cli_progress_bar("Processing genes", total = length(genes))
+  }
+
+  cells <- colnames(obj)
+  mat_counts <- SummarizedExperiment::assay(obj, assay)[, cells, drop = FALSE]
+
+  entropy_mat <- matrix(NA_real_, nrow = length(genes), ncol = length(cells))
+  rownames(entropy_mat) <- genes
+  colnames(entropy_mat) <- cells
+
+  for (i in seq_along(genes)) {
+    gene <- genes[i]
+    if (show_progress) {
+      cli::cli_progress_update(status = gene)
+    }
+
+    isoforms <- grep(paste0("(^|-|\\b)", gene, "($|\\b)"), rownames(mat_counts), value = TRUE)
+    if (length(isoforms) < 2) {
+      message("Skipping ", gene, ": fewer than 2 isoforms")
+      next
+    }
+
+    submat <- mat_counts[isoforms, , drop = FALSE]
+    gene_total_counts <- colSums(submat)
+    keep_cells <- names(gene_total_counts)[gene_total_counts >= min_counts_per_cell]
+    if (length(keep_cells) == 0) {
+      message("Skipping ", gene, ": no cells with at least ", min_counts_per_cell, " gene counts")
+      next
+    }
+
+    submat_f <- submat[, keep_cells, drop = FALSE]
+
+    pct_cells_expressed <- rowMeans(submat_f > 0)
+    iso_keep_pct <- names(pct_cells_expressed)[pct_cells_expressed >= isoform_min_pct_cells]
+    submat_f <- submat_f[iso_keep_pct, , drop = FALSE]
+
+    filter_top_isoforms <- function(counts, threshold = 0.9) { 
+      proportions <- counts / sum(counts)
+      sorted <- sort(proportions, decreasing = TRUE)
+      keep <- which(cumsum(sorted) <= threshold)
+      if (length(keep) == 0) keep <- 1
+      names(sorted)[c(keep, length(keep) + 1)]
+    }
+
+    iso_keep_cum <- unique(unlist(apply(submat_f, 2, filter_top_isoforms, threshold = isoform_cumulative_pct)))
+    iso_keep_final <- base::intersect(rownames(submat_f), iso_keep_cum)
+    if (length(iso_keep_final) < 2) {
+      message("Skipping ", gene, ": fewer than 2 isoforms remain after filtering")
+      next
+    }
+
+    submat_final <- submat_f[iso_keep_final, , drop = FALSE]
+    mat_smoothed <- submat_final + alpha
+    p_mat <- sweep(mat_smoothed, 2, colSums(mat_smoothed), FUN = "/")
+
+    entropy_vec <- apply(p_mat, 2, function(p) {
+      valid <- p > 0
+      -sum(p[valid] * log2(p[valid])) / log2(sum(valid))
+    })
+
+    entropy_mat[gene, colnames(submat_final)] <- entropy_vec
+  }
+
+  if (show_progress) {
+    cli::cli_progress_done()
+  }
+
+  entropy_mat <- entropy_mat[rowMeans(!is.na(entropy_mat)) >= min_cell_fraction, ]
+  return(entropy_mat)
+}
