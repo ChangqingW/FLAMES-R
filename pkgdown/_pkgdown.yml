@@ -78,13 +78,16 @@ reference:
       - plot_spatial_isoform
       - plot_spatial_pie
       - plot_spatial_feature
+  - title: Analysis of single-cell data
+    contents:
+      - sc_gene_entropy
+      - sc_DTU_analysis
   - title: Miscellaneous
     contents:
       - add_gene_counts
       - create_config
       - create_sce_from_dir
       - create_se_from_dir
-      - sc_DTU_analysis
       - filter_annotation
       - get_GRangesList
       - demultiplex_sockeye
