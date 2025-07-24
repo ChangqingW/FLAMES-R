@@ -166,7 +166,7 @@ fake_stranded_gff <- function(gff_file) {
 #' @param genome_fa The file path to genome fasta file.
 #' @param outfile The file path to the output FASTA file.
 #' @param extract_fn (optional) Function to extract a \code{GRangesList} object
-#' E.g. \code{function(txdb){GenomicFeatures::cdsBy(txdb, by="tx")}}
+#' E.g. \code{function(grl){GenomicFeatures::cdsBy(grl, by="tx")}}
 #' @return This does not return anything. A FASTA file will be created at the specified location.
 #'
 #' @importFrom Biostrings readDNAStringSet writeXStringSet
@@ -185,9 +185,9 @@ annotation_to_fasta <- function(isoform_annotation, genome_fa, outfile, extract_
 
   dna_string_set <- Biostrings::readDNAStringSet(genome_fa)
   names(dna_string_set) <- gsub(" .*$", "", names(dna_string_set))
-  
+
   grg <- get_GRangesList(isofile)[["grl"]]
-  
+
   if (missing(extract_fn)) {
     tr_string_set <- GenomicFeatures::extractTranscriptSeqs(dna_string_set, grg)
   } else {

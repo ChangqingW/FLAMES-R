@@ -43,7 +43,6 @@ Imports:
     DBI,
     GenomicRanges,
     GenomicFeatures,
-    txdbmaker,
     GenomicAlignments,
     GenomeInfoDb,
     ggplot2,

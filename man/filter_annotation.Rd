@@ -8,7 +8,8 @@ filter_annotation(annotation, keep = "tss_differ")
 }
 \arguments{
 \item{annotation}{path to the GTF annotation file, or the parsed GenomicRanges
-object.}
+object with a valid \code{transcript_id} column, and each Range representing
+a transcript.}
 
 \item{keep}{string, one of 'tss_differ' (only keep isoforms that all differ
 by the transcription start site position), 'tes_differ' (only keep those that

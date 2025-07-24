@@ -4,14 +4,14 @@
 #' that only differ by the 5' / 3' end. This could be useful for plotting average
 #' coverage plots.
 #'
-#' @importFrom txdbmaker makeTxDbFromGFF makeTxDbFromGRanges
 #' @importFrom rtracklayer import
 #' @importFrom S4Vectors split
 #' @importFrom GenomicRanges strand
 #' @importFrom BiocGenerics start end
 #'
 #' @param annotation path to the GTF annotation file, or the parsed GenomicRanges
-#' object.
+#' object with a valid \code{transcript_id} column, and each Range representing
+#' a transcript.
 #' @param keep string, one of 'tss_differ' (only keep isoforms that all differ
 #' by the transcription start site position), 'tes_differ' (only keep those that
 #' differ by the transcription end site position), 'both' (only keep those that
@@ -27,11 +27,7 @@
 #' @export
 filter_annotation <- function(annotation, keep = "tss_differ") {
   if (is.character(annotation)) {
-    txdb <- txdbmaker::makeTxDbFromGFF(annotation)
-    annotation <- GenomicFeatures::transcripts(txdb)
-  } else {
-    txdb <- txdbmaker::makeTxDbFromGRanges(annotation)
-    annotation <- GenomicFeatures::transcripts(txdb)
+    annotation <- rtracklayer::import(annotation, feature.type = "transcript")
   }
 
   unique_fn <- function(x, keep) {
