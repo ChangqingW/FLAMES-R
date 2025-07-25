@@ -503,7 +503,7 @@ setGeneric("config<-", function(pipeline, value) standardGeneric("config<-"))
 #' @export
 setMethod("config<-", "FLAMES.Pipeline", function(pipeline, value) {
   if (is.character(value) && file.exists(value)) {
-    value <- jsonlite::fromJSON(value)
+    value <- load_config(value)
   } else if (!is.list(value)) {
     stop("Configuration must be a list or a path to a JSON configuration file.")
   }

@@ -1,6 +1,7 @@
-test_that("create_config check", {
+test_that("create_config check (legacy test)", {
   outdir <- tempfile()
   dir.create(outdir)
+  # Test that the refactored create_config still handles old-style parameters
   test_conf <- create_config(outdir, max_bc_editdistance = 123)
   expect_equal(jsonlite::fromJSON(test_conf)$barcode_parameters$max_bc_editdistance, 123)
 
