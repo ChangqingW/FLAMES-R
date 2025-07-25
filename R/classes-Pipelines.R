@@ -107,6 +107,31 @@ setMethod("display_pipeline_class", "FLAMES.Pipeline", function(pipeline) {
   func("A {.strong {class(pipeline)}} outputting to {.path {pipeline@outdir}}")
 })
 
+# Helper function to get expect_cell_number for display
+# Returns:
+#   - NULL if no expect_cell_number is set or index is out of bounds
+#   - Single numeric value for SingleCellPipeline or when requesting specific index
+#   - Comma-separated string for MultiSampleSCPipeline summary display (e.g., "1000, 2000, 3000")
+get_expect_cell_display <- function(object, index = NULL) {
+  if (length(object@expect_cell_number) == 0) {
+    return(NULL)  # No expect_cell_number set
+  }
+  if (is.null(index)) {
+    # For single sample or summary display
+    if (length(object@expect_cell_number) == 1) {
+      return(object@expect_cell_number)
+    } else {
+      return(paste(object@expect_cell_number, collapse = ", "))
+    }
+  } else {
+    # For specific index in multi-sample
+    if (length(object@expect_cell_number) >= index) {
+      return(object@expect_cell_number[index])
+    }
+    return(NULL)  # Index out of bounds
+  }
+}
+
 # Helper function to truncate paths
 truncate_path <- function(path, max_chars = 50) {
   if (nchar(path) <= max_chars) {
@@ -132,8 +157,9 @@ display_inputs <- function(object, input_slots) {
     paths <- slot(object, slot)
     if (length(paths) == 0 || (length(paths) == 1 && is.na(paths))) {
       if (slot == "genome_mmi") next
-      if (slot == "barcodes_file" && !is.na(object@expect_cell_number)) {
-        cli::cli_alert_info("{.field {slot}}: [not set] (set to expect {object@expect_cell_number} cells)")
+      if (slot == "barcodes_file" && !is.null(get_expect_cell_display(object))) {
+        expect_display <- get_expect_cell_display(object)
+        cli::cli_alert_info("{.field {slot}}: [not set] (set to expect {expect_display} cells)")
       } else {
         cli::cli_alert_warning("{.field {slot}}: [not set]")
       }
@@ -153,8 +179,9 @@ display_inputs <- function(object, input_slots) {
         for (i in seq_along(paths)) {
           if (is.na(paths[i])) {
             if (slot == "genome_mmi") next
-            if (slot == "barcodes_file" && !is.na(object@expect_cell_number[i])) {
-              cli::cli_alert_info("  [not set] (set to expect {object@expect_cell_number[i]} cells)")
+            if (slot == "barcodes_file" && !is.null(get_expect_cell_display(object, i))) {
+              expect_display <- get_expect_cell_display(object, i)
+              cli::cli_alert_info("  [not set] (set to expect {expect_display} cells)")
             } else {
               cli::cli_alert_warning("  [not set]")
             }
