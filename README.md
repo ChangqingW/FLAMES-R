@@ -35,18 +35,18 @@ Please consider using Docker or Singularity instead if you cannot install FLAMES
 ### Docker
 
 ```
-docker pull ghcr.io/mritchielab/flames:0191765
-# To start a Rstudio server with FLAMES installed, run:
-docker run -it -p 8787:8787 ghcr.io/mritchielab/flames:0191765
-# Or if you prefer the terminal:
-docker run -it --user rstudio ghcr.io/mritchielab/flames:0191765 /bin/bash
+docker pull ghcr.io/mritchielab/flames:20af1ce
+# To start an R session:
+docker run -it ghcr.io/mritchielab/flames:20af1ce
+# Or a bash session:
+docker run -it ghcr.io/mritchielab/flames:20af1ce /bin/bash
 ```
 
 ### Singularity
 
 ```
-singularity pull flames.sif docker://ghcr.io/mritchielab/flames:0191765
-singularity shell -e --no-home --writable-tmpfs flames.sif
+singularity pull flames.sif docker://ghcr.io/mritchielab/flames:20af1ce
+singularity shell -e --writable-tmpfs flames.sif
 ```
 
 
