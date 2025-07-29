@@ -32,13 +32,9 @@
 #' @importFrom BiocGenerics cbind colnames rownames
 #' @importFrom SingleCellExperiment SingleCellExperiment altExp altExp<- counts counts<-
 #' @importFrom SummarizedExperiment rowData colData rowData<- colData<- rowRanges rowRanges<-
-#' @importFrom DropletUtils read10xCounts
 #' @export
 #' @md
 combine_sce <- function(sce_with_lr, sce_without_lr) {
-  if (is.character(sce_without_lr)) {
-    sce_without_lr <- read10xCounts(sce_without_lr)
-  }
 
   if (!is.null(colnames(sce_with_lr)) & !is.null(colnames(sce_without_lr))) {
     duplicated_barcodes <- intersect(colnames(sce_with_lr), colnames(sce_without_lr))
