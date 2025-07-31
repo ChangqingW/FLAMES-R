@@ -118,6 +118,7 @@ SingleCellPipeline <- function(
   pipeline@transcriptome_assembly <- file.path(outdir, "transcript_assembly.fa")
   pipeline@demultiplexed_fastq <- file.path(outdir, "matched_reads.fastq.gz")
   pipeline@deduped_fastq <- file.path(outdir, "matched_reads_dedup.fastq.gz")
+  pipeline@experiment <- file.path(outdir, "experiment.rds")
 
   ## binaries
   if (missing(minimap2) || !is.character(minimap2)) {

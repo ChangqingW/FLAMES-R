@@ -138,6 +138,7 @@ BulkPipeline <- function(
   pipeline@genome_bam <- file.path(outdir, paste0(names(fastq), "_", "align2genome.bam"))
   pipeline@transcriptome_bam <- file.path(outdir, paste0(names(fastq), "_", "realign2transcript.bam"))
   pipeline@transcriptome_assembly <- file.path(outdir, "transcript_assembly.fa")
+  pipeline@experiment <- file.path(outdir, "experiment.rds")
 
   ## binaries
   if (missing(minimap2) || !is.character(minimap2)) {
@@ -580,7 +581,15 @@ setGeneric("experiment", function(pipeline) {
 #' @rdname experiment
 #' @export
 setMethod("experiment", "FLAMES.Pipeline", function(pipeline) {
-  pipeline@experiment
+  if (is.na(pipeline@experiment)) {
+    return(NULL)
+  }
+  if (file.exists(pipeline@experiment)) {
+    return(readRDS(pipeline@experiment))
+  } else {
+    warning(sprintf("Experiment file not found: %s", pipeline@experiment))
+    return(NULL)
+  }
 })
 
 # individual steps as methods
@@ -918,11 +927,10 @@ setMethod("transcript_quantification", "FLAMES.Pipeline", function(pipeline, ref
     pipeline = pipeline_class,
     samples = names(pipeline@fastq)
   )
-  if (is.list(x) & pipeline_class == "sc_multi_sample") {
-    pipeline@experiments <- x
-  } else {
-    pipeline@experiment <- x
-  }
+
+  # Save experiment result to RDS file and store the file path
+  saveRDS(x, pipeline@experiment)
+
   return(pipeline)
 })
 

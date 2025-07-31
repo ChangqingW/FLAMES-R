@@ -16,7 +16,7 @@ setClass(
     transcriptome_bam = "character", # Path to the transcript BAM file
     novel_isoform_annotation = "character", # Path to the novel isoform GFF / GTF file
     transcriptome_assembly = "character", # Path to the transcriptome assembly file
-    experiment = "SummarizedExperiment", # SummarizedExperiment object for quantification results
+    experiment = "character", # Path to the RDS file containing experiment results
 
     # binaries
     minimap2 = "character",     # Path to the minimap2 binary
@@ -43,7 +43,7 @@ setClass(
     transcriptome_bam = NA_character_,
     novel_isoform_annotation = NA_character_,
     transcriptome_assembly = NA_character_,
-    # experiment = NA,
+    experiment = NA_character_,
 
     minimap2 = NA_character_,
     samtools = NA_character_,
@@ -79,13 +79,7 @@ setClass(
 # but input slots will be vectors of the same length
 setClass(
   "FLAMES.MultiSampleSCPipeline",
-  contains = "FLAMES.SingleCellPipeline",
-  slots = list(
-    experiments = "list" # List of SummarizedExperiment objects for each sample
-  ),
-  prototype = list(
-    experiments = list()
-  )
+  contains = "FLAMES.SingleCellPipeline"
 )
 
 ## Show methods

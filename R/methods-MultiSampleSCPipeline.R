@@ -146,6 +146,7 @@ MultiSampleSCPipeline <- function(
   pipeline@transcriptome_assembly <- file.path(outdir, "transcript_assembly.fa")
   pipeline@demultiplexed_fastq <- file.path(outdir, paste0(names(fastq), "_matched_reads.fastq.gz"))
   pipeline@deduped_fastq <- file.path(outdir, paste0(names(fastq), "_matched_reads_dedup.fastq.gz"))
+  pipeline@experiment <- file.path(outdir, "experiment.rds")
 
   ## binaries
   if (missing(minimap2) || !is.character(minimap2)) {
@@ -176,12 +177,6 @@ MultiSampleSCPipeline <- function(
 
   return(pipeline)
 }
-
-#' @rdname experiment
-#' @export
-setMethod("experiment", "FLAMES.MultiSampleSCPipeline", function(pipeline) {
-  pipeline@experiments
-})
 
 setMethod("barcode_demultiplex", "FLAMES.MultiSampleSCPipeline", function(pipeline) {
   if (any(is.na(pipeline@barcodes_file)) && any(is.na(pipeline@expect_cell_number))) {
