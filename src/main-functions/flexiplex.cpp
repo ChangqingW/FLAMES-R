@@ -785,27 +785,21 @@ Rcpp::IntegerVector flexiplex_cpp(Rcpp::StringVector reads_in, Rcpp::String barc
             }
           }
 
-          if (known_barcodes.size() !=
-              0) { // if we are just looking for all possible barcodes don't
-                   // output reads etc.
-
-            print_stats(sr_v[t][r].read_id, sr_v[t][r].vec_bc_for,
-                        statBgzf);
-            print_stats(sr_v[t][r].read_id, sr_v[t][r].vec_bc_rev,
-                        statBgzf);
-
-            print_read(sr_v[t][r].read_id + "_+", sr_v[t][r].line,
-                       sr_v[t][r].qual_scores, sr_v[t][r].vec_bc_for, outBgzf,
-                       found_barcodes, remove_barcodes, sr_v[t][r].chimeric, reverseCompliment);
-            reverse(sr_v[t][r].qual_scores.begin(),
-                    sr_v[t][r].qual_scores.end());
-            if (remove_barcodes || sr_v[t][r].vec_bc_for.size() ==
-                                       0) // case we just want to print read
-                                          // once if multiple bc found.
-              print_read(sr_v[t][r].read_id + "_-", sr_v[t][r].rev_line,
-                         sr_v[t][r].qual_scores, sr_v[t][r].vec_bc_rev,
-                         outBgzf, found_barcodes, remove_barcodes, sr_v[t][r].chimeric, reverseCompliment);
-          }
+          print_stats(sr_v[t][r].read_id, sr_v[t][r].vec_bc_for,
+                      statBgzf);
+          print_stats(sr_v[t][r].read_id, sr_v[t][r].vec_bc_rev,
+                      statBgzf);
+          print_read(sr_v[t][r].read_id + "_+", sr_v[t][r].line,
+                      sr_v[t][r].qual_scores, sr_v[t][r].vec_bc_for, outBgzf,
+                      found_barcodes, remove_barcodes, sr_v[t][r].chimeric, reverseCompliment);
+          reverse(sr_v[t][r].qual_scores.begin(),
+                  sr_v[t][r].qual_scores.end());
+          if (remove_barcodes || sr_v[t][r].vec_bc_for.size() ==
+                                      0) // case we just want to print read
+                                        // once if multiple bc found.
+            print_read(sr_v[t][r].read_id + "_-", sr_v[t][r].rev_line,
+                        sr_v[t][r].qual_scores, sr_v[t][r].vec_bc_rev,
+                        outBgzf, found_barcodes, remove_barcodes, sr_v[t][r].chimeric, reverseCompliment);
         }
       }
     }
@@ -860,9 +854,7 @@ Rcpp::IntegerVector flexiplex_cpp(Rcpp::StringVector reads_in, Rcpp::String barc
                  msg);                               // descriptive text
   }
 
-  if (known_barcodes.size() > 0) {
-    return read_counts;
-  }
+  
 
   if (barcode_counts.size() == 0)
     return read_counts;
