@@ -104,10 +104,15 @@ SingleCellPipeline <- function(
   }
   if (!missing(barcodes_file) && is.character(barcodes_file)) {
     pipeline@barcodes_file <- barcodes_file
-  } else if (!missing(expect_cell_number) && is.numeric(expect_cell_number)) {
+  }
+  if (!missing(expect_cell_number) && is.numeric(expect_cell_number)) {
     pipeline@expect_cell_number <- expect_cell_number
-  } else if (steps["barcode_demultiplex"]) {
-    stop("Either barcodes_file or expect_cell_number must be provided.")
+  }
+
+  if (steps["barcode_demultiplex"] &&
+    config$pipeline_parameters$demultiplexer == "BLAZE" &&
+    is.na(pipeline@expect_cell_number)) {
+    stop("demultiplexer set to 'BLAZE', which requires 'expect_cell_number' to be provided.")
   }
 
   ## outputs
@@ -274,10 +279,6 @@ example_pipeline <- function(type = "SingleCellPipeline", outdir) {
 }
 
 setMethod("barcode_demultiplex", "FLAMES.SingleCellPipeline", function(pipeline) {
-  if (any(is.na(pipeline@barcodes_file)) && any(is.na(pipeline@expect_cell_number))) {
-    stop("Either barcodes_file or expect_cell_number must be provided.")
-  }
-
   using_controllers <- FALSE
   if ("barcode_demultiplex" %in% names(pipeline@controllers)) {
     using_controllers <- TRUE
@@ -287,8 +288,17 @@ setMethod("barcode_demultiplex", "FLAMES.SingleCellPipeline", function(pipeline)
     controller <- pipeline@controllers[["default"]]
   }
 
-  if (any(is.na(pipeline@barcodes_file))) {
-    message("No barcodes file provided, running BLAZE to generate barcode list from long reads...")
+  demux_tool <- pipeline@config$pipeline_parameters$demultiplexer
+
+  if (demux_tool == "BLAZE") {
+    message("Using BLAZE for barcode demultiplexing.")
+    if (pipeline@barcodes_file != "") {
+        warning("`barcodes_file` is provided but demultiplexer is set to 'BLAZE'. The file will be ignored.")
+    }
+    if (is.na(pipeline@expect_cell_number)) {
+        stop("demultiplexer is 'BLAZE', so 'expect_cell_number' must be provided.")
+    }
+
     if (using_controllers) {
       if (controller$started()) {
         tryCatch({
@@ -330,7 +340,12 @@ setMethod("barcode_demultiplex", "FLAMES.SingleCellPipeline", function(pipeline)
         "overwrite" = TRUE
       )
     }
-  } else {
+  } else if (demux_tool == "flexiplex") {
+    message("Using flexiplex for barcode demultiplexing.")
+    if (!is.na(pipeline@expect_cell_number) && pipeline@barcodes_file == "") {
+        warning("'expect_cell_number' is provided but is not used by flexiplex in discovery mode.")
+    }
+    
     if (using_controllers) {
       if (controller$started()) {
         tryCatch({
@@ -393,6 +408,8 @@ setMethod("barcode_demultiplex", "FLAMES.SingleCellPipeline", function(pipeline)
       )
     }
     pipeline@metadata$barcode_demultiplex <- res
+  } else {
+    stop("Unknown demultiplexer specified in config: ", demux_tool)
   }
   return(pipeline)
 })

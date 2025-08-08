@@ -68,7 +68,7 @@ setClass(
     deduped_fastq = "character"       # path to deduplicated FASTQ files
   ),
   prototype = list(
-    barcodes_file = NA_character_,
+    barcodes_file = "",
     expect_cell_number = NA_real_,
     demultiplexed_fastq = NA_character_,
     deduped_fastq = NA_character_
