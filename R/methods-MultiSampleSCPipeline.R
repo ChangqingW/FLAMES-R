@@ -122,7 +122,8 @@ MultiSampleSCPipeline <- function(
       )
     }
     pipeline@barcodes_file <- barcodes_file
-  } else if (!missing(expect_cell_number) && is.numeric(expect_cell_number)) {
+  }
+  if (!missing(expect_cell_number) && is.numeric(expect_cell_number)) {
     if (length(expect_cell_number) == 1) {
       expect_cell_number <- rep(expect_cell_number, length(fastq))
     } else if (length(expect_cell_number) != length(fastq)) {
@@ -134,8 +135,12 @@ MultiSampleSCPipeline <- function(
       )
     }
     pipeline@expect_cell_number <- expect_cell_number
-  } else if (steps["barcode_demultiplex"]) {
-    stop("Either barcodes_file or expect_cell_number must be provided.")
+  }
+
+  if (steps["barcode_demultiplex"] &&
+    config$pipeline_parameters$demultiplexer == "BLAZE" &&
+    is.na(pipeline@expect_cell_number)) {
+    stop("demultiplexer set to 'BLAZE', which requires 'expect_cell_number' to be provided.")
   }
 
   ## outputs
@@ -179,10 +184,6 @@ MultiSampleSCPipeline <- function(
 }
 
 setMethod("barcode_demultiplex", "FLAMES.MultiSampleSCPipeline", function(pipeline) {
-  if (any(is.na(pipeline@barcodes_file)) && any(is.na(pipeline@expect_cell_number))) {
-    stop("Either barcodes_file or expect_cell_number must be provided.")
-  }
-
   using_controllers <- FALSE
   if ("barcode_demultiplex" %in% names(pipeline@controllers)) {
     using_controllers <- TRUE
@@ -192,8 +193,17 @@ setMethod("barcode_demultiplex", "FLAMES.MultiSampleSCPipeline", function(pipeli
     controller <- pipeline@controllers[["default"]]
   }
 
-  if (any(is.na(pipeline@barcodes_file))) {
-    message("No barcodes file provided, running BLAZE to generate barcode list from long reads...")
+  demux_tool <- pipeline@config$pipeline_parameters$demultiplexer
+
+  if (demux_tool == "BLAZE") {
+    message("Using BLAZE for barcode demultiplexing.")
+    if (any(pipeline@barcodes_file != "")) {
+        warning("`barcodes_file` is provided for one or more samples but demultiplexer is set to 'BLAZE'. The file(s) will be ignored.")
+    }
+    if (any(is.na(pipeline@expect_cell_number))) {
+        stop("demultiplexer is 'BLAZE', so 'expect_cell_number' must be provided for all samples.")
+    }
+
     if (using_controllers) {
       if (controller$started()) {
         tryCatch({
@@ -235,7 +245,12 @@ setMethod("barcode_demultiplex", "FLAMES.MultiSampleSCPipeline", function(pipeli
         )
       }
     }
-  } else {
+  } else if (demux_tool == "flexiplex") {
+    message("Using flexiplex for barcode demultiplexing.")
+    if (any(!is.na(pipeline@expect_cell_number))) {
+        warning("'expect_cell_number' is provided for one or more samples but is not used by flexiplex.")
+    }
+
     if (using_controllers) {
       if (controller$started()) {
         tryCatch({
@@ -307,6 +322,8 @@ setMethod("barcode_demultiplex", "FLAMES.MultiSampleSCPipeline", function(pipeli
       names(res) <- names(pipeline@fastq)
     }
     pipeline@metadata$barcode_demultiplex <- res
+  } else {
+    stop("Unknown demultiplexer specified in config: ", demux_tool)
   }
   return(pipeline)
 })

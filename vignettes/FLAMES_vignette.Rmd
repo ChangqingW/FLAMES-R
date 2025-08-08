@@ -48,7 +48,10 @@ R.utils::gunzip(
 
 pipeline <- SingleCellPipeline(
   # use the default configs
-  config_file = create_config(outdir),
+  config_file = create_config(
+    outdir,
+    pipeline_parameters.demultiplexer = "flexiplex"
+  ),
   outdir = outdir,
   # the input fastq file
   fastq = system.file("extdata", "fastq", "musc_rps24.fastq.gz", package = "FLAMES"),
@@ -75,7 +78,10 @@ If you run into any error, `run_FLAMES()` will stop and return the pipeline obje
 # set up a new pipeline
 outdir2 <- tempfile()
 pipeline2 <- SingleCellPipeline(
-  config_file = create_config(outdir),
+  config_file = create_config(
+    outdir,
+    pipeline_parameters.demultiplexer = "flexiplex"
+  ),
   outdir = outdir2,
   fastq = system.file("extdata", "fastq", "musc_rps24.fastq.gz", package = "FLAMES"),
   annotation = system.file("extdata", "rps24.gtf.gz", package = "FLAMES"),

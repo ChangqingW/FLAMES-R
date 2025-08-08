@@ -3,6 +3,7 @@
     "pipeline_parameters": {
         "seed": 2022,
         "threads" : 8,
+        "demultiplexer": "BLAZE",
         "do_barcode_demultiplex": true,
         "do_gene_quantification": true,
         "do_genome_alignment": true,
