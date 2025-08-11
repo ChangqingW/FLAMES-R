@@ -171,15 +171,13 @@ std::string get_umi(const std::string &seq,
   } else if (umi_index == bc_index - 1) {
     // UMI right before BC
     int bc_start = sliding_window_match ? left_bound + endDistance : read_to_subpatterns[bc_index];
-    // umi should start umi_offset bases before BC
-    int umi_offset = search_pattern[bc_index].second.length() + search_pattern[umi_index].second.length();
-    if (bc_start < umi_offset) {
+    // check if there are enough bases before the BC
+    umi_start = bc_start - search_pattern[umi_index].second.length();
+    if (umi_start < 0) {
       // not enough bases before BC
-      umi_pad = std::string(umi_offset - bc_start, 'N');
+      umi_pad = std::string(-umi_start, 'N');
       umi_start = 0;
-      umi_length -= umi_offset - bc_start;
-    } else {
-      umi_start = bc_start - umi_offset;
+      umi_length -= -umi_start;
     }
     return umi_pad + seq.substr(umi_start, umi_length);
 
