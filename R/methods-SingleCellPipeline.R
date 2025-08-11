@@ -201,7 +201,11 @@ example_pipeline <- function(type = "SingleCellPipeline", outdir) {
         destname = genome_fa, remove = FALSE
       )
       SingleCellPipeline(
-        config_file = create_config(outdir, pipeline_parameters.do_gene_quantification = FALSE),
+        config_file = create_config(
+          outdir,
+          pipeline_parameters.do_gene_quantification = FALSE,
+          pipeline_parameters.demultiplexer = "flexiplex"
+        ),
         outdir = outdir,
         fastq = system.file("extdata", "fastq", "musc_rps24.fastq.gz", package = "FLAMES"),
         annotation = system.file("extdata", "rps24.gtf.gz", package = "FLAMES"),
@@ -263,7 +267,12 @@ example_pipeline <- function(type = "SingleCellPipeline", outdir) {
       ShortRead::writeFastq(reads,
         file.path(outdir, "fastq/sample3.fq.gz"), mode = "w", full = FALSE)
       MultiSampleSCPipeline(
-        config_file = create_config(outdir, type = "sc_3end", threads = 1, no_flank = TRUE),
+        config_file = create_config(
+          outdir,
+          type = "sc_3end",
+          threads = 1, no_flank = TRUE,
+          pipeline_parameters.demultiplexer = "flexiplex"
+        ),
         outdir = outdir,
         fastq = c("sampleA" = file.path(outdir, "fastq"),
           "sample1" = file.path(outdir, "fastq", "sample1.fq.gz"),
