@@ -67,7 +67,10 @@
 #'   annotation = system.file("extdata", "rps24.gtf.gz", package = "FLAMES"),
 #'   outdir = outdir,
 #'   barcodes_file = bc_allow,
-#'   config_file = create_config(outdir)
+#'   config_file = create_config(
+#'     outdir,
+#'     pipeline_parameters.demultiplexer = "flexiplex"
+#'   )
 #' )
 #' group_anno <- data.frame(barcode_seq = colnames(sce), groups = SingleCellExperiment::counts(sce)["ENSMUST00000169826.2", ] > 1)
 #' SingleCellExperiment::colLabels(sce) <- group_anno$groups

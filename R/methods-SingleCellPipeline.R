@@ -60,7 +60,11 @@
 #'   destname = genome_fa, remove = FALSE
 #' )
 #' ppl <- SingleCellPipeline(
-#'   config_file = create_config(outdir, pipeline_parameters.do_gene_quantification = FALSE),
+#'   config_file = create_config(
+#'     outdir,
+#'     pipeline_parameters.demultiplexer = "flexiplex",
+#'     pipeline_parameters.do_gene_quantification = FALSE
+#'   ),
 #'   outdir = outdir,
 #'   fastq = system.file("extdata", "fastq", "musc_rps24.fastq.gz", package = "FLAMES"),
 #'   annotation = system.file("extdata", "rps24.gtf.gz", package = "FLAMES"),
@@ -201,7 +205,11 @@ example_pipeline <- function(type = "SingleCellPipeline", outdir) {
         destname = genome_fa, remove = FALSE
       )
       SingleCellPipeline(
-        config_file = create_config(outdir, pipeline_parameters.do_gene_quantification = FALSE),
+        config_file = create_config(
+          outdir,
+          pipeline_parameters.do_gene_quantification = FALSE,
+          pipeline_parameters.demultiplexer = "flexiplex"
+        ),
         outdir = outdir,
         fastq = system.file("extdata", "fastq", "musc_rps24.fastq.gz", package = "FLAMES"),
         annotation = system.file("extdata", "rps24.gtf.gz", package = "FLAMES"),
@@ -263,7 +271,12 @@ example_pipeline <- function(type = "SingleCellPipeline", outdir) {
       ShortRead::writeFastq(reads,
         file.path(outdir, "fastq/sample3.fq.gz"), mode = "w", full = FALSE)
       MultiSampleSCPipeline(
-        config_file = create_config(outdir, type = "sc_3end", threads = 1, no_flank = TRUE),
+        config_file = create_config(
+          outdir,
+          type = "sc_3end",
+          threads = 1, no_flank = TRUE,
+          pipeline_parameters.demultiplexer = "flexiplex"
+        ),
         outdir = outdir,
         fastq = c("sampleA" = file.path(outdir, "fastq"),
           "sample1" = file.path(outdir, "fastq", "sample1.fq.gz"),
@@ -274,7 +287,8 @@ example_pipeline <- function(type = "SingleCellPipeline", outdir) {
         barcodes_file = rep(bc_allow, 4),
         controllers = crew::crew_controller_local()
       )
-    }
+    },
+    stop("Invalid pipeline type. Please choose from 'SingleCellPipeline', 'BulkPipeline', or 'MultiSampleSCPipeline'.")
   )
 }
 
@@ -558,7 +572,11 @@ setMethod("plot_demultiplex", "FLAMES.SingleCellPipeline", function(pipeline) {
 #'   fastq = system.file("extdata", "fastq", "musc_rps24.fastq.gz", package = "FLAMES"),
 #'   annotation = system.file("extdata", "rps24.gtf.gz", package = "FLAMES"),
 #'   outdir = outdir,
-#'   barcodes_file = bc_allow
+#'   barcodes_file = bc_allow,
+#'   config_file = FLAMES::create_config(
+#'     outdir,
+#'     pipeline_parameters.demultiplexer = "flexiplex"
+#'   )
 #' )
 #' @export
 sc_long_pipeline <- function(
@@ -664,7 +682,11 @@ generate_bulk_summarized <- function(out_files) {
 #'   annotation = annotation,
 #'   outdir = outdir,
 #'   barcodes_file = bc_allow,
-#'   config_file = create_config(outdir, oarfish_quantification = FALSE)
+#'   config_file = create_config(
+#'     outdir,
+#'     pipeline_parameters.demultiplexer = "flexiplex",
+#'     oarfish_quantification = FALSE
+#'   )
 #' )
 #' sce_2 <- create_sce_from_dir(outdir, annotation)
 create_sce_from_dir <- function(outdir, annotation, quantification = "FLAMES") {

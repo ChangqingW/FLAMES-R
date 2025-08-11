@@ -73,7 +73,11 @@ sce_list <- FLAMES::sc_long_multisample_pipeline(
     "sample3" = file.path(outdir, "fastq", "sample3.fq.gz")),
   outdir = outdir,
   genome_fa = genome_fa,
-  barcodes_file = rep(bc_allow, 4)
+  barcodes_file = rep(bc_allow, 4),
+  config_file = create_config(
+    outdir,
+    pipeline_parameters.demultiplexer = "flexiplex"
+  )
 )
 
 }
