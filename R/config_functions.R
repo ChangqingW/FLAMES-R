@@ -47,6 +47,9 @@ load_config <- function(config_file, type = "sc_3end") {
 #' @param default_config Default configuration list
 #' @param user_config User configuration list
 #' @return Merged configuration list
+#' @note Special case: when user_config contains barcode_parameters.pattern
+#'   as a list, the entire pattern list is preserved as-is without merging
+#'   with defaults to maintain user-specified order and structure.
 #' @keywords internal
 merge_configs_recursive <- function(default_config, user_config) {
   # Remove comment field from default if it exists
@@ -62,8 +65,25 @@ merge_configs_recursive <- function(default_config, user_config) {
   # For each element in default_config
   for (name in names(default_config)) {
     if (name %in% names(user_config)) {
-      # If both are lists, merge recursively
-      if (is.list(default_config[[name]]) && is.list(user_config[[name]])) {
+      # Special case: if we're dealing with barcode_parameters and user has pattern as a list,
+      # don't merge the pattern, use it as-is
+      if (name == "barcode_parameters" &&
+          is.list(default_config[[name]]) &&
+          is.list(user_config[[name]]) &&
+          "pattern" %in% names(user_config[[name]]) &&
+          is.list(user_config[[name]]$pattern)) {
+
+        # Merge barcode_parameters but keep user pattern as-is
+        merged_barcode_params <- merge_configs_recursive(
+          default_config[[name]],
+          user_config[[name]]
+        )
+        # Override the pattern with user's exact pattern (no merging)
+        merged_barcode_params$pattern <- user_config[[name]]$pattern
+        default_config[[name]] <- merged_barcode_params
+
+      } else if (is.list(default_config[[name]]) && is.list(user_config[[name]])) {
+        # If both are lists, merge recursively (normal case)
         default_config[[name]] <- merge_configs_recursive(
           default_config[[name]],
           user_config[[name]]
