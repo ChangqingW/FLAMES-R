@@ -81,6 +81,7 @@ Imports:
 Suggests:
     BiocStyle,
     GEOquery,
+    ggrastr,
     knitr,
     rmarkdown,
     uwot,

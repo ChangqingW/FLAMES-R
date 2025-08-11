@@ -191,7 +191,7 @@ plot_demultiplex_raw <- function(find_barcode_result) {
   }, simplify = FALSE)
 
 
-  knee_plot <- sapply(find_barcode_result, "[[", "reads_tb", simplify = FALSE) |>
+  knee_tb <- sapply(find_barcode_result, "[[", "reads_tb", simplify = FALSE) |>
     dplyr::bind_rows(.id = "Sample") |>
     dplyr::mutate(Sample = factor(Sample)) |>
     dplyr::group_by(CellBarcode, Sample) |>
@@ -202,18 +202,48 @@ plot_demultiplex_raw <- function(find_barcode_result) {
     dplyr::group_by(Sample) |>
     dplyr::arrange(dplyr::desc(UMI_count)) |>
     dplyr::mutate(barcode_rank = dplyr::row_number()) |>
-    dplyr::ungroup() |>
-    ggplot2::ggplot(ggplot2::aes(x = barcode_rank, y = UMI_count, col = Sample)) +
-    ggplot2::geom_smooth(span = 0.1, se = FALSE, method = 'loess', alpha = 0.5, linewidth = 0.5) +
-    ggplot2::geom_point(size = 0.5) +
+    dplyr::ungroup()
+
+
+  # remove color if only one sample
+  if (length(find_barcode_result) == 1) {
+    knee_plot <- knee_tb |>
+      ggplot2::ggplot(
+        ggplot2::aes(x = barcode_rank, y = UMI_count)
+      )
+  } else {
+    knee_plot <- knee_tb |>
+      ggplot2::ggplot(
+        ggplot2::aes(x = barcode_rank, y = UMI_count, col = Sample)
+      )
+  }
+
+  knee_plot <- knee_plot +
     ggplot2::scale_y_log10() +
     ggplot2::scale_x_log10() +
     ggplot2::theme_minimal() +
     ggplot2::xlab("Barcode rank") +
     ggplot2::ylab("UMI counts (before TSO trimming)")
-  # remove color legend if only one sample
-  if (length(find_barcode_result) == 1) {
-    knee_plot <- knee_plot + ggplot2::theme(legend.position = "none")
+  if (nrow(knee_tb) > 10000) {
+    if (requireNamespace("ggrastr", quietly = TRUE)) {
+      knee_plot <- knee_plot +
+        ggrastr::geom_point_rast(size = 0.5)
+    } else {
+      warning(
+        "ggrastr package is not installed,",
+        " using geom_point instead,",
+        " this may be slow for large datasets",
+        call. = FALSE
+      )
+      knee_plot <- knee_plot +
+        ggplot2::geom_point(size = 0.5)
+    }
+  } else {
+    knee_plot <- knee_plot +
+      ggplot2::geom_smooth(
+        span = 0.1, se = FALSE, method = "loess", alpha = 0.5, linewidth = 0.5
+      ) +
+      ggplot2::geom_point(size = 0.5)
   }
 
   flank_editdistance_plot <- sapply(
