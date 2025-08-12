@@ -415,7 +415,7 @@ plot_isoform_heatmap <- function(
 #' @param color_quantile The lower and upper expression quantile to be displayed bewteen \code{col_low} and \code{col_high}, e.g. with \code{color_quantile = 0.95}, cells with expressions higher than 95% of other cells will all be shown in \code{col_high}, and cells with expression lower than 95% of other cells will all be shown in \code{col_low}.
 #' @param alpha The transparency of the points in the UMAPs.
 #' @param size The size of the points in the UMAPs.
-#' @param theme The theme to use for the UMAPs.
+#' @param ggtheme The theme to use for the UMAPs.
 #' @param ... Additional arguments to pass to \code{plot_grid}.
 #'
 #' @return a \code{ggplot} object of the UMAP(s)
@@ -452,7 +452,7 @@ plot_isoform_reduced_dim <- function(
     },
     col_low = "#313695", col_mid = "#FFFFBF", col_high = "#A50026",
     alpha = 0.5, size = 0.2,
-    theme = theme_minimal() + theme(axis.text = element_blank()),
+    ggtheme = theme_minimal() + theme(axis.text = element_blank()),
     color_quantile = 1, format = "plot_grid", ...) {
 
   if (!"transcript_id" %in% colnames(rowData(sce)) && "transcript" %in% altExpNames(sce)) {
@@ -506,7 +506,7 @@ plot_isoform_reduced_dim <- function(
         midpoint = mean(quantile(df$expr, na.rm = TRUE, c(1-color_quantile, color_quantile))),
       ) +
       ggtitle(transcript_ids[i]) +
-      theme
+      ggtheme 
     umaps <- append(umaps, list(p))
   }
 
