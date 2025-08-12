@@ -57,9 +57,9 @@ find_isoform_bambu <- function(annotation, genome_fa, genome_bam, outdir, config
 
   bambu::writeToGTF(SummarizedExperiment::rowRanges(bambu_out), file.path(outdir, "isoform_annotated_unfiltered.gtf"))
   if (is.null(config$isoform_parameters$bambu_trust_reference) || config$isoform_parameters$bambu_trust_reference) {
-    bambu_out <- bambu_out[base::rowSums(SummarizedExperiment::assays(bambu_out)$counts) >= 1, ]
+    bambu_out <- bambu_out[Matrix::rowSums(SummarizedExperiment::assays(bambu_out)$counts) >= 1, ]
   } else {
-    bambu_out <- bambu_out[base::rowSums(SummarizedExperiment::assays(bambu_out)$counts) >= config$isoform_parameters$min_sup_cn, ]
+    bambu_out <- bambu_out[Matrix::rowSums(SummarizedExperiment::assays(bambu_out)$counts) >= config$isoform_parameters$min_sup_cn, ]
   }
 
   isoform_gtf <- file.path(outdir, "isoform_annotated.gtf") # Bambu outputs GTF
