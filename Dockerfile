@@ -16,7 +16,7 @@ RUN Rscript -e "install.packages('remotes'); remotes::install_deps('.', dependen
 # copy everything else
 COPY . .
 # install FLAMES package
-RUN Rscript -e "BiocManager::install('basilisk', type = 'source', force = TRUE); remotes::install_local('.', dependencies=TRUE)"
+RUN Rscript -e "BiocManager::install('basilisk', type = 'source', force = TRUE); BiocManager::install('GoekeLab/bambu', force = TRUE); remotes::install_local('.', dependencies=TRUE)"
 
 # test to see if FLAMES is installed
 # if the import succeeds, this command will exit with code 0
