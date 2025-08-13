@@ -18,3 +18,4 @@ Merged configuration list
 Internal function to recursively merge configuration lists,
 filling missing values from defaults while preserving user values
 }
+\keyword{internal}

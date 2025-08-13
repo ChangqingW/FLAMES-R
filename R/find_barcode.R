@@ -182,9 +182,11 @@ plot_demultiplex_raw <- function(find_barcode_result) {
   )
 
   find_barcode_result <- sapply(find_barcode_result, function(x) {
-    x$reads_tb <- readr::read_delim(
-      x$stats_out, delim = "\t", col_types = stats_col_types
-    )
+    if (is.null(x$reads_tb)) {
+      x$reads_tb <- readr::read_delim(
+        x$stats_out, delim = "\t", col_types = stats_col_types
+      )
+    }
     x
   }, simplify = FALSE)
 

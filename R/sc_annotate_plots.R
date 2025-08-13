@@ -413,6 +413,9 @@ plot_isoform_heatmap <- function(
 #' @param col_mid Color for cells with intermediate expression levels in UMAPs.
 #' @param col_high Color for cells with high expression levels in UMAPs.
 #' @param color_quantile The lower and upper expression quantile to be displayed bewteen \code{col_low} and \code{col_high}, e.g. with \code{color_quantile = 0.95}, cells with expressions higher than 95% of other cells will all be shown in \code{col_high}, and cells with expression lower than 95% of other cells will all be shown in \code{col_low}.
+#' @param alpha The transparency of the points in the UMAPs.
+#' @param size The size of the points in the UMAPs.
+#' @param theme The theme to use for the UMAPs.
 #' @param ... Additional arguments to pass to \code{plot_grid}.
 #'
 #' @return a \code{ggplot} object of the UMAP(s)
@@ -447,9 +450,12 @@ plot_isoform_reduced_dim <- function(
     use_gene_dimred = FALSE, expr_func = function(x) {
       SingleCellExperiment::logcounts(x)
     },
-    col_low = "#313695", col_mid = "#FFFFBF", col_high = "#A50026", color_quantile = 1, format = "plot_grid", ...) {
+    col_low = "#313695", col_mid = "#FFFFBF", col_high = "#A50026",
+    alpha = 0.5, size = 0.2,
+    theme = theme_minimal() + theme(axis.text = element_blank()),
+    color_quantile = 1, format = "plot_grid", ...) {
 
-  if (!"transcript_id" %in% colnames(rowData(sce)) & "transcript" %in% altExpNames(sce)) {
+  if (!"transcript_id" %in% colnames(rowData(sce)) && "transcript" %in% altExpNames(sce)) {
     use_gene_dimred <- TRUE
   }
   if (color_quantile > 1 || color_quantile < 0) {
@@ -492,7 +498,7 @@ plot_isoform_reduced_dim <- function(
     df_not_na <- df[!is.na(df$expr), ]
     p <- ggplot(df_na) +
       geom_point(aes(x = x, y = y, col = expr), alpha = 0.5, size = 0.2) +
-      geom_point(data = df_not_na, aes(x = x, y = y, col = expr), alpha = 0.8, size = 0.2) +
+      geom_point(data = df_not_na, aes(x = x, y = y, col = expr), alpha = alpha, size = size) +
       labs(x = "", y = "", col = "expression") +
       scale_colour_gradient2(
         low = col_low, mid = col_mid, high = col_high,
@@ -500,8 +506,7 @@ plot_isoform_reduced_dim <- function(
         midpoint = mean(quantile(df$expr, na.rm = TRUE, c(1-color_quantile, color_quantile))),
       ) +
       ggtitle(transcript_ids[i]) +
-      theme_minimal() +
-      theme(axis.text = element_blank())
+      theme
     umaps <- append(umaps, list(p))
   }
 

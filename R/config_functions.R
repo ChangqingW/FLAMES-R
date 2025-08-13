@@ -47,6 +47,7 @@ load_config <- function(config_file, type = "sc_3end") {
 #' @param default_config Default configuration list
 #' @param user_config User configuration list
 #' @return Merged configuration list
+#' @keywords internal
 merge_configs_recursive <- function(default_config, user_config) {
   # Remove comment field from default if it exists
   if ("comment" %in% names(default_config)) {
@@ -94,6 +95,7 @@ merge_configs_recursive <- function(default_config, user_config) {
 #' @param param_path Parameter path using dot notation
 #' @param value Value to set
 #' @return Modified configuration list
+#' @keywords internal
 set_nested_param <- function(config, param_path, value) {
   path_parts <- strsplit(param_path, "\\.")[[1]]
 

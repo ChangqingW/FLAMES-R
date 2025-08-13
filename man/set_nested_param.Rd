@@ -20,3 +20,4 @@ Modified configuration list
 Helper function to set a nested parameter in a configuration list
 using dot notation (e.g., "barcode_parameters.pattern.primer")
 }
+\keyword{internal}

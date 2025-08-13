@@ -17,6 +17,9 @@ plot_isoform_reduced_dim(
   col_low = "#313695",
   col_mid = "#FFFFBF",
   col_high = "#A50026",
+  alpha = 0.5,
+  size = 0.2,
+  theme = theme_minimal() + theme(axis.text = element_blank()),
   color_quantile = 1,
   format = "plot_grid",
   ...
@@ -45,6 +48,12 @@ Default is \code{logcounts}. Alternatively, \code{counts} can be used for raw co
 \item{col_mid}{Color for cells with intermediate expression levels in UMAPs.}
 
 \item{col_high}{Color for cells with high expression levels in UMAPs.}
+
+\item{alpha}{The transparency of the points in the UMAPs.}
+
+\item{size}{The size of the points in the UMAPs.}
+
+\item{theme}{The theme to use for the UMAPs.}
 
 \item{color_quantile}{The lower and upper expression quantile to be displayed bewteen \code{col_low} and \code{col_high}, e.g. with \code{color_quantile = 0.95}, cells with expressions higher than 95\% of other cells will all be shown in \code{col_high}, and cells with expression lower than 95\% of other cells will all be shown in \code{col_low}.}
 
