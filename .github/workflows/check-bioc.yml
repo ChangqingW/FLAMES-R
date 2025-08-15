@@ -51,8 +51,8 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - { os: ubuntu-latest, r: 'devel', bioc: '3.21', cont: "bioconductor/bioconductor_docker:devel", rspm: "https://packagemanager.rstudio.com/cran/__linux__/jammy/latest" }
-          - { os: macOS-latest, r: 'devel', bioc: '3.21'}
+          - { os: ubuntu-latest, r: 'devel', bioc: '3.22', cont: "bioconductor/bioconductor_docker:devel", rspm: "https://packagemanager.rstudio.com/cran/__linux__/jammy/latest" }
+          - { os: macOS-latest, r: 'devel', bioc: '3.22'}
           # - { os: windows-latest, r: '4.3', bioc: '3.18'}
           ## Check https://github.com/r-lib/actions/tree/master/examples
           ## for examples using the http-user-agent
@@ -162,7 +162,7 @@ jobs:
       - name: Install BiocManager
         run: |
           message(paste('****', Sys.time(), 'installing BiocManager ****'))
-          remotes::install_cran("BiocManager")
+          remotes::install_cran(c("BiocManager", "desc", "dplyr"))
         shell: Rscript {0}
 
       - name: Set BiocVersion
@@ -189,6 +189,16 @@ jobs:
         continue-on-error: true
         shell: Rscript {0}
 
+      - name: Install dependencies pass 2
+        run: |
+          message(paste('****', Sys.time(), 'installing again with BiocManager ****'))
+          desc::desc_get_deps() |>
+            dplyr::filter(package != "R" & !package %in% installed.packages()[, "Package"]) |>
+            dplyr::pull(package) |>
+            BiocManager::install(update = FALSE, ask = FALSE, force = FALSE)
+        continue-on-error: true
+        shell: Rscript {0}
+
         # - name: Debug with SSH
         #   if: matrix.config.os == 'macOS-latest'
         #   uses: owenthereal/action-upterm@v1
@@ -196,10 +206,10 @@ jobs:
         #     limit-access-to-actor: true
         #     limit-access-to-users: ChangqingW
 
-      - name: Install dependencies pass 2
+      - name: Install dependencies pass 3
         run: |
-          ## Pass #2 at installing dependencies
-          message(paste('****', Sys.time(), 'pass number 2 at installing dependencies: any remaining dependencies ****'))
+          ## Pass #3 at installing dependencies
+          message(paste('****', Sys.time(), 'pass number 3 at installing dependencies: any remaining dependencies ****'))
           remotes::install_local(dependencies = TRUE, repos = BiocManager::repositories(), build_vignettes = TRUE, upgrade = TRUE, force = TRUE)
         shell: Rscript {0}
 
