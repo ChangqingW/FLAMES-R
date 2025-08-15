@@ -11,10 +11,20 @@ RUN apt-get update && \
 # install dependencies
 ENV BASILISK_USE_SYSTEM_DIR=1
 COPY DESCRIPTION .
-RUN Rscript -e "install.packages('remotes'); remotes::install_deps('.', dependencies=TRUE)"
+
+# Need to remove the sed command after the next release when Seqinfo is available
+RUN sed -i 's/Seqinfo/GenomeInfoDb/g' DESCRIPTION && \
+    Rscript -e "install.packages('remotes'); remotes::install_deps('.', dependencies=TRUE)"
+# RUN Rscript -e "install.packages('remotes'); remotes::install_deps('.', dependencies=TRUE)"
 
 # copy everything else
 COPY . .
+
+# Remove this layer when Seqinfo is available in Bioconductor
+RUN sed -i 's/Seqinfo/GenomeInfoDb/g' DESCRIPTION && \
+    sed -i 's/Seqinfo/GenomeInfoDb/g' NAMESPACE && \
+    find R/ -name "*.R" -type f -exec sed -i 's/Seqinfo/GenomeInfoDb/g' {} \;
+
 # install FLAMES package
 RUN Rscript -e "BiocManager::install('basilisk', type = 'source', force = TRUE); remotes::install_local('.', dependencies=TRUE)"
 
