@@ -250,7 +250,7 @@ find_variants_grange <- function(bam_path, reference, gene_grange, min_nucleotid
 #' @importFrom Biostrings readDNAStringSet
 #' @importFrom rtracklayer import
 #' @importFrom S4Vectors mcols mcols<- DataFrame
-#' @importFrom GenomeInfoDb seqnames seqlengths seqinfo
+#' @importFrom Seqinfo seqnames seqlengths seqinfo
 #' @importFrom GenomicRanges disjoin gaps
 #' @importFrom BiocParallel bplapply bpmapply MulticoreParam
 #' @importFrom dplyr bind_rows mutate
@@ -333,14 +333,14 @@ find_variants <- function(bam_path, reference, annotation, min_nucleotide_depth 
   if (!annotated_region_only) {
     message(paste0(format(Sys.time(), "%H:%M:%S "), "Adding unannotated gaps ..."))
     # parsed annotation might not have seqlengths in seqinfo
-    if (!all(as.character(GenomeInfoDb::seqnames(annotation)) %in% names(reference))) {
+    if (!all(as.character(Seqinfo::seqnames(annotation)) %in% names(reference))) {
       warning("Some seqnames in annotation not found in reference")
-      annotation <- annotation[as.character(GenomeInfoDb::seqnames(annotation)) %in% names(reference)]
+      annotation <- annotation[as.character(Seqinfo::seqnames(annotation)) %in% names(reference)]
     }
-    GenomeInfoDb::seqinfo(annotation) <-
-      reference[GenomeInfoDb::seqnames(GenomeInfoDb::seqinfo(annotation))] |>
+    Seqinfo::seqinfo(annotation) <-
+      reference[Seqinfo::seqnames(Seqinfo::seqinfo(annotation))] |>
       Biostrings::seqinfo()
-    if (any(is.na(GenomeInfoDb::seqlengths(annotation)))) {
+    if (any(is.na(Seqinfo::seqlengths(annotation)))) {
       stop("Missing seqlengths in seqinfo of annotation, cannot add unannotated gaps")
     }
     annotation <- c(annotation, GenomicRanges::gaps(annotation, ignore.strand = TRUE))

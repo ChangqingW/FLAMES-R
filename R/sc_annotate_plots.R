@@ -211,7 +211,7 @@ get_top_transcript_ids <- function(sce, gene_id, transcript_ids, n) {
 #' @importFrom SummarizedExperiment rowRanges rowData
 #' @importFrom ggplot2 ggplot aes theme_void theme element_line element_text xlim
 #' @importFrom cowplot plot_grid
-#' @importFrom GenomeInfoDb seqnames
+#' @importFrom Seqinfo seqnames
 #' @export
 plot_isoforms <- function(sce, gene_id, transcript_ids, n = 4, format = "plot_grid",
   colors) {
