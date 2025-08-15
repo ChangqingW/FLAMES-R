@@ -60,7 +60,11 @@
 #'   destname = genome_fa, remove = FALSE
 #' )
 #' ppl <- SingleCellPipeline(
-#'   config_file = create_config(outdir, pipeline_parameters.do_gene_quantification = FALSE),
+#'   config_file = create_config(
+#'     outdir,
+#'     pipeline_parameters.demultiplexer = "flexiplex",
+#'     pipeline_parameters.do_gene_quantification = FALSE
+#'   ),
 #'   outdir = outdir,
 #'   fastq = system.file("extdata", "fastq", "musc_rps24.fastq.gz", package = "FLAMES"),
 #'   annotation = system.file("extdata", "rps24.gtf.gz", package = "FLAMES"),
@@ -283,7 +287,8 @@ example_pipeline <- function(type = "SingleCellPipeline", outdir) {
         barcodes_file = rep(bc_allow, 4),
         controllers = crew::crew_controller_local()
       )
-    }
+    },
+    stop("Invalid pipeline type. Please choose from 'SingleCellPipeline', 'BulkPipeline', or 'MultiSampleSCPipeline'.")
   )
 }
 

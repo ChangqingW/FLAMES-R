@@ -98,7 +98,12 @@ reads <- reads[-(1:100)]
 ShortRead::writeFastq(reads,
   file.path(outdir, "fastq/sample3.fq.gz"), mode = "w", full = FALSE)
 ppl <- MultiSampleSCPipeline(
-  config_file = create_config(outdir, type = "sc_3end", threads = 1, no_flank = TRUE),
+  config_file = create_config(
+    outdir,
+    pipeline_parameters.demultiplexer = "flexiplex",
+    pipeline_parameters.threads = 1,
+    alignment_parameters.no_flank = TRUE
+  ),
   outdir = outdir,
   fastq = c("sampleA" = file.path(outdir, "fastq"),
     "sample1" = file.path(outdir, "fastq", "sample1.fq.gz"),
