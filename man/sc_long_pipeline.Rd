@@ -57,7 +57,11 @@ sce <- FLAMES::sc_long_pipeline(
   fastq = system.file("extdata", "fastq", "musc_rps24.fastq.gz", package = "FLAMES"),
   annotation = system.file("extdata", "rps24.gtf.gz", package = "FLAMES"),
   outdir = outdir,
-  barcodes_file = bc_allow
+  barcodes_file = bc_allow,
+  config_file = FLAMES::create_config(
+    outdir,
+    pipeline_parameters.demultiplexer = "flexiplex"
+  )
 )
 }
 \seealso{

@@ -18,4 +18,9 @@ Merged configuration list
 Internal function to recursively merge configuration lists,
 filling missing values from defaults while preserving user values
 }
+\note{
+Special case: when user_config contains barcode_parameters.pattern
+  as a list, the entire pattern list is preserved as-is without merging
+  with defaults to maintain user-specified order and structure.
+}
 \keyword{internal}
