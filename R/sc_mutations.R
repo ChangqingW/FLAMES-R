@@ -647,3 +647,134 @@ mutation_positions <- function(mutations, annotation, type = "relative", bin = F
   rownames(total_coverage) <- names(mutations_split)
   return(total_coverage)
 }
+
+#' Genotype a single-cell mutation
+#'
+#' A simplistic function to genotype a single-cell mutation at a given position.
+#' It filters the SNPs table for the given reference and alternative alleles, and
+#' determines the genotype based on the allele counts and percentages.
+#'
+#' @param snps_tb tibble: the SNPs table, output from \code{sc_mutations}.
+#' @param ref character(1): the reference allele.
+#' @param alt character(1): the alternative allele.
+#' @param seqname character(1): the chromosome name of the position.
+#' @param pos integer(1): the position of the mutation, 1-based.
+#' @param alt_min_count integer(1): minimum UMI count of the alternative allele to call it "alt".
+#' @param alt_min_pct numeric(1): minimum percentage of the alternative allele to call it "alt".
+#' @param ref_min_count integer(1): minimum UMI count of the reference allele to call it "ref".
+#' @param ref_min_pct numeric(1): minimum percentage of the reference allele to call it "ref".
+#' @return A tibble with columns: barcode, allele_count_ref, pct_ref, allele_count_alt, pct_alt, genotype.
+#' @examples
+#' # get the SNPs table from sc_mutations
+#' example(sc_mutations)
+#' genotype_tb <- snps_tb |>
+#'   sc_genotype(
+#'     ref = "G", alt = "A", seqname = "chr14", pos = 1260,
+#'     alt_min_count = 2, alt_min_pct = 0.1,
+#'     ref_min_count = 1, ref_min_pct = 1
+#'   )
+#' dplyr::count(genotype_tb, genotype)
+#' head(genotype_tb)
+#' @export
+sc_genotype <- function(
+  snps_tb, ref, alt, seqname, pos,
+  alt_min_count = 2, alt_min_pct = 0.1,
+  ref_min_count = 1, ref_min_pct = 1) {
+  snp_pos <- pos
+  snp_seqname <- seqname
+  snps_tb |>
+    dplyr::filter(
+      seqname == snp_seqname, pos == snp_pos,
+      allele %in% c(ref, alt), allele_count > 0
+    ) |>
+    dplyr::mutate(
+      allele = dplyr::case_when(
+        allele == ref ~ "ref",
+        allele == alt ~ "alt",
+        TRUE ~ NA_character_ # should not happen
+      )
+    ) |>
+    tidyr::pivot_wider(
+      id_cols = barcode,
+      names_from = allele,
+      values_from = c(allele_count, pct),
+      values_fill = 0
+    ) |>
+    dplyr::mutate(
+      genotype = dplyr::case_when(
+        allele_count_alt >= alt_min_count & pct_alt >= alt_min_pct ~ "alt",
+        allele_count_ref >= ref_min_count & pct_ref >= ref_min_pct ~ "ref",
+        TRUE ~ NA_character_
+      )
+    )
+}
+
+#' Plot genotype of single-cell data
+#'
+#' Plot the genotype of single-cell data on a reduced dimension plot (e.g. UMAP).
+#'
+#' @param sce SingleCellExperiment: the single-cell experiment object with reduced dimensions.
+#' @param genotype_tb tibble: the genotype table, output from \code{sc_genotype}.
+#' @param reduced_dim character(1): the name of the reduced dimension to use for plotting.
+#' @param na_cell_col character(1): the color of the cells with no genotype.
+#' @param na_cell_size numeric(1): the size of the cells with no genotype.
+#' @param na_cell_alpha numeric(1): the alpha of the cells with no genotype.
+#' @param ... additional arguments passed to \code{geom_point} for cells with genotype.
+#' @return A ggplot2 object with the genotype plotted on the reduced dimension.
+#' @examples
+#' ppl <- example_pipeline("SingleCellPipeline") |>
+#'   run_FLAMES()
+#' sce <- experiment(ppl) |>
+#'  scuttle::logNormCounts() |>
+#'  scater::runPCA() |>
+#'  scater::runUMAP()
+#' snps_tb <- sc_mutations(
+#'   bam_path = ppl@genome_bam,
+#'   seqnames = "chr14",
+#'   positions = 2714
+#' )
+#' genotype_tb <- sc_genotype(
+#'   snps_tb, ref = "C", alt = "T", seqname = "chr14", pos = 2714,
+#'   alt_min_count = 2, alt_min_pct = 0.5, ref_min_count = 1, ref_min_pct = 1
+#' )
+#' sc_plot_genotype(
+#'   sce, genotype_tb, na_cell_col = "black",
+#'   na_cell_size = 0.5, na_cell_alpha = 0.7,
+#'   size = 2
+#' )
+#' @export
+sc_plot_genotype <- function(
+  sce, genotype_tb, reduced_dim = "UMAP",
+  na_cell_col = "grey", na_cell_size = 0.1, na_cell_alpha = 0.1, ...
+  ) {
+  tb <- SingleCellExperiment::reducedDims(sce)[[reduced_dim]][, 1:2] |>
+    as.data.frame() |>
+    # set colnames to x and y
+    setNames(c("x", "y")) |>
+    tibble::rownames_to_column("barcode") |>
+    # filter(!str_detect(barcode, "[^ATCG]+$")) |>
+    dplyr::left_join(
+      dplyr::select(genotype_tb, barcode, genotype),
+      by = "barcode"
+    )
+  p <- ggplot2::ggplot() +
+    ggplot2::geom_point(
+      data = dplyr::filter(tb, is.na(genotype)),
+      ggplot2::aes(x = x, y = y),
+      size = na_cell_size, color = na_cell_col,
+      alpha = na_cell_alpha
+    ) +
+    ggplot2::geom_point(
+      data = dplyr::filter(tb, !is.na(genotype)),
+      ggplot2::aes(x = x, y = y, color = genotype),
+      ...
+    ) +
+    ggplot2::theme_classic() +
+    ggplot2::theme( # remove axis ticks and text
+      axis.ticks = ggplot2::element_blank(),
+      axis.text = ggplot2::element_blank(),
+    ) +
+    ggplot2::xlab("") +
+    ggplot2::ylab("")
+  p
+}
