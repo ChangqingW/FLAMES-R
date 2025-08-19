@@ -492,8 +492,8 @@ jobs:
             message('Running R CMD check...')
             options(crayon.enabled = TRUE)
             result <- rcmdcheck::rcmdcheck(
-              args = '--timings',
-              build_args = '--no-build-vignettes',
+              args = c('--timings', '--no-manual'),
+              build_args = c('--no-build-vignettes', '--no-manual'),
               error_on = 'error',
               check_dir = 'check'
             )

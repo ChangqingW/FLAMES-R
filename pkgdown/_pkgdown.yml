@@ -54,6 +54,7 @@ reference:
     contents:
       - find_variants
       - sc_mutations
+      - sc_genotype
       - mutation_positions
   - title: Visualization
     contents:
@@ -62,6 +63,7 @@ reference:
       - plot_isoform_heatmap
       - plot_isoform_reduced_dim
       - plot_isoforms
+      - sc_plot_genotype
   - title: Alignment coverages
     contents:
       - get_coverage
