@@ -14,6 +14,14 @@
         "do_transcript_quantification": true,
         "oarfish_quantification": true
     },
+    "additional_arguments": {
+        "oarfish": [
+          "--model-coverage"
+        ],
+        "BLAZE": [
+          "--10x-kit-version", "3v3"
+        ]
+    },
     "barcode_parameters": {
         "max_bc_editdistance": 2,
         "max_flank_editdistance": 8,

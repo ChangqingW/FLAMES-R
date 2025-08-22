@@ -307,25 +307,26 @@ quantify_transcript_flames <- function(annotation, outdir, config, pipeline = "s
 }
 
 #' @importFrom basilisk obtainEnvironmentPath basiliskRun
-run_oarfish <- function(realign_bam, outdir, threads = 1, sample, oarfish_bin, single_cell = TRUE) {
+run_oarfish <- function(
+  realign_bam, outdir, threads = 1, sample = "oarfish",
+  oarfish_bin, single_cell = TRUE, additional_args
+) {
   if (missing(oarfish_bin)) {
     oarfish_bin <- find_bin("oarfish")
     stopifnot(!is.na(oarfish_bin))
   }
 
-  if (missing(sample)) {
-    sample <- "oarfish"
-  }
+  args <- c(
+    if (single_cell) "--single-cell" else NULL,
+    "--alignments", file.path(outdir, realign_bam),
+    "-j", as.character(threads),
+    "--output", file.path(outdir, sample),
+    additional_args
+  )
 
   oarfish_status <- base::system2(
     command = oarfish_bin,
-    args = c(
-      switch(single_cell,
-        "--single-cell"
-      ),
-      "--alignments", file.path(outdir, realign_bam),
-      "-j", threads, "--output", file.path(outdir, sample)
-    ),
+    args = args
   )
   if (oarfish_status != 0) {
     stop(paste0("error running oarfish:\n", oarfish_status))
@@ -333,6 +334,7 @@ run_oarfish <- function(realign_bam, outdir, threads = 1, sample, oarfish_bin, s
 
   return(file.path(outdir, sample))
 }
+
 
 #' @importFrom MatrixGenerics rowSums
 #' @importFrom Matrix readMM
@@ -406,27 +408,55 @@ parse_oarfish_bulk_output <- function(oarfish_outs, sample_names) {
   SummarizedExperiment::SummarizedExperiment(assays = list(counts = mtx))
 }
 
+
+#' @importFrom stringr str_escape
 quantify_transcript_oarfish <- function(
-    annotation, outdir, config,
-    pipeline = "sc_single_sample", samples) {
-  realign_bam <- list.files(outdir)[grepl("_?realign2transcript\\.bam$", list.files(outdir))]
+  annotation, outdir, config,
+  pipeline = "sc_single_sample", samples
+) {
+  realign_bam <- list.files(outdir, pattern = "_?realign2transcript\\.bam$")
+  samples <- stringr::str_escape(samples)
+
   if (pipeline == "sc_single_sample") {
-    oarfish_out <- run_oarfish(realign_bam, outdir, threads = config$pipeline_parameters$threads)
+    oarfish_out <- run_oarfish(
+      realign_bam, outdir,
+      threads = config$pipeline_parameters$threads,
+      additional_args = config$additional_arguments$oarfish
+    )
     return(parse_oarfish_sc_output(oarfish_out, annotation, outdir))
+
   } else if (pipeline == "sc_multi_sample") {
-    sce_list <- as.list(1:length(samples))
+    sce_list <- as.list(seq_along(samples))
     names(sce_list) <- samples
-    for (i in 1:length(samples)) {
-      realign_bam <- list.files(outdir)[grepl(paste0(samples[i], "_realign2transcript\\.bam$"), list.files(outdir))]
-      oarfish_out <- run_oarfish(realign_bam, outdir, threads = config$pipeline_parameters$threads, sample = samples[i])
+    for (i in seq_along(samples)) {
+      realign_bam <- list.files(
+        outdir,
+        pattern = paste0(samples[i], "_realign2transcript\\.bam$")
+      )
+      oarfish_out <- run_oarfish(
+        realign_bam, outdir,
+        sample = samples[i],
+        threads = config$pipeline_parameters$threads,
+        additional_args = config$additional_arguments$oarfish
+      )
       sce_list[[i]] <- parse_oarfish_sc_output(oarfish_out, annotation, outdir)
     }
     return(sce_list)
+
   } else if (pipeline == "bulk") {
     oarfish_out <- rep(NA, length(samples))
-    for (i in 1:length(samples)) {
-      realign_bam <- list.files(outdir)[grepl(paste0(samples[i], "_realign2transcript\\.bam$"), list.files(outdir))]
-      oarfish_out[i] <- run_oarfish(realign_bam, outdir, threads = config$pipeline_parameters$threads, sample = samples[i], single_cell = FALSE)
+    for (i in seq_along(samples)) {
+      realign_bam <- list.files(
+        outdir,
+        pattern = paste0(samples[i], "_realign2transcript\\.bam$")
+      )
+      oarfish_out[i] <- run_oarfish(
+        realign_bam, outdir,
+        sample = samples[i],
+        threads = config$pipeline_parameters$threads,
+        additional_args = config$additional_arguments$oarfish,
+        single_cell = FALSE
+      )
     }
     return(parse_oarfish_bulk_output(oarfish_out, samples))
   } else {
