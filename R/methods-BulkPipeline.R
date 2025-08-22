@@ -1047,3 +1047,82 @@ bulk_long_pipeline <- function(
     return(pipeline)
   }
 }
+
+#' Plot pipeline step durations
+#'
+#' @description This function creates a horizontal bar plot showing the duration
+#' of each pipeline step using ggplot2.
+#' @param x A FLAMES.Pipeline object.
+#' @return A ggplot2 object.
+#' @examples
+#' pipeline <- example_pipeline("BulkPipeline")
+#' pipeline <- run_FLAMES(pipeline)
+#' plot_durations(pipeline)
+#' @importFrom ggplot2 ggplot aes geom_col coord_flip labs theme_minimal theme element_text scale_y_continuous geom_text
+#' @export
+setGeneric("plot_durations", function(x) standardGeneric("plot_durations"))
+#' @rdname plot_durations
+#' @export
+setMethod("plot_durations", "FLAMES.Pipeline", function(x) {
+  durations <- x@durations
+
+  if (length(durations) == 0) {
+    stop("No step durations available. Run the pipeline first.")
+  }
+
+  # Convert durations to numeric values in seconds
+  duration_secs <- as.numeric(durations)
+
+  # Determine appropriate time units for display
+  max_duration <- max(duration_secs)
+  if (max_duration < 60) {
+    # Use seconds
+    duration_values <- duration_secs
+    time_unit <- "seconds"
+  } else if (max_duration < 3600) {
+    # Use minutes
+    duration_values <- duration_secs / 60
+    time_unit <- "minutes"
+  } else if (max_duration < 86400) {
+    # Use hours
+    duration_values <- duration_secs / 3600
+    time_unit <- "hours"
+  } else {
+    # Use days
+    duration_values <- duration_secs / 86400
+    time_unit <- "days"
+  }
+
+  # Create data frame for ggplot
+  plot_data <- data.frame(
+    step = factor(names(durations), levels = rev(names(durations))),
+    duration = duration_values,
+    stringsAsFactors = FALSE
+  )
+
+  # Create ggplot
+  p <- ggplot2::ggplot(plot_data, ggplot2::aes(x = step, y = duration)) +
+    ggplot2::geom_col(fill = "steelblue", width = 0.7) +
+    ggplot2::coord_flip() +
+    ggplot2::labs(
+      title = "FLAMES Pipeline Step Durations",
+      x = "Pipeline Step",
+      y = paste("Duration (", time_unit, ")", sep = "")
+    ) +
+    ggplot2::theme_minimal() +
+    ggplot2::theme(
+      plot.title = ggplot2::element_text(hjust = 0.5, size = 14, face = "bold"),
+      axis.text = ggplot2::element_text(size = 11),
+      axis.title = ggplot2::element_text(size = 12)
+    ) +
+    ggplot2::scale_y_continuous(expand = c(0, 0, 0.1, 0)) +
+    ggplot2::geom_text(
+      ggplot2::aes(label = sprintf("%.1f", duration)),
+      hjust = 1.1,
+      color = "white",
+      fontface = "bold",
+      size = 3.5
+    )
+
+  return(p)
+})

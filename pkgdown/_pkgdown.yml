@@ -32,6 +32,7 @@ reference:
       - controllers
       - controllers<-
       - experiment
+      - plot_durations
   - title: Barcode demultiplexing
     contents:
       - find_barcode
