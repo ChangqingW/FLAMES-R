@@ -4,12 +4,14 @@
 \alias{blaze}
 \title{BLAZE Assign reads to cell barcodes.}
 \usage{
-blaze(expect_cells, fq_in, ...)
+blaze(expect_cells, fq_in, additional_args = NULL, ...)
 }
 \arguments{
 \item{expect_cells}{Integer, expected number of cells. Note: this could be just a rough estimate. E.g., the targeted number of cells.}
 
 \item{fq_in}{File path to the fastq file used as a query sequence file}
+
+\item{additional_args}{Additional command line style arguments to be passed to BLAZE. E.g. c("--10x-kit-version", "3v3")}
 
 \item{...}{Additional BLAZE configuration parameters. E.g., setting
 `'output-prefix'='some_prefix'` is equivalent to specifying `--output-prefix some_prefix` in BLAZE; Similarly,

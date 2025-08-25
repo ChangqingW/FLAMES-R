@@ -4,6 +4,7 @@
 #' Uses BLAZE to generate barcode list and assign reads to cell barcodes. 
 #' @param expect_cells Integer, expected number of cells. Note: this could be just a rough estimate. E.g., the targeted number of cells.
 #' @param fq_in File path to the fastq file used as a query sequence file
+#' @param additional_args Additional command line style arguments to be passed to BLAZE. E.g. c("--10x-kit-version", "3v3")
 #' @param ... Additional BLAZE configuration parameters. E.g., setting
 #'  `'output-prefix'='some_prefix'` is equivalent to specifying `--output-prefix some_prefix` in BLAZE; Similarly,
 #'  `overwrite=TRUE` is equivalent to switch on the `--overwrite` option. Note that the specified parameters will
@@ -27,7 +28,7 @@
 #' @importFrom reticulate import_from_path dict
 #' @importFrom basilisk basiliskRun
 #' @export
-blaze <- function(expect_cells, fq_in, ...) {
+blaze <- function(expect_cells, fq_in, additional_args = NULL, ...) {
         # prepare command-line-style arguments for blaze        
         blaze_argv <- paste('--expect-cells ', expect_cells)
         
@@ -54,7 +55,7 @@ blaze <- function(expect_cells, fq_in, ...) {
                 blaze_argv <- paste(blaze_argv, paste0('--',arg), blaze_config[arg])}
         }
 
-        blaze_argv <- paste(blaze_argv, fq_in)
+        blaze_argv <- paste(blaze_argv, paste0(additional_args, collapse = " "), fq_in)
 
 
         # run blaze
