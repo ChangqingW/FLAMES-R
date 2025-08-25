@@ -203,7 +203,10 @@ set_nested_param <- function(config, param_path, value) {
 #'   threads = 16,
 #'   barcode_parameters.max_bc_editdistance = 3,
 #'   barcode_parameters.pattern.primer = "ATCGATCG",
-#'   isoform_parameters.min_sup_cnt = 10
+#'   isoform_parameters.min_sup_cnt = 10,
+#'   # use the coverage model in oarfish
+#'   # via supplying additional CLI arguments
+#'   additional_arguments.oarfish = c("--model-coverage")
 #' )
 #'
 #' @importFrom jsonlite toJSON fromJSON

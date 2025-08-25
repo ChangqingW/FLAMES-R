@@ -321,7 +321,7 @@ run_oarfish <- function(
     "--alignments", file.path(outdir, realign_bam),
     "-j", as.character(threads),
     "--output", file.path(outdir, sample),
-    additional_args
+    as.character(additional_args)
   )
 
   oarfish_status <- base::system2(

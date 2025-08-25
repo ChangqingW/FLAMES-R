@@ -16,7 +16,6 @@
     },
     "additional_arguments": {
         "oarfish": [
-          "--model-coverage"
         ],
         "BLAZE": [
           "--10x-kit-version", "3v3"
