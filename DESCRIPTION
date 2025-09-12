@@ -15,6 +15,8 @@ Authors@R: c(
               email="schuster.j@wehi.edu.au"),
        person("Shian",  "Su", role=c("aut"),
               email="su.s@wehi.edu.au"),
+       person("Yair D.J.", "Prawer", role=c("aut"),
+              email="sefi.prawer@unimelb.edu.au"),
        person("Matthew", "Ritchie",role=c("ctb"),
               email="mritchie@wehi.edu.au"))
 Description: Semi-supervised isoform detection and annotation from both bulk and single-cell 
