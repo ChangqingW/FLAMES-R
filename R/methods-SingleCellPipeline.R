@@ -326,11 +326,12 @@ setMethod("barcode_demultiplex", "FLAMES.SingleCellPipeline", function(pipeline)
         command = blaze(
           expect_cells = expect_cell_number,
           fq_in = fastq,
+          outdir = outdir,
+          fq_out = demultiplexed_fastq,
           additional_args = config$additional_arguments$BLAZE,
-          "output-fastq" = demultiplexed_fastq,
-          "threads" = config$pipeline_parameters$threads,
+          threads = config$pipeline_parameters$threads,
           "max-edit-distance" = config$barcode_parameters$max_bc_editdistance,
-          "overwrite" = TRUE
+          overwrite = TRUE
         ),
         data = list(
           expect_cell_number = pipeline@expect_cell_number,
@@ -349,11 +350,12 @@ setMethod("barcode_demultiplex", "FLAMES.SingleCellPipeline", function(pipeline)
       blaze(
         expect_cells = pipeline@expect_cell_number,
         fq_in = pipeline@fastq,
+        outdir = pipeline@outdir,
+        fq_out = pipeline@demultiplexed_fastq,
         additional_args = pipeline@config$additional_arguments$BLAZE,
-        "output-fastq" = pipeline@demultiplexed_fastq,
-        "threads" = pipeline@config$pipeline_parameters$threads,
+        threads = pipeline@config$pipeline_parameters$threads,
         "max-edit-distance" = pipeline@config$barcode_parameters$max_bc_editdistance,
-        "overwrite" = TRUE
+        overwrite = TRUE
       )
     }
   } else if (demux_tool == "flexiplex") {
