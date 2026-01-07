@@ -4,22 +4,35 @@
 \alias{blaze}
 \title{BLAZE Assign reads to cell barcodes.}
 \usage{
-blaze(expect_cells, fq_in, additional_args = NULL, ...)
+blaze(
+  expect_cells,
+  fq_in,
+  outdir,
+  fq_out,
+  sample_name = "",
+  additional_args = NULL,
+  ...
+)
 }
 \arguments{
 \item{expect_cells}{Integer, expected number of cells. Note: this could be just a rough estimate. E.g., the targeted number of cells.}
 
 \item{fq_in}{File path to the fastq file used as a query sequence file}
 
+\item{outdir}{Output directory to save BLAZE results.}
+
+\item{fq_out}{File path to save the output fastq file containing reads assigned to cell barcodes.}
+
+\item{sample_name}{Sample name prefix for output files. Default is an empty string.}
+
 \item{additional_args}{Additional command line style arguments to be passed to BLAZE. E.g. c("--10x-kit-version", "3v3")}
 
 \item{...}{Additional BLAZE configuration parameters. E.g., setting
-`'output-prefix'='some_prefix'` is equivalent to specifying `--output-prefix some_prefix` in BLAZE; Similarly,
 `overwrite=TRUE` is equivalent to switch on the `--overwrite` option. Note that the specified parameters will
 override the parameters specified in the configuration file. All available options can be found at https://github.com/shimlab/BLAZE.}
 }
 \value{
-A \code{data.frame} summarising the reads aligned. Other outputs are written to disk. 
+A \code{data.frame} summarising the reads aligned. Other outputs are written to disk.
 The details of the output files can be found at https://github.com/shimlab/BLAZE.
 }
 \description{
@@ -31,9 +44,9 @@ dir.create(outdir)
 fastq <- system.file("extdata", "fastq", "musc_rps24.fastq.gz", package = "FLAMES")
 blaze(
   expect_cells = 10, fastq,
-  "output-prefix" = file.path(outdir, ""),
-  "output-fastq" = file.path(outdir, "output.fastq"),
-  overwrite=TRUE
+  outdir = outdir,
+  fq_out = file.path(outdir, "blaze_matched_reads.fastq.gz"),
+  overwrite = TRUE
 )
 
 }

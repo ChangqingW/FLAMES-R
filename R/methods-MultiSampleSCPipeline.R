@@ -221,8 +221,10 @@ setMethod("barcode_demultiplex", "FLAMES.MultiSampleSCPipeline", function(pipeli
       controller$map(
         command = blaze(
           expect_cell_number[i], fastq[i],
+          outdir = outdir,
+          fq_out = demultiplexed_fastq[i],
+          sample_name = names(fastq)[i],
           additional_args = config$additional_arguments$BLAZE,
-          "output-fastq" = demultiplexed_fastq[i],
           "threads" = config$pipeline_parameters$threads,
           "max-edit-distance" = config$barcode_parameters$max_bc_editdistance,
           "overwrite" = TRUE
@@ -244,8 +246,10 @@ setMethod("barcode_demultiplex", "FLAMES.MultiSampleSCPipeline", function(pipeli
         message(sprintf("Demultiplexing sample %s...", names(pipeline@fastq)[i]))
         blaze(
           pipeline@expect_cell_number[i], pipeline@fastq[i],
+          outdir = pipeline@outdir,
+          fq_out = pipeline@demultiplexed_fastq[i],
+          sample_name = names(pipeline@fastq)[i],
           additional_args = pipeline@config$additional_arguments$BLAZE,
-          "output-fastq" = pipeline@demultiplexed_fastq[i],
           "threads" = pipeline@config$pipeline_parameters$threads,
           "max-edit-distance" = pipeline@config$barcode_parameters$max_bc_editdistance,
           "overwrite" = TRUE

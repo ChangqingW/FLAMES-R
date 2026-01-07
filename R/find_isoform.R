@@ -29,10 +29,16 @@ find_isoform_bambu <- function(annotation, genome_fa, genome_bam, outdir, config
   if (stringr::str_ends(annotation, ".gz")) {
     cat("Unzipping annotation file for bambu\n")
     useTempAnnot <- TRUE
-    bambuTempAnnot <- R.utils::gunzip(annotation, remove = FALSE)
+    # In case same file name exists
+    destname <- gsub("[.]gz$", "", annotation, ignore.case = TRUE)
+    if (file.exists(destname)) {
+      destname <- paste0(format(Sys.time(), "%Y%m%d_%H%M%S"), "_", destname)
+    }
+    bambuTempAnnot <- R.utils::gunzip(annotation, destname = destname, remove = FALSE)
     annotation <- bambuTempAnnot # override using zipped annotation file
   }
   bambuAnnotations <- bambu::prepareAnnotations(annotation)
+
   # Tmp fix: remove withr if bambu imports seqlengths properly
   # https://github.com/GoekeLab/bambu/issues/255
   # min.readCount seems to cause errors
