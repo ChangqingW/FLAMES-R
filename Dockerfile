@@ -92,4 +92,7 @@ RUN Rscript -e "library(FLAMES)" && \
 # Initialize basilisk environment
 RUN Rscript -e 'basilisk::basiliskRun(env = FLAMES:::flames_env, fun = function(){})'
 
+# Re-install xgboost version 1.7.11.1
+RUN Rscript -e "remove.packages('xgboost'); remotes::install_version('xgboost', version = '1.7.11.1', repos = 'http://cran.us.r-project.org')"
+
 CMD ["R", "--no-save"]
