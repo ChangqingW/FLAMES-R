@@ -227,14 +227,18 @@ example_pipeline <- function(type = "SingleCellPipeline", outdir) {
         filename = system.file("extdata", "rps24.fa.gz", package = "FLAMES"),
         destname = genome_fa, remove = FALSE
       )
-      ShortRead::writeFastq(reads[1:100],
-        file.path(outdir, "fastq/sample1.fq.gz"), mode = "w", full = FALSE)
-      reads <- reads[-(1:100)]
-      ShortRead::writeFastq(reads[1:100],
-        file.path(outdir, "fastq/sample2.fq.gz"), mode = "w", full = FALSE)
-      reads <- reads[-(1:100)]
-      ShortRead::writeFastq(reads,
-        file.path(outdir, "fastq/sample3.fq.gz"), mode = "w", full = FALSE)
+      ShortRead::writeFastq(
+        sample(reads, 300, replace = TRUE),
+        file.path(outdir, "fastq/sample1.fq.gz"), mode = "w", full = FALSE
+      )
+      ShortRead::writeFastq(
+        sample(reads, 300, replace = TRUE),
+        file.path(outdir, "fastq/sample2.fq.gz"), mode = "w", full = FALSE
+      )
+      ShortRead::writeFastq(
+        sample(reads, 300, replace = TRUE),
+        file.path(outdir, "fastq/sample3.fq.gz"), mode = "w", full = FALSE
+      )
       BulkPipeline(
         fastq = c(
           "sample1" = file.path(outdir, "fastq", "sample1.fq.gz"),
@@ -262,12 +266,14 @@ example_pipeline <- function(type = "SingleCellPipeline", outdir) {
         filename = system.file("extdata", "rps24.fa.gz", package = "FLAMES"),
         destname = genome_fa, remove = FALSE
       )
-      ShortRead::writeFastq(reads[1:100],
-        file.path(outdir, "fastq/sample1.fq.gz"), mode = "w", full = FALSE)
-      reads <- reads[-(1:100)]
-      ShortRead::writeFastq(reads[1:100],
-        file.path(outdir, "fastq/sample2.fq.gz"), mode = "w", full = FALSE)
-      reads <- reads[-(1:100)]
+      ShortRead::writeFastq(
+        sample(reads, 300, replace = TRUE),
+        file.path(outdir, "fastq/sample1.fq.gz"), mode = "w", full = FALSE
+      )
+      ShortRead::writeFastq(
+        sample(reads, 300, replace = TRUE),
+        file.path(outdir, "fastq/sample2.fq.gz"), mode = "w", full = FALSE
+      )
       ShortRead::writeFastq(reads,
         file.path(outdir, "fastq/sample3.fq.gz"), mode = "w", full = FALSE)
       MultiSampleSCPipeline(

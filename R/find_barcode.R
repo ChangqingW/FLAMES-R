@@ -1,3 +1,67 @@
+# Classes for segment and group
+setClass("FlexiplexSegment",
+         slots = list(
+           type = "character",
+           pattern = "character",
+           name = "character",
+           bc_list_name = "character",
+           group = "character",
+           buffer_size = "numeric",
+           max_edit_distance = "numeric"
+         ),
+         prototype = list(
+           type = "FIXED",
+           bc_list_name = NA_character_,
+           group = NA_character_,
+           buffer_size = 2,
+           max_edit_distance = 2
+         ))
+barcode_segment <- function(type = "FIXED", pattern, name,
+                    bc_list = NA_character_, group = NA_character_,
+                    buffer_size = 2, max_edit_distance = 2) {
+  if (!(type %in% c("FIXED", "MATCHED", "MATCHED_SPLIT", "RANDOM"))) {
+    stop("type must be one of 'FIXED', 'MATCHED', 'MATCHED_SPLIT', or 'RANDOM'")
+  }
+  if (type == "MATCHED" && is.na(bc_list)) {
+    stop("bc_list must be provided for type 'MATCHED'")
+  }
+  if (type == "MATCHED_SPLIT" && is.na(group)) {
+    stop("group must be provided for type 'MATCHED_SPLIT'")
+  }
+  if (buffer_size < 0) {
+    stop("buffer_size must be non-negative")
+  }
+  if (max_edit_distance < 0) {
+    stop("max_edit_distance must be non-negative")
+  }
+
+  new("FlexiplexSegment",
+      type = type,
+      pattern = pattern,
+      name = name,
+      bc_list_name = bc_list,
+      group = group,
+      buffer_size = buffer_size,
+      max_edit_distance = max_edit_distance 
+  )
+}
+
+setClass("FlexiplexGroup",
+         slots = list(
+           name = "character",
+           list_file = "character",
+           max_edit_distance = "numeric"
+         ))
+barcode_group <- function(name, list_file, max_edit_distance = 2) {
+  if (max_edit_distance < 0) {
+    stop("max_edit_distance must be non-negative")
+  }
+  new("FlexiplexGroup",
+      name = name,
+      list_file = list_file,
+      max_edit_distance = max_edit_distance)
+}
+
 #' Match Cell Barcodes
 #'
 #' @description demultiplex reads with flexiplex
@@ -46,7 +110,9 @@
 #' @export
 find_barcode <- function(
     fastq, barcodes_file, max_bc_editdistance = 2, max_flank_editdistance = 8,
-    reads_out, stats_out, threads = 1, pattern = c(
+    reads_out, stats_out, threads = 1,
+    segments, barcode_groups,
+    pattern = c(
       primer = "CTACACGACGCTCTTCCGATCT",
       BC = paste0(rep("N", 16), collapse = ""),
       UMI = paste0(rep("N", 12), collapse = ""),
@@ -54,6 +120,36 @@ find_barcode <- function(
     ), TSO_seq = "", TSO_prime = 3, strand = '+', cutadapt_minimum_length = 1, full_length_only = FALSE) {
 
   reverseCompliment <- strand != '+'
+
+  # backward compatibility for "pattern" arguments
+  if (missing(segments)) {
+    segments <- list()
+    for (i in seq_along(pattern)) {
+      name <- names(pattern)[i]
+      seq <- pattern[i]
+      if (name == "BC") {
+        type <- "MATCHED"
+        bc_list <- barcodes_file
+      } else if (name == "UMI") {
+        type <- "RANDOM"
+        bc_list <- NA_character_
+      } else {
+        type <- "FIXED"
+        bc_list <- NA_character_
+      }
+      segment <- barcode_segment(
+        type = type, pattern = seq, name = name,
+        bc_list = bc_list, buffer_size = 5,
+        max_edit_distance = max_bc_editdistance
+      )
+      segments[[length(segments) + 1]] <- segment
+    }
+    barcode_groups <- list()
+  } else {
+    if (missing(barcode_groups)) {
+      barcode_groups <- list()
+    }
+  }
 
   # Single sample
   stopifnot(length(fastq) == 1)
@@ -63,10 +159,12 @@ find_barcode <- function(
     reads_in <- fastq
   }
   read_counts <- flexiplex(
-    reads_in = reads_in, barcodes_file = barcodes_file, bc_as_readid = TRUE,
-    max_bc_editdistance = max_bc_editdistance, max_flank_editdistance = max_flank_editdistance,
-    pattern = pattern, reads_out = reads_out, stats_out = stats_out, reverseCompliment = reverseCompliment,
-    n_threads = threads, bc_out = tempfile()
+    r_segments = segments, r_barcode_groups = barcode_groups,
+    max_flank_editdistance = max_flank_editdistance,
+    reads_in = reads_in, 
+    reads_out = reads_out, stats_out = stats_out, bc_out = tempfile(),
+    reverseCompliment = reverseCompliment,
+    n_threads = threads
   )
 
   # Cutadapt TSO trimming

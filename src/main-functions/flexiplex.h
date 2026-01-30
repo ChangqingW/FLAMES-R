@@ -4,12 +4,17 @@
 #include <Rcpp.h>
 
 // [[Rcpp::export]]
-Rcpp::IntegerVector flexiplex_cpp(Rcpp::StringVector reads_in, Rcpp::String barcodes_file,
-    bool bc_as_readid, int max_bc_editdistance,
-    int max_flank_editdistance, Rcpp::StringVector pattern,
-    Rcpp::String reads_out, Rcpp::String stats_out,
-    Rcpp::String bc_out, bool reverseComplement, int n_threads);
+Rcpp::IntegerVector flexiplex_cpp(
+  Rcpp::List r_segments,
+  Rcpp::List r_barcode_groups,
+  int max_flank_editdistance,
+  Rcpp::StringVector reads_in,
+  Rcpp::String reads_out,
+  Rcpp::String stats_out,
+  Rcpp::String bc_out, bool reverseCompliment, int n_threads);
 
-unsigned int edit_distance(const std::string &s1, const std::string &s2,
-                           unsigned int &end, int max_editd);
+// Note: `edit_distance()` is implemented as a `static inline` helper inside
+// `flexiplex.cpp` and is intentionally not declared in this header to avoid
+// ODR/linkage conflicts.
+
 #endif // FLEXIPLEX_H
