@@ -22,17 +22,41 @@ barcode_segment <- function(type = "FIXED", pattern, name,
   if (!(type %in% c("FIXED", "MATCHED", "MATCHED_SPLIT", "RANDOM"))) {
     stop("type must be one of 'FIXED', 'MATCHED', 'MATCHED_SPLIT', or 'RANDOM'")
   }
-  if (type == "MATCHED" && is.na(bc_list)) {
-    stop("bc_list must be provided for type 'MATCHED'")
+
+  if (!is.character(pattern) || length(pattern) != 1 || is.na(pattern) || nchar(pattern) == 0) {
+    stop("pattern must be a non-empty character scalar")
   }
-  if (type == "MATCHED_SPLIT" && is.na(group)) {
-    stop("group must be provided for type 'MATCHED_SPLIT'")
+
+  if (missing(name) && type == "FIXED") {
+      name <- "FIXED_SEGMENT"
+  } else if (!is.character(name) || length(name) != 1 || is.na(name) || nchar(name) == 0) {
+    stop("name must be a non-empty character scalar")
   }
-  if (buffer_size < 0) {
-    stop("buffer_size must be non-negative")
+
+  if (type %in% c("MATCHED", "MATCHED_SPLIT")) {
+    if (!is.numeric(buffer_size) || length(buffer_size) != 1 || is.na(buffer_size)) {
+      stop("buffer_size must be a numeric scalar")
+    }
+    if (buffer_size < 0) {
+      stop("buffer_size must be non-negative")
+    }
+    if (!is.numeric(max_edit_distance) || length(max_edit_distance) != 1 || is.na(max_edit_distance)) {
+      stop("max_edit_distance must be a numeric scalar")
+    }
+    if (max_edit_distance < 0) {
+      stop("max_edit_distance must be non-negative")
+    }
   }
-  if (max_edit_distance < 0) {
-    stop("max_edit_distance must be non-negative")
+
+  if (type == "MATCHED") {
+    if (!is.character(bc_list) || length(bc_list) != 1 || is.na(bc_list) || nchar(bc_list) == 0) {
+      stop("bc_list must be provided as a non-empty character scalar for type 'MATCHED'")
+    }
+  }
+  if (type == "MATCHED_SPLIT") {
+    if (!is.character(group) || length(group) != 1 || is.na(group) || nchar(group) == 0) {
+      stop("group must be provided as a non-empty character scalar for type 'MATCHED_SPLIT'")
+    }
   }
 
   new("FlexiplexSegment",
@@ -49,17 +73,155 @@ barcode_segment <- function(type = "FIXED", pattern, name,
 setClass("FlexiplexGroup",
          slots = list(
            name = "character",
-           list_file = "character",
+           bc_list_name = "character",
            max_edit_distance = "numeric"
          ))
-barcode_group <- function(name, list_file, max_edit_distance = 2) {
+barcode_group <- function(name, bc_list_name, max_edit_distance = 2) {
+  if (!is.character(name) || length(name) != 1 || is.na(name) || nchar(name) == 0) {
+    stop("name must be a non-empty character scalar")
+  }
+  if (!is.character(bc_list_name) || length(bc_list_name) != 1 || is.na(bc_list_name) || nchar(bc_list_name) == 0) {
+    stop("bc_list_name must be a non-empty character scalar")
+  }
+  if (!is.numeric(max_edit_distance) || length(max_edit_distance) != 1 || is.na(max_edit_distance)) {
+    stop("max_edit_distance must be a numeric scalar")
+  }
   if (max_edit_distance < 0) {
     stop("max_edit_distance must be non-negative")
   }
   new("FlexiplexGroup",
       name = name,
-      list_file = list_file,
+      bc_list_name = bc_list_name,
       max_edit_distance = max_edit_distance)
+}
+
+#' Convert legacy pattern to Flexiplex segments
+#' @param pattern named character vector defining the barcode pattern
+#' @param barcodes_file path to file containing barcode allow-list
+#' @param max_bc_editdistance max edit distances for the barcode sequence
+#' @param buffer_size buffer size for barcode matching
+#' @return a list of FlexiplexSegment objects
+.legacy_pattern_to_flexiplex_segments <- function(
+    pattern,
+    barcodes_file,
+    max_bc_editdistance,
+    buffer_size
+) {
+  message("Converting legacy `pattern` argument to `segments`...")
+  if (!is.character(pattern) || length(pattern) < 1) {
+    stop("pattern must be a named character vector")
+  }
+  if (is.null(names(pattern)) || any(names(pattern) == "")) {
+    stop("pattern must be a named character vector")
+  }
+  if (!"BC" %in% names(pattern)) {
+    stop("pattern must contain a 'BC' entry")
+  }
+  if (length(barcodes_file) != 1 || !is.character(barcodes_file) || is.na(barcodes_file) || nchar(barcodes_file) == 0) {
+    stop("barcodes_file must be a single non-empty string")
+  }
+
+  segments <- list()
+  for (i in seq_along(pattern)) {
+    part_name <- names(pattern)[i]
+    part_pattern <- pattern[[i]]
+    if (part_name == "BC") {
+      segment <- barcode_segment(
+        type = "MATCHED",
+        pattern = part_pattern,
+        name = "CB",
+        bc_list = barcodes_file,
+        buffer_size = buffer_size,
+        max_edit_distance = max_bc_editdistance
+      )
+    } else if (part_name == "UMI") {
+      segment <- barcode_segment(
+        type = "RANDOM",
+        pattern = part_pattern,
+        name = "UB"
+      )
+    } else {
+      segment <- barcode_segment(
+        type = "FIXED",
+        pattern = part_pattern,
+        name = part_name
+      )
+    }
+    segments[[length(segments) + 1]] <- segment
+  }
+  return(segments)
+}
+
+#' Resolve bc_list_name keys/indices to file paths
+#' @param x list of FlexiplexSegment objects or list of FlexiplexGroup objects
+#' @param type character, either "segment" or "barcode_group"
+#' @param barcodes_files named or unnamed (only allowd when length is 1) character vector of barcode file paths
+.resolve_bc_lists <- function(x, barcodes_files) {
+  if (!is.null(barcodes_files)) {
+    if (!is.character(barcodes_files)) {
+      stop("`barcodes_files` must be a character vector of file paths")
+    }
+  }
+  if (length(barcodes_files) > 1 && is.null(names(barcodes_files))) {
+    stop("`barcodes_files` must be a named character vector when length > 1")
+  }
+
+  for (i in seq_along(x)) {
+    s <- x[[i]]
+    if (class(s) == "FlexiplexSegment") {
+      class <- "segment"
+    } else if (class(s) == "FlexiplexGroup") {
+      class <- "barcode_group"
+    } else {
+      stop("`x` must be a list of FlexiplexSegment or FlexiplexGroup objects")
+    }
+
+    if (class == "segment" && s@type != "MATCHED") {
+      next
+    }
+
+    # Single unnamed entry: use it directly
+    if (length(barcodes_files) == 1 && is.null(names(barcodes_files))) {
+      s@bc_list_name <- unname(barcodes_files[[1]])
+      x[[i]] <- s
+      next
+    }
+
+    # Get the key to resolve
+    key <- s@bc_list_name
+    if (length(key) != 1 || is.na(key) || nchar(key) == 0) {
+      stop(sprintf(
+        "%s[[%d]]: bc_list_name is empty, must provide a valid name from `barcodes_files` for barcode groups and MATCHED segments."
+      ))
+    }
+
+    # Resolve via named lookup
+    if (!is.null(names(barcodes_files)) && key %in% names(barcodes_files)) {
+      s@bc_list_name <- unname(barcodes_files[[key]])
+      x[[i]] <- s
+      next
+    }
+
+    # If key directly points to an existing file, accept it.
+    if (file.exists(key)) {
+      message(
+        sprintf(
+          "%s[[%d]]: bc_list_name='%s' does not match any name in `barcodes_files`, using it as a file path directly.",
+          class, i, key
+        )
+      )
+      next
+    }
+
+    stop(
+      sprintf(
+        "%s[[%d]]: bc_list_name='%s' does not match any name in `barcodes_files`.", 
+        class, i, key
+      )
+    )
+  }
+
+ x 
 }
 
 #' Match Cell Barcodes
@@ -109,47 +271,81 @@ barcode_group <- function(name, list_file, max_edit_distance = 2) {
 #' @md
 #' @export
 find_barcode <- function(
-    fastq, barcodes_file, max_bc_editdistance = 2, max_flank_editdistance = 8,
-    reads_out, stats_out, threads = 1,
+    fastq,
     segments, barcode_groups,
+    barcodes_files,
+    max_flank_editdistance = 8,
+    reads_out, stats_out, threads = 1,
+    TSO_seq = "", TSO_prime = 3, strand = '+', cutadapt_minimum_length = 1, full_length_only = FALSE,
+    sample_names = NULL,
+    # legacy style
     pattern = c(
       primer = "CTACACGACGCTCTTCCGATCT",
       BC = paste0(rep("N", 16), collapse = ""),
       UMI = paste0(rep("N", 12), collapse = ""),
       polyT = paste0(rep("T", 9), collapse = "")
-    ), TSO_seq = "", TSO_prime = 3, strand = '+', cutadapt_minimum_length = 1, full_length_only = FALSE) {
+    ), max_bc_editdistance = 2
+) {
 
-  reverseCompliment <- strand != '+'
+  if (strand == '+') {
+    reverseCompliment <- FALSE
+  } else if (strand == '-') {
+    reverseCompliment <- TRUE
+  } else {
+    stop("strand must be either '+' or '-'")
+  }
 
-  # backward compatibility for "pattern" arguments
-  if (missing(segments)) {
-    segments <- list()
-    for (i in seq_along(pattern)) {
-      name <- names(pattern)[i]
-      seq <- pattern[i]
-      if (name == "BC") {
-        type <- "MATCHED"
-        bc_list <- barcodes_file
-      } else if (name == "UMI") {
-        type <- "RANDOM"
-        bc_list <- NA_character_
-      } else {
-        type <- "FIXED"
-        bc_list <- NA_character_
-      }
-      segment <- barcode_segment(
-        type = type, pattern = seq, name = name,
-        bc_list = bc_list, buffer_size = 5,
-        max_edit_distance = max_bc_editdistance
-      )
-      segments[[length(segments) + 1]] <- segment
-    }
+  # Backward compatibility for legacy `pattern` arguments
+  if (missing(segments) || is.null(segments) || length(segments) == 0) {
+    segments <- .legacy_pattern_to_flexiplex_segments(
+      pattern = pattern,
+      barcodes_file = barcodes_files,
+      max_bc_editdistance = max_bc_editdistance,
+      buffer_size = 5
+    )
     barcode_groups <- list()
   } else {
+    if (!missing(pattern) && !is.null(pattern) && length(pattern) > 0) {
+      warning("Both `segments` and legacy `pattern` arguments are provided, ignoring `pattern`.")
+    }
     if (missing(barcode_groups)) {
       barcode_groups <- list()
     }
+
+    if (is.data.frame(segments)) {
+      segments <- apply(segments, 1, function(row) {
+        barcode_segment(
+          type = row[["type"]],
+          pattern = row[["pattern"]],
+          name = row[["name"]],
+          bc_list = ifelse("bc_list_name" %in% names(row), row[["bc_list_name"]], NA_character_),
+          group = ifelse("group" %in% names(row), row[["group"]], NA_character_),
+          buffer_size = ifelse("buffer_size" %in% names(row), as.numeric(row[["buffer_size"]]), 2),
+          max_edit_distance = ifelse("max_edit_distance" %in% names(row), as.numeric(row[["max_edit_distance"]]), 2)
+        )
+      })
+    }
+    if (is.data.frame(barcode_groups)) {
+      barcode_groups <- apply(barcode_groups, 1, function(row) {
+        barcode_group(
+          name = row[["name"]],
+          bc_list_name = row[["bc_list_name"]],
+          max_edit_distance = ifelse("max_edit_distance" %in% names(row), as.numeric(row[["max_edit_distance"]]), 2)
+        )
+      })
+    }
   }
+
+  # Resolve bc_list_name keys/indices -> file paths (or fall back to barcodes_file)
+  segments <- .resolve_bc_lists(
+    segments,
+    barcodes_files = barcodes_files
+  )
+
+  barcode_groups <- .resolve_bc_lists(
+    barcode_groups,
+    barcodes_files = barcodes_files
+  )
 
   # Single sample
   stopifnot(length(fastq) == 1)
@@ -272,11 +468,11 @@ plot_demultiplex_raw <- function(find_barcode_result) {
   # readr's guessing will fail if the file is empty (no reads)
   stats_col_types <- list(
     "Read" = readr::col_character(),
-    "CellBarcode" = readr::col_character(),
+    "CB" = readr::col_character(),
     "FlankEditDist" = readr::col_integer(),
-    "BarcodeEditDist" = readr::col_integer(),
-    "UMI" = readr::col_character(),
-    "TooShort" = readr::col_logical()
+    # "BarcodeEditDist" = readr::col_integer(),
+    "UB" = readr::col_character()
+    # "TooShort" = readr::col_logical()
   )
 
   find_barcode_result <- sapply(find_barcode_result, function(x) {
@@ -292,9 +488,9 @@ plot_demultiplex_raw <- function(find_barcode_result) {
   knee_tb <- sapply(find_barcode_result, "[[", "reads_tb", simplify = FALSE) |>
     dplyr::bind_rows(.id = "Sample") |>
     dplyr::mutate(Sample = factor(Sample)) |>
-    dplyr::group_by(CellBarcode, Sample) |>
+    dplyr::group_by(CB, Sample) |>
     dplyr::summarise(
-      UMI_count = dplyr::n_distinct(UMI)
+      UMI_count = dplyr::n_distinct(UB)
     ) |>
     dplyr::ungroup() |>
     dplyr::group_by(Sample) |>
@@ -363,22 +559,23 @@ plot_demultiplex_raw <- function(find_barcode_result) {
   }
 
   # grouped (by sample) barplot
-  barcode_editdistance_plot <- sapply(
-    find_barcode_result, "[[", "reads_tb", simplify = FALSE
-  ) |>
-    dplyr::bind_rows(.id = "Sample") |>
-    dplyr::mutate(Sample = factor(Sample)) |>
-    dplyr::group_by(BarcodeEditDist, Sample) |>
-    dplyr::ungroup() |>
-    dplyr::mutate(BarcodeEditDist = factor(BarcodeEditDist)) |>
-    ggplot2::ggplot(ggplot2::aes(x = Sample, fill = BarcodeEditDist)) +
-    ggplot2::geom_bar(stat = "count", position = "dodge") +
-    ggplot2::theme_minimal() +
-    ggplot2::ylab("number of reads")
-  if (length(find_barcode_result) == 1) {
-    barcode_editdistance_plot <- barcode_editdistance_plot +
-      ggplot2::theme(legend.position = "none")
-  }
+  # TODO: add back after implemented in flexiplex
+  # barcode_editdistance_plot <- sapply(
+  #   find_barcode_result, "[[", "reads_tb", simplify = FALSE
+  # ) |>
+  #   dplyr::bind_rows(.id = "Sample") |>
+  #   dplyr::mutate(Sample = factor(Sample)) |>
+  #   dplyr::group_by(BarcodeEditDist, Sample) |>
+  #   dplyr::ungroup() |>
+  #   dplyr::mutate(BarcodeEditDist = factor(BarcodeEditDist)) |>
+  #   ggplot2::ggplot(ggplot2::aes(x = Sample, fill = BarcodeEditDist)) +
+  #   ggplot2::geom_bar(stat = "count", position = "dodge") +
+  #   ggplot2::theme_minimal() +
+  #   ggplot2::ylab("number of reads")
+  # if (length(find_barcode_result) == 1) {
+  #   barcode_editdistance_plot <- barcode_editdistance_plot +
+  #     ggplot2::theme(legend.position = "none")
+  # }
 
   # read counts
   read_counts_plot <-
@@ -430,7 +627,7 @@ plot_demultiplex_raw <- function(find_barcode_result) {
     reads_count_plot = read_counts_plot,
     knee_plot = knee_plot,
     flank_editdistance_plot = flank_editdistance_plot,
-    barcode_editdistance_plot = barcode_editdistance_plot,
+    # barcode_editdistance_plot = barcode_editdistance_plot,
     cutadapt_plot = switch(exists("cutadapt_plot"), cutadapt_plot, NULL)
   ))
 }

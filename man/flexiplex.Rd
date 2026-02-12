@@ -5,12 +5,10 @@
 \title{Rcpp port of flexiplex}
 \usage{
 flexiplex(
-  reads_in,
-  barcodes_file,
-  bc_as_readid,
-  max_bc_editdistance,
+  r_segments,
+  r_barcode_groups,
   max_flank_editdistance,
-  pattern,
+  reads_in,
   reads_out,
   stats_out,
   bc_out,
@@ -19,18 +17,11 @@ flexiplex(
 )
 }
 \arguments{
+\item{r_segments}{List defining the barcode structure}
+
+\item{r_barcode_groups}{List defining barcode groups}
+
 \item{reads_in}{Input FASTQ or FASTA file}
-
-\item{barcodes_file}{barcode allow-list file}
-
-\item{bc_as_readid}{bool, whether to add the demultiplexed barcode to the
-read ID field}
-
-\item{max_bc_editdistance}{max edit distance for barcode '}
-
-\item{max_flank_editdistance}{max edit distance for the flanking sequences '}
-
-\item{pattern}{StringVector defining the barcode structure, see [find_barcode]}
 
 \item{reads_out}{output file for demultiplexed reads}
 

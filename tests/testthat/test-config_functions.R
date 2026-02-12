@@ -93,7 +93,7 @@ test_that("load_config provides backward compatibility", {
   
   # Check that missing defaults are filled in
   expect_true("do_genome_alignment" %in% names(loaded_config$pipeline_parameters))
-  expect_true("pattern" %in% names(loaded_config$barcode_parameters))
+  expect_true("segments" %in% names(loaded_config$barcode_parameters))
   expect_true("isoform_parameters" %in% names(loaded_config))
   
   # Check specific default values are present

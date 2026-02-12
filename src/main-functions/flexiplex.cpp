@@ -706,56 +706,75 @@ std::string compose_new_id(
   if (chimeric)
     ss_suffix << "_C";
 
-  std::ostringstream prefix;
-  std::string primary_for_prefix;
+  std::ostringstream id;
 
   // print the grouped barcodes as a whole first
+  std::string delim = "";
   for (const auto &g : group_map) {
     auto it = bc.features.find(g.first);
     if (it != bc.features.end()) {
-      prefix << it->second << "_";
-      if (primary_for_prefix.empty())
-        primary_for_prefix = it->second;
+      id << delim << it->second;
     } else {
-      prefix << "NA_";
+      id << delim << "NA";
     }
+    delim = "-";
   }
 
+  // print barcodes
   for (const auto &s : segments) {
-    if (s.type == FIXED)
+    if (s.type != MATCHED)
       continue;
     auto it = bc.features.find(s.name);
     if (it != bc.features.end()) {
-      prefix << it->second << "_";
-      if (s.type == MATCHED && primary_for_prefix.empty())
-        primary_for_prefix = it->second;
+      id << delim << it->second;
     } else {
-      prefix << "NA_";
+      id << delim << "NA";
     }
+    delim = "-";
   }
 
-  std::string id_prefix = prefix.str();
-  if (!id_prefix.empty() && id_prefix.back() == '_')
-    id_prefix.pop_back();
+  // Add UB (if present, concatonate all UB segments if multiple present)
+  std::string ub = "";
+  for (const auto &s : segments) {
+    if (s.type != RANDOM)
+      continue;
+    auto it = bc.features.find(s.name);
+    if (it != bc.features.end()) {
+      ub += it->second;
+    }
+  }
+  if (!ub.empty()) {
+    id << "_" << ub;
+  } else {
+    id << "_" << "NA";
+  }
 
-  std::string new_id = id_prefix + "#" + read_id + ss_suffix.str();
-
+  // Add CB tag (assume always present)
+  id << "#" << read_id << ss_suffix.str() << "\tCB:Z:";
+  delim = "";
   for (const auto &g : group_map) {
     auto it = bc.features.find(g.first);
     if (it != bc.features.end()) {
-      new_id += "\t" + g.first + ":Z:" + it->second;
+      id << delim << g.first << ":" << it->second;
+      delim = ",";
     }
   }
   for (const auto &s : segments) {
-    if (s.type == FIXED)
+    if (s.type != MATCHED) 
       continue;
     auto it = bc.features.find(s.name);
     if (it != bc.features.end()) {
-      new_id += "\t" + s.name + ":Z:" + it->second;
+      id << delim << s.name << (s.name == "" ? "" : ":") << it->second;
+      delim = ",";
     }
   }
 
-  return new_id;
+  // add UB tag if exist
+  if (!ub.empty()) {
+    id << "\tUB:Z:" << ub;
+  }
+
+  return id.str();
 }
 
 void print_read(const std::string &read_id, const std::string &read,
@@ -967,7 +986,12 @@ Rcpp::IntegerVector flexiplex_cpp(
     BarcodeGroup bg = s4_to_barcode_group(Rcpp::as<Rcpp::S4>(r_grp));
     group_map[bg.name] = bg;
     if (known_barcodes_map.find(bg.name) == known_barcodes_map.end()) {
-      known_barcodes_map[bg.name] = load_barcode_list(bg.name);
+      Rcpp::CharacterVector  r_bc_list_name = Rcpp::as<Rcpp::S4>(r_grp).slot("bc_list_name");
+      if (r_bc_list_name.size() > 0 && !Rcpp::CharacterVector::is_na(r_bc_list_name[0])) {
+        known_barcodes_map[bg.name] = load_barcode_list(Rcpp::as<std::string>(r_bc_list_name[0]));
+      } else {
+        Rcpp::stop("Error: Barcode group " + bg.name + " requires a barcode list file.\n");
+      }
     }
   }
   // populate group segment indices
@@ -1016,6 +1040,7 @@ Rcpp::IntegerVector flexiplex_cpp(
 
   int r_count = 0;
   int r_demultiplexed_count = 0;
+  int r_single_match_count = 0;
   int chimeric_count = 0;
 
   std::unordered_map<std::string, int> barcode_counts;
@@ -1043,7 +1068,6 @@ Rcpp::IntegerVector flexiplex_cpp(
     kseq_destroy(kseq);
 
     kseq = kseq_init(gz_reads_in);
-    kseq_len = kseq_read(kseq);
 
     Rcpp::Rcout << "Searching for barcodes...\n";
 
@@ -1100,6 +1124,8 @@ Rcpp::IntegerVector flexiplex_cpp(
 
           if (res.count > 0)
             r_demultiplexed_count++;
+          if (res.count == 1)
+            r_single_match_count++;
           if (res.chimeric)
             chimeric_count++;
 
@@ -1153,6 +1179,7 @@ Rcpp::IntegerVector flexiplex_cpp(
   Rcpp::IntegerVector read_counts = Rcpp::IntegerVector::create(
       Rcpp::Named("total reads", r_count),
       Rcpp::Named("demultiplexed reads", r_demultiplexed_count),
+      Rcpp::Named("single match reads", r_single_match_count),
       Rcpp::Named("chimera reads", chimeric_count));
 
   if (kseq_len != -1) {

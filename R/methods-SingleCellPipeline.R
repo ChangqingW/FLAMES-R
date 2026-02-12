@@ -228,15 +228,15 @@ example_pipeline <- function(type = "SingleCellPipeline", outdir) {
         destname = genome_fa, remove = FALSE
       )
       ShortRead::writeFastq(
-        sample(reads, 300, replace = TRUE),
+        sample(reads, 300, replace = FALSE),
         file.path(outdir, "fastq/sample1.fq.gz"), mode = "w", full = FALSE
       )
       ShortRead::writeFastq(
-        sample(reads, 300, replace = TRUE),
+        sample(reads, 300, replace = FALSE),
         file.path(outdir, "fastq/sample2.fq.gz"), mode = "w", full = FALSE
       )
       ShortRead::writeFastq(
-        sample(reads, 300, replace = TRUE),
+        sample(reads, 300, replace = FALSE),
         file.path(outdir, "fastq/sample3.fq.gz"), mode = "w", full = FALSE
       )
       BulkPipeline(
@@ -267,11 +267,11 @@ example_pipeline <- function(type = "SingleCellPipeline", outdir) {
         destname = genome_fa, remove = FALSE
       )
       ShortRead::writeFastq(
-        sample(reads, 300, replace = TRUE),
+        sample(reads, 300, replace = FALSE),
         file.path(outdir, "fastq/sample1.fq.gz"), mode = "w", full = FALSE
       )
       ShortRead::writeFastq(
-        sample(reads, 300, replace = TRUE),
+        sample(reads, 300, replace = FALSE),
         file.path(outdir, "fastq/sample2.fq.gz"), mode = "w", full = FALSE
       )
       ShortRead::writeFastq(reads,
@@ -382,7 +382,9 @@ setMethod("barcode_demultiplex", "FLAMES.SingleCellPipeline", function(pipeline)
       controller$push(
         command = find_barcode(
           fastq = fastq,
-          barcodes_file = barcodes_file,
+          segments = config$barcode_parameters$segments,
+          barcode_groups = config$barcode_parameters$barcode_groups,
+          barcodes_files = barcodes_files,
           stats_out = file.path(outdir, "matched_barcode_stat.tsv.gz"),
           reads_out = demultiplexed_fastq,
           pattern = setNames(
@@ -400,7 +402,7 @@ setMethod("barcode_demultiplex", "FLAMES.SingleCellPipeline", function(pipeline)
         ),
         data = list(
           fastq = pipeline@fastq,
-          barcodes_file = pipeline@barcodes_file,
+          barcodes_files = pipeline@barcodes_file,
           outdir = pipeline@outdir,
           demultiplexed_fastq = pipeline@demultiplexed_fastq,
           config = pipeline@config,
@@ -414,7 +416,9 @@ setMethod("barcode_demultiplex", "FLAMES.SingleCellPipeline", function(pipeline)
     } else {
       res <- find_barcode(
         fastq = pipeline@fastq,
-        barcodes_file = pipeline@barcodes_file,
+        segments = pipeline@config$barcode_parameters$segments,
+        barcode_groups = pipeline@config$barcode_parameters$barcode_groups,
+        barcodes_files = pipeline@barcodes_file,
         stats_out = file.path(pipeline@outdir, "matched_barcode_stat.tsv.gz"),
         reads_out = pipeline@demultiplexed_fastq,
         pattern = setNames(

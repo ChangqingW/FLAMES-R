@@ -62,6 +62,19 @@ merge_configs_recursive <- function(default_config, user_config) {
     return(default_config)
   }
 
+  if ("barcode_parameters" %in% names(user_config) &&
+      "pattern" %in% names(user_config$barcode_parameters) &&
+      !"segments" %in% names(user_config$barcode_parameters)) {
+    warning(
+      "The 'pattern` field in 'barcode_parameters` is deprecated. ",
+      "Please use 'segments' instead for better flexibility.",
+      "See an example in the default config file (you can create one using ",
+      "create_config() function."
+    )
+    default_config$barcode_parameters$segments <- NULL
+    default_config$barcode_parameters$barcode_groups <- NULL
+  }
+
   # For each element in default_config
   for (name in names(default_config)) {
     if (name %in% names(user_config)) {
@@ -69,17 +82,31 @@ merge_configs_recursive <- function(default_config, user_config) {
       # don't merge the pattern, use it as-is
       if (name == "barcode_parameters" &&
           is.list(default_config[[name]]) &&
-          is.list(user_config[[name]]) &&
-          "pattern" %in% names(user_config[[name]]) &&
-          is.list(user_config[[name]]$pattern)) {
+          is.list(user_config[[name]])) {
 
-        # Merge barcode_parameters but keep user pattern as-is
+        # Merge barcode_parameters first (to fill other missing values)
         merged_barcode_params <- merge_configs_recursive(
           default_config[[name]],
           user_config[[name]]
         )
-        # Override the pattern with user's exact pattern (no merging)
-        merged_barcode_params$pattern <- user_config[[name]]$pattern
+
+        # Preserve user's exact pattern (no merging) to maintain order/structure
+        if ("pattern" %in% names(user_config[[name]]) && is.list(user_config[[name]]$pattern)) {
+          merged_barcode_params$pattern <- user_config[[name]]$pattern
+        }
+
+        # Preserve user's exact segments (no merging). jsonlite may load as data.frame.
+        if ("segments" %in% names(user_config[[name]]) &&
+            (is.list(user_config[[name]]$segments) || is.data.frame(user_config[[name]]$segments))) {
+          merged_barcode_params$segments <- user_config[[name]]$segments
+        }
+
+        # Preserve user's exact groups/barcode_groups (no merging). jsonlite may load as data.frame.
+        if ("barcode_groups" %in% names(user_config[[name]]) &&
+            (is.list(user_config[[name]]$barcode_groups) || is.data.frame(user_config[[name]]$barcode_groups))) {
+          merged_barcode_params$barcode_groups <- user_config[[name]]$barcode_groups
+        }
+
         default_config[[name]] <- merged_barcode_params
 
       } else if (is.list(default_config[[name]]) && is.list(user_config[[name]])) {

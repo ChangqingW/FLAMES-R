@@ -274,7 +274,9 @@ setMethod("barcode_demultiplex", "FLAMES.MultiSampleSCPipeline", function(pipeli
       crew_result <- controller$map(
         command = find_barcode(
           fastq = fastq[i],
-          barcodes_file = barcodes_file[i],
+          segments = config$barcode_parameters$segments,
+          barcode_groups = config$barcode_parameters$barcode_groups,
+          barcodes_files = barcodes_file[i],
           stats_out = file.path(
             outdir,
             paste0(names(fastq), "_matched_barcode_stat.tsv.gz")
@@ -310,7 +312,9 @@ setMethod("barcode_demultiplex", "FLAMES.MultiSampleSCPipeline", function(pipeli
       res <- lapply(seq_along(pipeline@fastq), function(i) {
         find_barcode(
           fastq = pipeline@fastq[i],
-          barcodes_file = pipeline@barcodes_file[i],
+          segments = pipeline@config$barcode_parameters$segments,
+          barcode_groups = pipeline@config$barcode_parameters$barcode_groups,
+          barcodes_files = pipeline@barcodes_file[i],
           stats_out = file.path(
             pipeline@outdir,
             paste0(names(pipeline@fastq)[i], "_matched_barcode_stat.tsv.gz")

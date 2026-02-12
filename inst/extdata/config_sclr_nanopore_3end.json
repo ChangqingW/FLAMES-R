@@ -2,7 +2,7 @@
     "comment": "this is the default config for nanopore single cell long read data using 10x 3'end kit. use splice annotation in alignment. ",
     "pipeline_parameters": {
         "seed": 2022,
-        "threads" : 8,
+        "threads": 8,
         "demultiplexer": "BLAZE",
         "do_barcode_demultiplex": true,
         "do_gene_quantification": true,
@@ -15,26 +15,47 @@
         "oarfish_quantification": true
     },
     "additional_arguments": {
-        "oarfish": [
-        ],
+        "oarfish": [],
         "BLAZE": [
-          "--10x-kit-version", "3v3"
+            "--10x-kit-version",
+            "3v3"
         ]
     },
     "barcode_parameters": {
         "max_bc_editdistance": 2,
         "max_flank_editdistance": 8,
-        "pattern": {
-          "primer": "CTACACGACGCTCTTCCGATCT",
-          "BC": "NNNNNNNNNNNNNNNN",
-          "UMI": "NNNNNNNNNNNN",
-          "polyT": "TTTTTTTTT"
-        },
+        "segments": [
+            {
+                "type": "FIXED",
+                "pattern": "CTACACGACGCTCTTCCGATCT",
+                "name": "primer"
+            },
+            {
+                "type": "MATCHED",
+                "pattern": "NNNNNNNNNNNNNNNN",
+                "name": "CB",
+                "bc_list_name": "CB",
+                "group": "",
+                "buffer_size": 5,
+                "max_edit_distance": 2
+            },
+            {
+                "type": "RANDOM",
+                "pattern": "NNNNNNNNNNNN",
+                "name": "UB"
+            },
+            {
+                "type": "FIXED",
+                "pattern": "TTTTTTTTT",
+                "name": "polyT"
+            }
+        ],
+        "barcode_groups": [],
         "strand": "-",
-        "TSO_seq" : "AAGCAGTGGTATCAACGCAGAGTACATGGG",
+        "TSO_seq": "AAGCAGTGGTATCAACGCAGAGTACATGGG",
         "TSO_prime": 5,
         "cutadapt_minimum_length": 10,
-        "full_length_only" : false
+        "full_length_only": false
     },
     "isoform_parameters": {
         "generate_raw_isoform": false,

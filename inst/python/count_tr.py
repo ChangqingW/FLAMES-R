@@ -563,10 +563,13 @@ def quantification(config_dict, annotation, known_transcripts, outdir, pipeline)
         else:
             transcript_dict = None
             
+        
+        
+
         tr_cnt = wrt_tr_to_csv(bc_tr_count_dict, transcript_dict_i, tr_cnt_csv,
-                            transcript_dict, "UMI" in config_dict["barcode_parameters"]["pattern"].keys())
+                            transcript_dict, bam_has_UB_tag(realign_bam))
         wrt_tr_to_csv(bc_tr_badcov_count_dict, transcript_dict_i, tr_badcov_cnt_csv,
-                    transcript_dict, "UMI" in config_dict["barcode_parameters"]["pattern"].keys(),
+                    transcript_dict, bam_has_UB_tag(realign_bam),
                     print_saturation = False)
         annotate_filter_gff(isoform_gff3, annotation, isoform_gff3_f, FSM_anno_out,
                         tr_cnt, config_dict["isoform_parameters"]["min_sup_cnt"], verbose=False)
@@ -625,10 +628,10 @@ def quantification(config_dict, annotation, known_transcripts, outdir, pipeline)
                 config_dict["transcript_counting"]["min_read_coverage"])
             sys.stderr.write("parsing " + sample_bam + "done\n")
             tr_cnt = wrt_tr_to_csv(bc_tr_count_dict, transcript_dict_i, tr_cnt_csv,
-                                   transcript_dict, "UMI" in config_dict["barcode_parameters"]["pattern"].keys())
+                                   transcript_dict, bam_has_UB_tag(sample_bam))
             sys.stderr.write("wrt_tr_to_csv for" + sample_bam + "done\n")
             wrt_tr_to_csv(bc_tr_badcov_count_dict, transcript_dict_i, tr_badcov_cnt_csv,
-                          transcript_dict, "UMI" in config_dict["barcode_parameters"]["pattern"].keys(),
+                          transcript_dict, bam_has_UB_tag(sample_bam),
                           print_saturation = False)
             del bc_tr_count_dict, bc_tr_badcov_count_dict, tr_cnt
             ##gc.collect()
@@ -642,3 +645,12 @@ def quantification(config_dict, annotation, known_transcripts, outdir, pipeline)
         raise ValueError(f"Unknown pipeline type {pipeline}")
 
 
+# read 1st record of realigned bam and see if it contains the UB tag
+def bam_has_UB_tag(bam_in):
+    bamfile = ps.AlignmentFile(bam_in, "rb")
+    for rec in bamfile.fetch(until_eof=True):
+        if rec.is_unmapped:
+            continue
+        else:
+            return rec.has_tag("UB")
+    return False

@@ -6,28 +6,27 @@
 \usage{
 find_barcode(
   fastq,
-  barcodes_file,
-  max_bc_editdistance = 2,
+  segments,
+  barcode_groups,
+  barcodes_files,
   max_flank_editdistance = 8,
   reads_out,
   stats_out,
   threads = 1,
-  pattern = c(primer = "CTACACGACGCTCTTCCGATCT", BC = paste0(rep("N", 16), collapse =
-    ""), UMI = paste0(rep("N", 12), collapse = ""), polyT = paste0(rep("T", 9), collapse
-    = "")),
   TSO_seq = "",
   TSO_prime = 3,
   strand = "+",
   cutadapt_minimum_length = 1,
-  full_length_only = FALSE
+  full_length_only = FALSE,
+  sample_names = NULL,
+  pattern = c(primer = "CTACACGACGCTCTTCCGATCT", BC = paste0(rep("N", 16), collapse =
+    ""), UMI = paste0(rep("N", 12), collapse = ""), polyT = paste0(rep("T", 9), collapse
+    = "")),
+  max_bc_editdistance = 2
 )
 }
 \arguments{
 \item{fastq}{A path to a FASTQ file or a directory containing FASTQ files.}
-
-\item{barcodes_file}{path to file containing barcode allow-list, with one barcode in each line}
-
-\item{max_bc_editdistance}{max edit distances for the barcode sequence}
 
 \item{max_flank_editdistance}{max edit distances for the flanking sequences (primer and polyT)}
 
@@ -36,8 +35,6 @@ find_barcode(
 \item{stats_out}{path of output stats file}
 
 \item{threads}{number of threads to be used}
-
-\item{pattern}{named character vector defining the barcode pattern}
 
 \item{TSO_seq}{TSO sequence to be trimmed}
 
@@ -50,6 +47,12 @@ after barcode matching if '-')}
 
 \item{full_length_only}{boolean, when TSO sequence is provided, whether reads without TSO
 are to be discarded}
+
+\item{pattern}{named character vector defining the barcode pattern}
+
+\item{max_bc_editdistance}{max edit distances for the barcode sequence}
+
+\item{barcodes_file}{path to file containing barcode allow-list, with one barcode in each line}
 }
 \value{
 a list containing: \code{reads_tb} (tibble of read demultiplexed information) and
