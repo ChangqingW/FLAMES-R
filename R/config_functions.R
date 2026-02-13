@@ -62,6 +62,10 @@ merge_configs_recursive <- function(default_config, user_config) {
     return(default_config)
   }
 
+  if (is.data.frame(user_config)) {
+    return(user_config)
+  }
+
   if ("barcode_parameters" %in% names(user_config) &&
       "pattern" %in% names(user_config$barcode_parameters) &&
       !"segments" %in% names(user_config$barcode_parameters)) {

@@ -21,6 +21,8 @@ flexiplex(
 
 \item{r_barcode_groups}{List defining barcode groups}
 
+\item{max_flank_editdistance}{int, maximum edit distance for matching flanking sequences}
+
 \item{reads_in}{Input FASTQ or FASTA file}
 
 \item{reads_out}{output file for demultiplexed reads}

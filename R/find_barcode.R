@@ -57,6 +57,10 @@ barcode_segment <- function(type = "FIXED", pattern, name,
     if (!is.character(group) || length(group) != 1 || is.na(group) || nchar(group) == 0) {
       stop("group must be provided as a non-empty character scalar for type 'MATCHED_SPLIT'")
     }
+    if (!is.na(bc_list) && bc_list != "" && bc_list != group) {
+      stop("For type 'MATCHED_SPLIT', bc_list must be the same as group or left empty/NA")
+    }
+    bc_list <- group
   }
 
   new("FlexiplexSegment",
@@ -101,6 +105,7 @@ barcode_group <- function(name, bc_list_name, max_edit_distance = 2) {
 #' @param max_bc_editdistance max edit distances for the barcode sequence
 #' @param buffer_size buffer size for barcode matching
 #' @return a list of FlexiplexSegment objects
+#' @keywords internal
 .legacy_pattern_to_flexiplex_segments <- function(
     pattern,
     barcodes_file,
@@ -154,8 +159,8 @@ barcode_group <- function(name, bc_list_name, max_edit_distance = 2) {
 
 #' Resolve bc_list_name keys/indices to file paths
 #' @param x list of FlexiplexSegment objects or list of FlexiplexGroup objects
-#' @param type character, either "segment" or "barcode_group"
 #' @param barcodes_files named or unnamed (only allowd when length is 1) character vector of barcode file paths
+#' @keywords internal
 .resolve_bc_lists <- function(x, barcodes_files) {
   if (!is.null(barcodes_files)) {
     if (!is.character(barcodes_files)) {
@@ -235,7 +240,11 @@ barcode_group <- function(name, bc_list_name, max_edit_distance = 2) {
 #' @importFrom readr read_delim col_character col_integer col_logical
 #' @importFrom dplyr bind_rows
 #' @param fastq A path to a FASTQ file or a directory containing FASTQ files.
-#' @param barcodes_file path to file containing barcode allow-list, with one barcode in each line
+#' @param segments a list of \code{FlexiplexSegment} objects defining the structure of
+#' the barcode and flanking sequences
+#' @param barcode_groups a list of \code{FlexiplexGroup} objects defining groups of barcodes
+#' for multi-segment matching, or an empty list if not used.
+#' @param barcodes_files path to file containing barcode allow-list, with one barcode in each line
 #' @param max_bc_editdistance max edit distances for the barcode sequence
 #' @param max_flank_editdistance max edit distances for the flanking sequences (primer and polyT)
 #' @param reads_out path to output FASTQ file
@@ -277,7 +286,6 @@ find_barcode <- function(
     max_flank_editdistance = 8,
     reads_out, stats_out, threads = 1,
     TSO_seq = "", TSO_prime = 3, strand = '+', cutadapt_minimum_length = 1, full_length_only = FALSE,
-    sample_names = NULL,
     # legacy style
     pattern = c(
       primer = "CTACACGACGCTCTTCCGATCT",

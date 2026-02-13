@@ -10,9 +10,8 @@
 \item{x}{list of FlexiplexSegment objects or list of FlexiplexGroup objects}
 
 \item{barcodes_files}{named or unnamed (only allowd when length is 1) character vector of barcode file paths}
-
-\item{type}{character, either "segment" or "barcode_group"}
 }
 \description{
 Resolve bc_list_name keys/indices to file paths
 }
+\keyword{internal}

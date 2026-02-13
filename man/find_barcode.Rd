@@ -18,7 +18,6 @@ find_barcode(
   strand = "+",
   cutadapt_minimum_length = 1,
   full_length_only = FALSE,
-  sample_names = NULL,
   pattern = c(primer = "CTACACGACGCTCTTCCGATCT", BC = paste0(rep("N", 16), collapse =
     ""), UMI = paste0(rep("N", 12), collapse = ""), polyT = paste0(rep("T", 9), collapse
     = "")),
@@ -27,6 +26,14 @@ find_barcode(
 }
 \arguments{
 \item{fastq}{A path to a FASTQ file or a directory containing FASTQ files.}
+
+\item{segments}{a list of \code{FlexiplexSegment} objects defining the structure of
+the barcode and flanking sequences}
+
+\item{barcode_groups}{a list of \code{FlexiplexGroup} objects defining groups of barcodes
+for multi-segment matching, or an empty list if not used.}
+
+\item{barcodes_files}{path to file containing barcode allow-list, with one barcode in each line}
 
 \item{max_flank_editdistance}{max edit distances for the flanking sequences (primer and polyT)}
 
@@ -51,8 +58,6 @@ are to be discarded}
 \item{pattern}{named character vector defining the barcode pattern}
 
 \item{max_bc_editdistance}{max edit distances for the barcode sequence}
-
-\item{barcodes_file}{path to file containing barcode allow-list, with one barcode in each line}
 }
 \value{
 a list containing: \code{reads_tb} (tibble of read demultiplexed information) and

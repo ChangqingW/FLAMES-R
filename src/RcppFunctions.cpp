@@ -40,6 +40,7 @@ find_isoform_multithread
 //'
 //' @param r_segments List defining the barcode structure
 //' @param r_barcode_groups List defining barcode groups
+//' @param max_flank_editdistance int, maximum edit distance for matching flanking sequences
 //' @param reads_in Input FASTQ or FASTA file
 //' @param reads_out output file for demultiplexed reads
 //' @param stats_out output file for demultiplexed stats

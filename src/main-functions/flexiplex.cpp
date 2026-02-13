@@ -975,7 +975,7 @@ Rcpp::IntegerVector flexiplex_cpp(
   for (const auto &r_seg : r_segments) {
     Segment seg = s4_to_segment(Rcpp::as<Rcpp::S4>(r_seg));
     segments.push_back(seg);
-    if (!seg.bc_list_name.empty() && 
+    if (!seg.type == MATCHED_SPLIT && !seg.bc_list_name.empty() && 
       known_barcodes_map.find(seg.bc_list_name) == known_barcodes_map.end()) {
       known_barcodes_map[seg.bc_list_name] = load_barcode_list(seg.bc_list_name);
     }
@@ -985,13 +985,11 @@ Rcpp::IntegerVector flexiplex_cpp(
   for (const auto &r_grp : r_barcode_groups) {
     BarcodeGroup bg = s4_to_barcode_group(Rcpp::as<Rcpp::S4>(r_grp));
     group_map[bg.name] = bg;
-    if (known_barcodes_map.find(bg.name) == known_barcodes_map.end()) {
-      Rcpp::CharacterVector  r_bc_list_name = Rcpp::as<Rcpp::S4>(r_grp).slot("bc_list_name");
-      if (r_bc_list_name.size() > 0 && !Rcpp::CharacterVector::is_na(r_bc_list_name[0])) {
-        known_barcodes_map[bg.name] = load_barcode_list(Rcpp::as<std::string>(r_bc_list_name[0]));
-      } else {
-        Rcpp::stop("Error: Barcode group " + bg.name + " requires a barcode list file.\n");
-      }
+    Rcpp::CharacterVector r_bc_list_file = Rcpp::as<Rcpp::S4>(r_grp).slot("bc_list_name");
+    if (r_bc_list_file.size() > 0 && !Rcpp::CharacterVector::is_na(r_bc_list_file[0])) {
+      known_barcodes_map[bg.name] = load_barcode_list(Rcpp::as<std::string>(r_bc_list_file[0]));
+    } else {
+      Rcpp::stop("Error: Barcode group " + bg.name + " requires a barcode list file.\n");
     }
   }
   // populate group segment indices

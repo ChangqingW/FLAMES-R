@@ -26,3 +26,4 @@ a list of FlexiplexSegment objects
 \description{
 Convert legacy pattern to Flexiplex segments
 }
+\keyword{internal}
