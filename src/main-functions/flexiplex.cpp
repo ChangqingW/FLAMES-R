@@ -975,7 +975,7 @@ Rcpp::IntegerVector flexiplex_cpp(
   for (const auto &r_seg : r_segments) {
     Segment seg = s4_to_segment(Rcpp::as<Rcpp::S4>(r_seg));
     segments.push_back(seg);
-    if (!seg.type == MATCHED_SPLIT && !seg.bc_list_name.empty() && 
+    if (seg.type == MATCHED && !seg.bc_list_name.empty() &&
       known_barcodes_map.find(seg.bc_list_name) == known_barcodes_map.end()) {
       known_barcodes_map[seg.bc_list_name] = load_barcode_list(seg.bc_list_name);
     }

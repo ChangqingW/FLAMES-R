@@ -318,7 +318,7 @@ run_oarfish <- function(
 
   args <- c(
     if (single_cell) "--single-cell" else NULL,
-    "--alignments", file.path(outdir, realign_bam),
+    "--alignments", realign_bam,
     "-j", as.character(threads),
     "--output", file.path(outdir, sample),
     as.character(additional_args)
@@ -414,10 +414,10 @@ quantify_transcript_oarfish <- function(
   annotation, outdir, config,
   pipeline = "sc_single_sample", samples
 ) {
-  realign_bam <- list.files(outdir, pattern = "_?realign2transcript\\.bam$")
   samples <- stringr::str_escape(samples)
 
   if (pipeline == "sc_single_sample") {
+    realign_bam <- file.path(outdir, "realign2transcript.bam")
     oarfish_out <- run_oarfish(
       realign_bam, outdir,
       threads = config$pipeline_parameters$threads,
@@ -429,10 +429,7 @@ quantify_transcript_oarfish <- function(
     sce_list <- as.list(seq_along(samples))
     names(sce_list) <- samples
     for (i in seq_along(samples)) {
-      realign_bam <- list.files(
-        outdir,
-        pattern = paste0(samples[i], "_realign2transcript\\.bam$")
-      )
+      realign_bam <- file.path(outdir, paste0(samples[i], "_realign2transcript.bam"))
       oarfish_out <- run_oarfish(
         realign_bam, outdir,
         sample = samples[i],
@@ -446,10 +443,7 @@ quantify_transcript_oarfish <- function(
   } else if (pipeline == "bulk") {
     oarfish_out <- rep(NA, length(samples))
     for (i in seq_along(samples)) {
-      realign_bam <- list.files(
-        outdir,
-        pattern = paste0(samples[i], "_realign2transcript\\.bam$")
-      )
+      realign_bam <- file.path(outdir, paste0(samples[i], "_realign2transcript.bam"))
       oarfish_out[i] <- run_oarfish(
         realign_bam, outdir,
         sample = samples[i],
