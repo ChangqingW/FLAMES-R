@@ -91,7 +91,7 @@ Suggests:
     xml2
 LinkingTo: Rcpp, Rhtslib, testthat
 SystemRequirements: GNU make, C++17
-RoxygenNote: 7.3.2
+RoxygenNote: 7.3.3
 VignetteBuilder: knitr
 URL: https://mritchielab.github.io/FLAMES
 Config/testthat/edition: 3

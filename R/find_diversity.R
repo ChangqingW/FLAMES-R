@@ -31,7 +31,7 @@
 #' res <- sc_gene_entropy(sce, threads = 2)
 #'
 #' @export
-sc_gene_entropy <- function(
+find_diversity <- function(
     sce, assay = "counts", gene_col = "gene_id", alpha = .Machine$double.xmin,
     min_counts_per_cell = 5, isoform_min_pct_cells = 0.05,
     isoform_cumulative_pct = 0.95, min_cell_fraction = 0.25, threads = 1,
