@@ -51,6 +51,6 @@ sce <- scuttle::mockSCE(ncells = 50, ngenes = 30)
 SummarizedExperiment::rowData(sce)$gene_id <- sort(
   paste0("gene", sample(1:9, nrow(sce), replace = TRUE))
 )
-res <- sc_gene_entropy(sce, threads = 2)
+res <- find_diversity(sce, threads = 2)
 
 }

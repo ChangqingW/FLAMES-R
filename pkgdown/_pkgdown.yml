@@ -83,7 +83,7 @@ reference:
       - plot_spatial_feature
   - title: Analysis of single-cell data
     contents:
-      - sc_gene_entropy
+      - find_diversity
       - sc_DTU_analysis
   - title: Miscellaneous
     contents:
