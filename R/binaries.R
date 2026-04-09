@@ -48,7 +48,10 @@ download_oarfish <- function(folder) {
   if (!dir.exists(folder)) {
     dir.create(folder, recursive = TRUE)
   }
-  download.file(url, archive, mode = "wb")
+  tryCatch(
+    download.file(url, archive, mode = "wb"),
+    error = function(e) stop("Failed to download oarfish from ", url, ": ", conditionMessage(e))
+  )
 
   # check the SHA256 checksum
   if (cli::hash_file_sha256(archive) != sha256) {
@@ -59,7 +62,10 @@ download_oarfish <- function(folder) {
   unarchive <- tempfile()
   dir.create(unarchive)
   if (grepl("\\.tar\\.xz$", archive)) {
-    system(paste("tar -xf", shQuote(archive), "-C", shQuote(unarchive)))
+    exit_code <- system(paste("tar -xf", shQuote(archive), "-C", shQuote(unarchive)))
+    if (exit_code != 0) {
+      stop("Failed to extract archive ", archive, " (tar exit code ", exit_code, ")")
+    }
   } else if (grepl("\\.zip$", archive)) {
     unzip(archive, exdir = unarchive)
   } else {

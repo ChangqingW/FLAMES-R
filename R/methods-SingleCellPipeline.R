@@ -160,6 +160,32 @@ SingleCellPipeline <- function(
     !pipeline@config$pipeline_parameters$bambu_isoform_identification) {
     warning("The multithreaded isoform identification implmentation is currently unstable and may throw errors. Set `multithread_isoform_identification` to `FALSE` in the config file or with `pipeline@config$pipeline_parameters$multithread_isoform_identification <- FALSE` to fall back to the single-threaded implementation. Report to https://github.com/mritchielab/FLAMES/issues if you encounter any problems.")
   }
+
+  # Auto-detect completed steps from output files already on disk
+  if (steps["barcode_demultiplex"] && file.exists(pipeline@demultiplexed_fastq)) {
+    pipeline@completed_steps["barcode_demultiplex"] <- TRUE
+  }
+  if (steps["genome_alignment"] && file.exists(pipeline@genome_bam)) {
+    pipeline@completed_steps["genome_alignment"] <- TRUE
+  }
+  if (steps["isoform_identification"] && file.exists(pipeline@transcriptome_assembly)) {
+    pipeline@completed_steps["isoform_identification"] <- TRUE
+  }
+  if (steps["read_realignment"] && file.exists(pipeline@transcriptome_bam)) {
+    pipeline@completed_steps["read_realignment"] <- TRUE
+  }
+  if (steps["transcript_quantification"] && file.exists(pipeline@experiment)) {
+    pipeline@completed_steps["transcript_quantification"] <- TRUE
+  }
+  if (any(pipeline@completed_steps)) {
+    completed <- names(which(pipeline@completed_steps))
+    message(
+      "Detected completed step(s) from existing output files: ",
+      paste(completed, collapse = ", "),
+      ".\nUse resume_FLAMES(pipeline) to continue from where it left off."
+    )
+  }
+
   return(pipeline)
 }
 

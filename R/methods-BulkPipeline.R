@@ -167,8 +167,27 @@ BulkPipeline <- function(
     pipeline@controllers <- normalize_controllers(controllers, names(steps))
   }
 
-  # TODO: add resume option
-  # validate if e.g. genome_bam exists, skip genome alignment step
+  # Auto-detect completed steps from output files already on disk
+  if (steps["genome_alignment"] && all(file.exists(pipeline@genome_bam))) {
+    pipeline@completed_steps["genome_alignment"] <- TRUE
+  }
+  if (steps["isoform_identification"] && file.exists(pipeline@transcriptome_assembly)) {
+    pipeline@completed_steps["isoform_identification"] <- TRUE
+  }
+  if (steps["read_realignment"] && all(file.exists(pipeline@transcriptome_bam))) {
+    pipeline@completed_steps["read_realignment"] <- TRUE
+  }
+  if (steps["transcript_quantification"] && file.exists(pipeline@experiment)) {
+    pipeline@completed_steps["transcript_quantification"] <- TRUE
+  }
+  if (any(pipeline@completed_steps)) {
+    completed <- names(which(pipeline@completed_steps))
+    message(
+      "Detected completed step(s) from existing output files: ",
+      paste(completed, collapse = ", "),
+      ".\nUse resume_FLAMES(pipeline) to continue from where it left off."
+    )
+  }
 
   return(pipeline)
 }
@@ -206,8 +225,11 @@ setMethod("prerun_check", "FLAMES.Pipeline", function(pipeline, overwrite = FALS
       warning("Re-running pipeline to overwrite existing results.")
       return(TRUE)
     } else {
-      # TODO: implement resuming and prompt user to resume
-      stop("Pipeline is partially completed. Please set overwrite = TRUE to proceed.")
+      stop(
+        "Pipeline is partially completed. ",
+        "Use resume_FLAMES(pipeline) to continue from the last completed step, ",
+        "or set overwrite = TRUE to re-run all steps."
+      )
     }
   } else {
     # nothing done yet, proceed
