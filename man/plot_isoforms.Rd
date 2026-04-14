@@ -38,7 +38,7 @@ Plot isoforms, either from a gene or a list of transcript ids.
 \details{
 This function takes a \code{SingleCellExperiment} object and plots the top isoforms of a gene,
 or a list of specified transcript ids. Either as a list of plots or together in a grid.
-This function wraps the \code{ggbio::geom_alignment} function to plot the isoforms, and orders
+This function plots transcript isoforms as exon-intron structures and orders
 the isoforms by expression levels (when specifying a gene) or by the order of the transcript_ids.
 }
 \examples{

@@ -17,6 +17,7 @@
 ^CODE_OF_CONDUCT\.md$
 ^\.BBSoptions$
 ^Dockerfile$
+^\.dockerignore$
 ^_pkgdown\.yml$
 ^pkgdown$
 \.o$

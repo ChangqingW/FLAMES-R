@@ -371,7 +371,7 @@ setMethod("barcode_demultiplex", "FLAMES.SingleCellPipeline", function(pipeline)
           outdir = pipeline@outdir,
           demultiplexed_fastq = pipeline@demultiplexed_fastq,
           config = pipeline@config,
-          blaze = FLAMES:::blaze
+          blaze = FLAMES::blaze
         )
       )
       controller$wait(mode = "all")
@@ -432,7 +432,7 @@ setMethod("barcode_demultiplex", "FLAMES.SingleCellPipeline", function(pipeline)
           outdir = pipeline@outdir,
           demultiplexed_fastq = pipeline@demultiplexed_fastq,
           config = pipeline@config,
-          find_barcode = FLAMES:::find_barcode
+          find_barcode = FLAMES::find_barcode
         )
       )
       controller$wait(mode = "all")

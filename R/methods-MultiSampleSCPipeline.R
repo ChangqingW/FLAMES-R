@@ -236,7 +236,7 @@ setMethod("barcode_demultiplex", "FLAMES.MultiSampleSCPipeline", function(pipeli
           outdir = pipeline@outdir,
           demultiplexed_fastq = pipeline@demultiplexed_fastq,
           config = pipeline@config,
-          blaze = FLAMES:::blaze
+          blaze = FLAMES::blaze
         ),
         error = "stop"
       )
@@ -302,7 +302,7 @@ setMethod("barcode_demultiplex", "FLAMES.MultiSampleSCPipeline", function(pipeli
           outdir = pipeline@outdir,
           demultiplexed_fastq = pipeline@demultiplexed_fastq,
           config = pipeline@config,
-          find_barcode = FLAMES:::find_barcode
+          find_barcode = FLAMES::find_barcode
         ),
         error = "stop"
       )

@@ -189,7 +189,7 @@ get_top_transcript_ids <- function(sce, gene_id, transcript_ids, n) {
 #' @details
 #' This function takes a \code{SingleCellExperiment} object and plots the top isoforms of a gene,
 #' or a list of specified transcript ids. Either as a list of plots or together in a grid.
-#' This function wraps the \code{ggbio::geom_alignment} function to plot the isoforms, and orders
+#' This function plots transcript isoforms as exon-intron structures and orders
 #' the isoforms by expression levels (when specifying a gene) or by the order of the transcript_ids.
 #'
 #' @param sce The \code{SingleCellExperiment} object containing transcript counts, 
@@ -207,11 +207,13 @@ get_top_transcript_ids <- function(sce, gene_id, transcript_ids, n) {
 #' @examples
 #' data(scmixology_lib10_transcripts)
 #' plot_isoforms(scmixology_lib10_transcripts, gene_id = "ENSG00000108107")
-#' 
+#'
 #' @importFrom SummarizedExperiment rowRanges rowData
-#' @importFrom ggplot2 ggplot aes theme_void theme element_line element_text xlim
+#' @importFrom ggplot2 ggplot aes theme_void theme element_line element_text xlim ylim geom_rect geom_segment
 #' @importFrom cowplot plot_grid
 #' @importFrom Seqinfo seqnames
+#' @importFrom BiocGenerics start end strand
+#' @importFrom grid arrow unit
 #' @export
 plot_isoforms <- function(sce, gene_id, transcript_ids, n = 4, format = "plot_grid",
   colors) {
@@ -240,24 +242,49 @@ plot_isoforms <- function(sce, gene_id, transcript_ids, n = 4, format = "plot_gr
 
   plot_list <- list()
   for (i in seq_along(transcript_ids)) {
-    if (!missing(colors)) {
-      geom_i <- ggbio::geom_alignment(
-        label = FALSE, range.geom = "rect",
-        gap.geom = "arrow", utr.geom = "rect",
-        color = colors[i], fill = colors[i]
+    color_i <- if (!missing(colors)) colors[i] else "grey30"
+    gr <- transcripts[[i]]
+
+    df_exons <- data.frame(
+      xmin = start(gr),
+      xmax = end(gr),
+      ymin = -0.3,
+      ymax = 0.3
+    )
+    df_exons <- df_exons[order(df_exons$xmin), ]
+    strand_val <- as.character(unique(as.character(strand(gr))))
+
+    p <- ggplot() +
+      geom_rect(
+        data = df_exons,
+        aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax),
+        color = color_i, fill = color_i
+      ) +
+      xlim(x_range) +
+      ylim(-0.5, 0.5) +
+      theme_void() +
+      theme(plot.margin = unit(c(0.5, 0, 0.5, 0), "cm"))
+
+    if (nrow(df_exons) > 1) {
+      df_introns <- data.frame(
+        x = df_exons$xmax[-nrow(df_exons)],
+        xend = df_exons$xmin[-1],
+        y = 0,
+        yend = 0
       )
-    } else {
-      geom_i <- ggbio::geom_alignment(
-        label = FALSE, range.geom = "rect",
-        gap.geom = "arrow", utr.geom = "rect"
+      arrow_spec <- if (strand_val == "-") {
+        arrow(ends = "first", length = unit(0.1, "cm"))
+      } else {
+        arrow(ends = "last", length = unit(0.1, "cm"))
+      }
+      p <- p + geom_segment(
+        data = df_introns,
+        aes(x = x, xend = xend, y = y, yend = yend),
+        color = color_i, arrow = arrow_spec
       )
     }
-    p <- ggplot(transcripts[i]) +
-      geom_i +
-      xlim(x_range) +
-      theme_void() +
-      theme(plot.margin = unit(c(0.5,0,0.5,0), "cm"))
-    plot_list <- append(plot_list, list(p@ggplot))
+
+    plot_list <- append(plot_list, list(p))
   }
   names(plot_list) <- transcript_ids
   if (format == "list") {
@@ -266,7 +293,7 @@ plot_isoforms <- function(sce, gene_id, transcript_ids, n = 4, format = "plot_gr
   return(
     cowplot::plot_grid(
       plotlist = plot_list, ncol = 1,
-      labels = transcript_ids, hjust = 0, 
+      labels = transcript_ids, hjust = 0,
       label_fontface = 'plain', label_size = 10
     )
   )
