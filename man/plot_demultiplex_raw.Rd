@@ -40,7 +40,7 @@ find_barcode(
   fastq = fastq_dir,
   stats_out = file.path(outdir, "bc_stat.tsv.gz"),
   reads_out = file.path(outdir, "demultiplexed.fq"),
-  barcodes_file = bc_allow, TSO_seq = "CCCATGTACTCTGCGTTGATACCACTGCTT"
+  barcodes_files = bc_allow, TSO_seq = "CCCATGTACTCTGCGTTGATACCACTGCTT"
 ) |>
   plot_demultiplex_raw()
 }

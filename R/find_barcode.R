@@ -16,6 +16,74 @@ setClass("FlexiplexSegment",
            buffer_size = 2,
            max_edit_distance = 2
          ))
+
+#' Create a Flexiplex barcode segment
+#'
+#' @description
+#' Creates a \code{FlexiplexSegment} object describing one component of a read's
+#' barcode structure. A list of segments is passed to \code{\link{find_barcode}}
+#' (via the \code{segments} argument) to define how reads are parsed from 5' to 3'.
+#'
+#' @details
+#' Four segment types are supported:
+#' \describe{
+#'   \item{\code{"FIXED"}}{A known, constant flanking sequence (e.g. a sequencing
+#'     primer or poly-T tail). Used as an alignment anchor; i.e. no barcode allow-list is
+#'     associated}
+#'   \item{\code{"MATCHED"}}{A variable sequence matched against a barcode allow-list
+#'     (e.g. a cell barcode). The allow-list file is resolved via the \code{barcodes_files}
+#'     argument of \code{\link{find_barcode}}. \code{bc_list} must be supplied (or
+#'     \code{barcodes_files} must be a single unnamed path).}
+#'   \item{\code{"RANDOM"}}{A random sequence of fixed length captured verbatim without
+#'     matching (e.g. a UMI). No allow-list is needed.}
+#'   \item{\code{"MATCHED_SPLIT"}}{Like \code{"MATCHED"}, but participates in a
+#'     \code{\link{barcode_group}} for multi-segment barcode matching,
+#'     where the all MATCHED_SPLIT segments of the same group are concatenated and then
+#'     matched to the allow-list barcodes.
+#'     \code{group} must name a corresponding \code{\link{barcode_group}}.}
+#' }
+#'
+#' @param type Segment type: one of \code{"FIXED"}, \code{"MATCHED"},
+#'   \code{"RANDOM"}, or \code{"MATCHED_SPLIT"}.
+#' @param pattern The nucleotide pattern for this segment.
+#'   For \code{FIXED}: the known sequence (e.g. \code{"CTACACGACGCTCTTCCGATCT"}).
+#'   For \code{MATCHED}/\code{MATCHED_SPLIT}: an N-repeat matching the expected barcode
+#'   length (e.g. \code{"NNNNNNNNNNNNNNNN"} for a 16-nt barcode).
+#'   For \code{RANDOM}: an N-repeat matching the UMI length (e.g. \code{"NNNNNNNNNNNN"}
+#'   for a 12-nt UMI).
+#'   Other IUPAC ambigious codes such as "Y" "R" are also supported, e.g. \code{"NNNYNNNRNNN"},
+#'   \code{"CTACACGACGCTCTTCCGATCTNNN"}
+#' @param name Label for this segment in output files (e.g. \code{"CB"} for cell barcode,
+#'   \code{"UB"} for UMI, \code{"primer"}). Defaults to \code{"FIXED_SEGMENT"} for
+#'   \code{FIXED} segments.
+#' @param bc_list For \code{MATCHED} segments: a key used to look up the barcode
+#'   allow-list file from the \code{barcodes_files} argument of \code{\link{find_barcode}}.
+#'   The key must match a name in \code{barcodes_files}, or \code{barcodes_files} can be
+#'   a single unnamed path (in which case \code{bc_list} may be omitted).
+#' @param group For \code{MATCHED_SPLIT} segments: the name of the
+#'   \code{\link{barcode_group}} this segment belongs to. Must match the \code{name} of a
+#'   \code{\link{barcode_group}} object passed to \code{\link{find_barcode}}.
+#' @param buffer_size Non-negative integer. Extra nucleotides searched on each side of
+#'   the expected segment position to accommodate small insertions/deletions. Only applies
+#'   to \code{MATCHED} and \code{MATCHED_SPLIT} segments. Default: \code{2}.
+#' @param max_edit_distance Non-negative integer. Maximum edit distance allowed when
+#'   matching a read sequence against the barcode allow-list. Only applies to
+#'   \code{MATCHED} and \code{MATCHED_SPLIT} segments. Default: \code{2}.
+#'
+#' @return A \code{FlexiplexSegment} object for use in \code{\link{find_barcode}}.
+#'
+#' @examples
+#' # A typical 10x Genomics 3' v3 barcode structure:
+#' segments <- list(
+#'   barcode_segment(type = "FIXED",   pattern = "CTACACGACGCTCTTCCGATCT", name = "primer"),
+#'   barcode_segment(type = "MATCHED", pattern = "NNNNNNNNNNNNNNNN",        name = "CB",
+#'                   bc_list = "CB", buffer_size = 5, max_edit_distance = 2),
+#'   barcode_segment(type = "RANDOM",  pattern = "NNNNNNNNNNNN",            name = "UB"),
+#'   barcode_segment(type = "FIXED",   pattern = "TTTTTTTTT",               name = "polyT")
+#' )
+#'
+#' @seealso \code{\link{barcode_group}}, \code{\link{find_barcode}}
+#' @export
 barcode_segment <- function(type = "FIXED", pattern, name,
                     bc_list = NA_character_, group = NA_character_,
                     buffer_size = 2, max_edit_distance = 2) {
@@ -80,6 +148,28 @@ setClass("FlexiplexGroup",
            bc_list_name = "character",
            max_edit_distance = "numeric"
          ))
+
+#' Create a Flexiplex barcode group
+#'
+#' @description
+#' Creates a \code{FlexiplexGroup} object that links together a set of
+#' \code{MATCHED_SPLIT} \code{\link{barcode_segment}}s for concatenatiing segments before barcode
+#' matching. A barcode group lets flexiplex jointly match multiple segment sequences
+#' against a shared allow-list (e.g. the concatenation of two barcode halves).
+#'
+#' @param name The group identifier. Must match the \code{group} argument of every
+#'   \code{\link{barcode_segment}} that belongs to this group.
+#' @param bc_list_name A key used to look up the allow-list file for this group from
+#'   the \code{barcodes_files} argument of \code{\link{find_barcode}}. The key must
+#'   match a name in \code{barcodes_files}.
+#' @param max_edit_distance Non-negative integer. Maximum total edit distance allowed
+#'   when matching the concatenated segment sequences against the group allow-list.
+#'   Default: \code{2}.
+#'
+#' @return A \code{FlexiplexGroup} object for use in \code{\link{find_barcode}}.
+#'
+#' @seealso \code{\link{barcode_segment}}, \code{\link{find_barcode}}
+#' @export
 barcode_group <- function(name, bc_list_name, max_edit_distance = 2) {
   if (!is.character(name) || length(name) != 1 || is.na(name) || nchar(name) == 0) {
     stop("name must be a non-empty character scalar")
@@ -173,9 +263,9 @@ barcode_group <- function(name, bc_list_name, max_edit_distance = 2) {
 
   for (i in seq_along(x)) {
     s <- x[[i]]
-    if (class(s) == "FlexiplexSegment") {
+    if (is(s, "FlexiplexSegment")) {
       class <- "segment"
-    } else if (class(s) == "FlexiplexGroup") {
+    } else if (is(s, "FlexiplexGroup")) {
       class <- "barcode_group"
     } else {
       stop("`x` must be a list of FlexiplexSegment or FlexiplexGroup objects")
@@ -234,33 +324,72 @@ barcode_group <- function(name, bc_list_name, max_edit_distance = 2) {
 #' @description demultiplex reads with flexiplex
 #' @details
 #' This function demultiplexes reads by searching for flanking sequences (adaptors)
-#' around the barcode sequence, and then matching against allowed barcodes.
+#' around the barcode sequence, and then matching against an allowed barcode list.
+#'
+#' The read structure is described by a list of \code{\link{barcode_segment}} objects
+#' passed to \code{segments}. Each segment describes one
+#' component of the read (e.g. a fixed primer, a cell barcode, a UMI, a poly-T tail).
+#' Use \code{\link{barcode_segment}} to construct segments and, for combinatorial
+#' multi-segment barcodes, \code{\link{barcode_group}} to define groups.
+#'
+#' For backward compatibility, the legacy \code{pattern} argument (a named character
+#' vector) is still accepted when \code{segments} is not supplied.
 #'
 #' @importFrom utils file_test
 #' @importFrom readr read_delim col_character col_integer col_logical
 #' @importFrom dplyr bind_rows
 #' @param fastq A path to a FASTQ file or a directory containing FASTQ files.
-#' @param segments a list of \code{FlexiplexSegment} objects defining the structure of
-#' the barcode and flanking sequences
-#' @param barcode_groups a list of \code{FlexiplexGroup} objects defining groups of barcodes
-#' for multi-segment matching, or an empty list if not used.
-#' @param barcodes_files path to file containing barcode allow-list, with one barcode in each line
-#' @param max_bc_editdistance max edit distances for the barcode sequence
-#' @param max_flank_editdistance max edit distances for the flanking sequences (primer and polyT)
-#' @param reads_out path to output FASTQ file
-#' @param stats_out path of output stats file
-#' @param threads number of threads to be used
-#' @param cutadapt_minimum_length minimum read length after TSO trimming (cutadapt's --minimum-length)
-#' @param full_length_only boolean, when TSO sequence is provided, whether reads without TSO
-#' are to be discarded
-#' @param pattern named character vector defining the barcode pattern
-#' @param strand strand of the barcode pattern, either '+' or '-' (read will be reverse complemented
-#' after barcode matching if '-')
-#' @param TSO_seq TSO sequence to be trimmed
-#' @param TSO_prime either 3 (when \code{TSO_seq} is on 3' the end) or 5 (on 5' end)
-#' @return a list containing: \code{reads_tb} (tibble of read demultiplexed information) and
-#'  \code{input}, \code{output}, \code{read1_with_adapter} from cutadapt report
-#'  (if TSO trimming is performed)
+#' @param segments A list of \code{\link{barcode_segment}} (\code{FlexiplexSegment})
+#'   objects describing the read structure. May also be a data frame with
+#'   columns \code{type}, \code{pattern}, \code{name}, and optionally \code{bc_list_name},
+#'   \code{group}, \code{buffer_size}, and \code{max_edit_distance} (as produced by
+#'   \code{jsonlite} when reading a config file). When omitted, the legacy \code{pattern}
+#'   argument is used instead.
+#' @param barcode_groups A list of \code{\link{barcode_group}} (\code{FlexiplexGroup})
+#'   objects for multi-segment barcode matching. Required only when
+#'   \code{MATCHED_SPLIT} segments are present; pass an empty list \code{list()} otherwise.
+#' @param barcodes_files Path(s) to barcode allow-list file(s), one barcode per line.
+#'   Can be:
+#'   \itemize{
+#'     \item A single unnamed character string — used for all \code{MATCHED} segments and
+#'       barcode groups.
+#'     \item A named character vector — names must match the \code{bc_list} keys set in
+#'       \code{\link{barcode_segment}} and the \code{bc_list_name} keys set in
+#'       \code{\link{barcode_group}}.
+#'   }
+#' @param max_flank_editdistance Maximum edit distance for matching the fixed flanking
+#'   sequences (e.g. primer, poly-T tail). Default: \code{8}.
+#' @param reads_out Path to output FASTQ file containing demultiplexed reads with
+#'   barcode information added to the read header.
+#' @param stats_out Path to output TSV (optionally gzip-compressed) file with
+#'   per-read demultiplex results.
+#' @param threads Number of threads to use. Default: \code{1}.
+#' @param TSO_seq TSO (template-switching oligo) sequence to trim from reads using
+#'   cutadapt. Set to \code{""} (default) to skip TSO trimming.
+#' @param TSO_prime Either \code{5} or \code{3}, indicating whether \code{TSO_seq}
+#'   is located at the 5' or 3' end of the read after barcode demultiplexing.
+#' @param strand Strand of the barcode pattern, either \code{"+"} or \code{"-"}.
+#'   When \code{"-"}, reads are reverse-complemented after barcode matching so that
+#'   the transcript sequence is in the sense direction. Default: \code{"+"}.
+#' @param cutadapt_minimum_length Minimum read length (in nucleotides) to retain after
+#'   TSO trimming (passed to cutadapt's \code{--minimum-length}). Default: \code{1}.
+#' @param full_length_only Logical. When \code{TSO_seq} is provided, whether to discard
+#'   reads that do not contain the TSO (i.e. keep only full-length reads). Default:
+#'   \code{FALSE}.
+#' @param pattern \strong{Deprecated.} Named character vector defining the barcode
+#'   structure (legacy interface). Use \code{segments} instead. Entries named \code{"BC"}
+#'   are treated as \code{MATCHED} segments, \code{"UMI"} as \code{RANDOM}, and all
+#'   others as \code{FIXED}.
+#' @param max_bc_editdistance \strong{Deprecated.} Maximum edit distance for barcode
+#'   matching when using the legacy \code{pattern} argument.
+#' @return A list containing:
+#'   \itemize{
+#'     \item \code{read_counts}: a named integer vector with \code{total reads},
+#'       \code{demultiplexed reads}, and \code{single match reads}.
+#'     \item \code{stats_out}: the path to the demultiplex stats file.
+#'     \item \code{cutadapt}: (only when TSO trimming is performed) the parsed cutadapt
+#'       JSON report.
+#'   }
 #' @examples
 #' outdir <- tempfile()
 #' dir.create(outdir)
@@ -269,15 +398,27 @@ barcode_group <- function(name, bc_list_name, max_edit_distance = 2) {
 #'   filename = system.file("extdata", "bc_allow.tsv.gz", package = "FLAMES"),
 #'   destname = bc_allow, remove = FALSE
 #' )
+#'
+#' # Modern interface: define segments explicitly
 #' find_barcode(
 #'   fastq = system.file("extdata", "fastq", "musc_rps24.fastq.gz", package = "FLAMES"),
+#'   segments = list(
+#'     barcode_segment("FIXED",   "CTACACGACGCTCTTCCGATCT", "primer"),
+#'     barcode_segment("MATCHED", "NNNNNNNNNNNNNNNN", "CB",
+#'                     bc_list = "CB", buffer_size = 5, max_edit_distance = 2),
+#'     barcode_segment("RANDOM",  "NNNNNNNNNNNN", "UB"),
+#'     barcode_segment("FIXED",   "TTTTTTTTT", "polyT")
+#'   ),
+#'   barcode_groups = list(),
+#'   barcodes_files = c(CB = bc_allow),
 #'   stats_out = file.path(outdir, "bc_stat.tsv.gz"),
 #'   reads_out = file.path(outdir, "demultiplexed.fastq.gz"),
-#'   barcodes_file = bc_allow, 
 #'   TSO_seq = "AAGCAGTGGTATCAACGCAGAGTACATGGG", TSO_prime = 5,
 #'   strand = '-', cutadapt_minimum_length = 10, full_length_only = TRUE
 #' )
 #' @md
+#' @seealso \code{\link{barcode_segment}}, \code{\link{barcode_group}},
+#'   \code{\link{plot_demultiplex_raw}}
 #' @export
 find_barcode <- function(
     fastq,
@@ -452,7 +593,7 @@ convert_cellranger_bc <- function(bc_allow, bc_from, bc_to) {
 #'   fastq = fastq_dir,
 #'   stats_out = file.path(outdir, "bc_stat.tsv.gz"),
 #'   reads_out = file.path(outdir, "demultiplexed.fq"),
-#'   barcodes_file = bc_allow, TSO_seq = "CCCATGTACTCTGCGTTGATACCACTGCTT"
+#'   barcodes_files = bc_allow, TSO_seq = "CCCATGTACTCTGCGTTGATACCACTGCTT"
 #' ) |>
 #'   plot_demultiplex_raw()
 #' @return a list of ggplot objects:

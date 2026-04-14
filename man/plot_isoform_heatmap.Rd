@@ -55,7 +55,7 @@ isoform visualizations along genomic coordinates.
 \examples{
 data(scmixology_lib10_transcripts)
 scmixology_lib10_transcripts |>
-  scuttle::logNormCounts() |>
+  scrapper::normalizeRnaCounts.se() |>
   plot_isoform_heatmap(gene = "ENSG00000108107")
 
 }

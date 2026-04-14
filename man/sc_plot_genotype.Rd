@@ -39,7 +39,7 @@ Plot the genotype of single-cell data on a reduced dimension plot (e.g. UMAP).
 ppl <- example_pipeline("SingleCellPipeline") |>
   run_FLAMES()
 sce <- experiment(ppl) |>
- scuttle::logNormCounts() |>
+ scrapper::normalizeRnaCounts.se() |>
  scater::runPCA() |>
  scater::runUMAP()
 snps_tb <- sc_mutations(

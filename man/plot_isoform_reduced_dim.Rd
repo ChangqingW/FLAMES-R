@@ -80,7 +80,7 @@ SingleCellExperiment::altExp(sce_lr, "transcript") <-
   scmixology_lib10_transcripts[, colnames(sce_lr)]
 combined_sce <- combine_sce(sce_lr, scmixology_lib90)
 combined_sce <- combined_sce |>
-  scuttle::logNormCounts() |>
+  scrapper::normalizeRnaCounts.se() |>
   scater::runPCA() |>
   scater::runUMAP()
 combined_imputed_sce <- sc_impute_transcript(combined_sce)

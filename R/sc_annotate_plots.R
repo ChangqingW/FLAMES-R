@@ -114,7 +114,7 @@ combine_sce <- function(sce_with_lr, sce_without_lr) {
 #' @importFrom SummarizedExperiment assays assay<-
 #' @importFrom scran buildSNNGraph
 #' @importFrom scater runPCA runUMAP
-#' @importFrom scuttle logNormCounts
+#' @importFrom scrapper normalizeRnaCounts.se
 #' @importFrom igraph as_adjacency_matrix
 #' @export
 #' @md
@@ -123,7 +123,7 @@ sc_impute_transcript <- function(combined_sce, dimred = "PCA", ...) {
     stop("transcript counts not found")
   }
   if (!"logcounts" %in% names(SummarizedExperiment::assays(combined_sce))) {
-    combined_sce <- scuttle::logNormCounts(combined_sce)
+    combined_sce <- scrapper::normalizeRnaCounts.se(combined_sce)
   }
   if (!"PCA" %in% SingleCellExperiment::reducedDimNames(combined_sce)) {
     combined_sce <- scater::runPCA(combined_sce)
@@ -139,7 +139,7 @@ sc_impute_transcript <- function(combined_sce, dimred = "PCA", ...) {
   combined_sce
 }
 
-#' @importFrom scuttle normalizeCounts
+#' @importFrom scrapper normalizeCounts centerSizeFactors
 #' @importFrom BiocGenerics t
 impute <- function(mtx, distance_matrix) {
   cat("Imputing transcript counts ...\n")
@@ -150,8 +150,10 @@ impute <- function(mtx, distance_matrix) {
   cols_with_counts <- apply(mtx, 2, function(x) {
     !any(is.na(x))
   })
-  
-  real_counts <- scuttle::normalizeCounts(mtx[, cols_with_counts])
+
+  sub_mtx <- mtx[, cols_with_counts]
+  sf <- scrapper::centerSizeFactors(colSums(sub_mtx))
+  real_counts <- scrapper::normalizeCounts(sub_mtx, size.factors = sf, delayed = FALSE)
   expr_impute[, cols_with_counts] <- real_counts
 
   expr_impute <- expr_impute %*% distance_matrix
@@ -325,7 +327,7 @@ plot_isoforms <- function(sce, gene_id, transcript_ids, n = 4, format = "plot_gr
 #' @examples
 #' data(scmixology_lib10_transcripts)
 #' scmixology_lib10_transcripts |>
-#'   scuttle::logNormCounts() |>
+#'   scrapper::normalizeRnaCounts.se() |>
 #'   plot_isoform_heatmap(gene = "ENSG00000108107")
 #'
 #' @importFrom SingleCellExperiment rowData logcounts colLabels
@@ -456,7 +458,7 @@ plot_isoform_heatmap <- function(
 #'   scmixology_lib10_transcripts[, colnames(sce_lr)]
 #' combined_sce <- combine_sce(sce_lr, scmixology_lib90)
 #' combined_sce <- combined_sce |>
-#'   scuttle::logNormCounts() |>
+#'   scrapper::normalizeRnaCounts.se() |>
 #'   scater::runPCA() |>
 #'   scater::runUMAP()
 #' combined_imputed_sce <- sc_impute_transcript(combined_sce)
@@ -466,7 +468,7 @@ plot_isoform_heatmap <- function(
 #' @importFrom SingleCellExperiment logcounts altExpNames altExp reducedDim counts
 #' @importFrom SummarizedExperiment rowData assayNames
 #' @importFrom BiocGenerics colnames rownames
-#' @importFrom scuttle normalizeCounts
+#' @importFrom scrapper normalizeCounts centerSizeFactors
 #' @importFrom cowplot plot_grid
 #' @importFrom ggplot2 aes element_line element_text ggtitle theme_minimal
 #' @importFrom ggplot2 ggplot geom_point labs scale_colour_gradient2 theme_bw
@@ -507,7 +509,9 @@ plot_isoform_reduced_dim <- function(
         !any(is.na(x))
       })
       cols_with_counts <- cols_with_counts & (colSums(counts(sce) > 0))
-      mtx[, cols_with_counts] <- scuttle::normalizeCounts(counts(sce)[, cols_with_counts])
+      sub_counts <- counts(sce)[, cols_with_counts]
+      sf <- scrapper::centerSizeFactors(colSums(sub_counts))
+      mtx[, cols_with_counts] <- scrapper::normalizeCounts(sub_counts, size.factors = sf, delayed = FALSE)
       colnames(mtx) <- colnames(sce)
       rownames(mtx) <- rownames(sce)
       SingleCellExperiment::logcounts(sce) <- mtx

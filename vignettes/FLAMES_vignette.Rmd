@@ -172,10 +172,49 @@ mspipeline <- run_step(mspipeline, "barcode_demultiplex")
 plot_demultiplex(mspipeline)
 ```
 
-### Work in progress
+### Custom barcode designs
 
-More examples coming soon.
+For non-standard protocols, `find_barcode()` accepts a `segments` list built with `barcode_segment()` to describe any read structure. Each segment covers one component of the read.
 
+| Segment type | Use for |
+|---|---|
+| `FIXED` | Known flanking sequences (primers, poly-T tails) |
+| `MATCHED` | Cell barcodes matched against an allow-list |
+| `RANDOM` | Random sequences captured verbatim (UMIs) |
+| `MATCHED_SPLIT` | Barcodes split across multiple positions (combinatorial barcoding) |
+
+```{r, eval=FALSE, echo=TRUE}
+# Example: custom 10x-like structure called directly (not through the pipeline)
+outdir <- tempfile(); dir.create(outdir)
+bc_allow <- file.path(outdir, "bc_allow.tsv")
+R.utils::gunzip(
+  filename = system.file("extdata", "bc_allow.tsv.gz", package = "FLAMES"),
+  destname = bc_allow, remove = FALSE
+)
+
+result <- find_barcode(
+  fastq = system.file("extdata", "fastq", "musc_rps24.fastq.gz", package = "FLAMES"),
+  segments = list(
+    barcode_segment("FIXED",   "CTACACGACGCTCTTCCGATCT", "primer"),
+    barcode_segment("MATCHED", "NNNNNNNNNNNNNNNN", "CB",
+                    bc_list = "CB", buffer_size = 5, max_edit_distance = 2),
+    barcode_segment("RANDOM",  "NNNNNNNNNNNN", "UB"),
+    barcode_segment("FIXED",   "TTTTTTTTT", "polyT")
+  ),
+  barcode_groups = list(),
+  # barcodes_files: a named vector — the name "CB" matches bc_list = "CB" above
+  barcodes_files = c(CB = bc_allow),
+  stats_out  = file.path(outdir, "bc_stat.tsv.gz"),
+  reads_out  = file.path(outdir, "demultiplexed.fastq.gz"),
+  strand = "-",
+  TSO_seq = "AAGCAGTGGTATCAACGCAGAGTACATGGG", TSO_prime = 5,
+  cutadapt_minimum_length = 10, full_length_only = TRUE
+)
+```
+
+The same segment structure can be stored in the config JSON under `barcode_parameters.segments` (see the default config created by `create_config()`), so that `SingleCellPipeline()` and `MultiSampleSCPipeline()` pick it up automatically without calling `find_barcode()` directly.
+
+For protocols with barcodes split across two or more positions (e.g. split-pool combinatorial barcoding), use `MATCHED_SPLIT` segments together with `barcode_group()` so that the combined sequence is jointly matched against a shared allow-list.
 
 ## FLAMES on Windows
 Due to FLAMES requiring minimap2 and pysam, FLAMES is currently unavaliable on Windows.

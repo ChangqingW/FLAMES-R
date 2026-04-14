@@ -716,7 +716,7 @@ sc_genotype <- function(
 #' ppl <- example_pipeline("SingleCellPipeline") |>
 #'   run_FLAMES()
 #' sce <- experiment(ppl) |>
-#'  scuttle::logNormCounts() |>
+#'  scrapper::normalizeRnaCounts.se() |>
 #'  scater::runPCA() |>
 #'  scater::runUMAP()
 #' snps_tb <- sc_mutations(
