@@ -81,17 +81,15 @@ sc_mutations <- function(bam_path, seqnames, positions, indel = FALSE, threads =
   if (length(bam_path) == 1) {
     # single bam file, parallelize over positions
     message(paste0(format(Sys.time(), "%H:%M:%S "), "Got 1 bam file, parallelizing over each position ..."))
-    variants <- tryCatch({
-      BiocParallel::bpmapply(
-        function(seqname, pos) {
-          variant_count_tb(bam_path, seqname, pos, indel, verbose = FALSE)
-        },
-        seqname = seqnames, pos = positions, SIMPLIFY = FALSE,
-        BPPARAM = BiocParallel::MulticoreParam(
-          workers = threads, stop.on.error = TRUE, progressbar = TRUE
-        )
+    variants <- BiocParallel::bpmapply(
+      function(seqname, pos) {
+        variant_count_tb(bam_path, seqname, pos, indel, verbose = FALSE)
+      },
+      seqname = seqnames, pos = positions, SIMPLIFY = FALSE,
+      BPPARAM = BiocParallel::MulticoreParam(
+        workers = threads, stop.on.error = TRUE, progressbar = TRUE
       )
-    }, error = identity)
+    )
   } else {
     # multiple bam files, parallelize over bam files
     # data frame of all combinations between (seqname, pos) and (bam_path, barcodes)
@@ -108,24 +106,17 @@ sc_mutations <- function(bam_path, seqnames, positions, indel = FALSE, threads =
       dplyr::select(-mutation_index, -bam_index)
 
     message(paste0(format(Sys.time(), "%H:%M:%S "), "Multi-threading over bam files x positions ..."))
-    variants <- tryCatch({
-      BiocParallel::bpmapply(
-        function(sample_bam, seqname, pos) {
-          variant_count_tb(sample_bam, seqname, pos, indel, verbose = FALSE) |>
-            dplyr::mutate(bam_file = sample_bam)
-        },
-        sample_bam = args_grid$sample_bam, seqname = args_grid$seqname,
-        pos = args_grid$pos, SIMPLIFY = FALSE,
-        BPPARAM = BiocParallel::MulticoreParam(
-          workers = threads, stop.on.error = TRUE, progressbar = TRUE
-        )
+    variants <- BiocParallel::bpmapply(
+      function(sample_bam, seqname, pos) {
+        variant_count_tb(sample_bam, seqname, pos, indel, verbose = FALSE) |>
+          dplyr::mutate(bam_file = sample_bam)
+      },
+      sample_bam = args_grid$sample_bam, seqname = args_grid$seqname,
+      pos = args_grid$pos, SIMPLIFY = FALSE,
+      BPPARAM = BiocParallel::MulticoreParam(
+        workers = threads, stop.on.error = TRUE, progressbar = TRUE
       )
-    }, error = identity)
-  }
-
-  if (inherits(variants, "error")) {
-    warning("Error occurred in `sc_mutations`, returning error object")
-    return(variants)
+    )
   }
 
   message(paste0(format(Sys.time(), "%H:%M:%S "), "Merging results ..."))

@@ -13,8 +13,13 @@
 #' @importFrom dplyr mutate left_join select
 #' @importFrom SummarizedExperiment assays colData rowData rowRanges rowRanges<- colData<-
 #' @importFrom SpatialExperiment SpatialExperiment readImgData imgData imgData<-
+#' @importFrom methods is
 #' @export
 create_spe <- function(sce, spatial_barcode_file, mannual_align_json, image, tissue_positions_file) {
+  if (!is(sce, "SingleCellExperiment")) {
+    stop("`sce` must be a SingleCellExperiment object")
+  }
+
   # Read the full list file
   full_list <- readr::read_table(
     spatial_barcode_file,
@@ -77,10 +82,14 @@ create_spe <- function(sce, spatial_barcode_file, mannual_align_json, image, tis
   # add image file if provided
   if (!missing(image)) {
     if (is.character(image)) {
+      img_path <- file.path(image, "tissue_hires_image.png")
+      if (!file.exists(img_path)) {
+        stop(sprintf("Image file not found: %s", img_path))
+      }
       image <- SpatialExperiment::readImgData(
         image,
         sample_id = SummarizedExperiment::colData(spe)$sample_id[1],
-        imageSources = file.path(image, "tissue_hires_image.png")
+        imageSources = img_path
       )
     }
     SpatialExperiment::imgData(spe) <- image
