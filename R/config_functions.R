@@ -241,6 +241,7 @@ set_nested_param <- function(config, param_path, value) {
 #' )
 #'
 #' @importFrom jsonlite toJSON fromJSON
+#' @importFrom cli cli_alert_info
 #' @export
 create_config <- function(outdir, type = "sc_3end", ...) {
   # Load default configuration
@@ -311,11 +312,7 @@ create_config <- function(outdir, type = "sc_3end", ...) {
   config_file_path <- file.path(
     outdir, paste0("config_file_", Sys.getpid(), ".json")
   )
-  cat(
-    "Writing configuration parameters to: ",
-    config_file_path,
-    "\n"
-  )
+  cli::cli_alert_info("Writing configuration to: {config_file_path}")
   write(jsonlite::toJSON(config, pretty = TRUE), config_file_path)
 
   return(config_file_path)
@@ -328,13 +325,12 @@ check_arguments <- function(
     annotation, fastq, genome_bam,
     outdir, genome_fa, config_file) {
   if (!dir.exists(outdir)) {
-    cat("Output directory does not exists: one is being created\n")
+    cli::cli_alert_info("Output directory does not exist, creating: {outdir}")
     dir.create(outdir)
-    print(outdir)
   }
 
   if (is.null(config_file)) {
-    cat("No config file provided, creating a default config in", outdir, "\n")
+    cli::cli_alert_info("No config file provided, creating a default config in {outdir}")
     config_file <- create_config(outdir)
   }
 

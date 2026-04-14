@@ -15,7 +15,7 @@ a transcript.}
 by the transcription start site position), 'tes_differ' (only keep those that
 differ by the transcription end site position), 'both' (only keep those that
 differ by both the start and end site), or 'single_transcripts' (only keep
-genes that contains a sinlge transcript).}
+genes that contain a single transcript).}
 }
 \value{
 GenomicRanges of the filtered isoforms

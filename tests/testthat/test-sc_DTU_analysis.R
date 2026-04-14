@@ -25,7 +25,7 @@ test_that("sc_DTU_analysis chisq method returns a tibble with expected columns",
 test_that("sc_DTU_analysis permutation method returns a tibble with expected columns", {
   sce <- make_dtu_sce()
   res <- sc_DTU_analysis(sce, min_count = 1,
-                         method = "trascript usage permutation", permuations = 20)
+                         method = "transcript usage permutation", permuations = 20)
   expect_s3_class(res, "tbl_df")
   expect_true(all(c("p.value", "adj.p.value", "transcript", "cluster",
                     "transcript_usage", "usage_difference") %in% names(res)))

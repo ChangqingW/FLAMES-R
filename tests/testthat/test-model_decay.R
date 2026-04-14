@@ -8,6 +8,20 @@ test_that("filter_annotation returns a GRanges and reduces transcript count", {
   }
 })
 
+test_that("filter_annotation keep = 'single_transcripts' returns only sole-transcript genes", {
+  gtf <- system.file("extdata", "rps24.gtf.gz", package = "FLAMES")
+  res <- filter_annotation(gtf, keep = "single_transcripts")
+  expect_s4_class(res, "GRanges")
+  # every gene_id in the result must appear exactly once
+  gene_counts <- table(S4Vectors::mcols(res)$gene_id)
+  expect_true(all(gene_counts == 1))
+})
+
+test_that("filter_annotation errors on unknown keep value", {
+  gtf <- system.file("extdata", "rps24.gtf.gz", package = "FLAMES")
+  expect_error(filter_annotation(gtf, keep = "invalid"), "Unknown keep value")
+})
+
 test_that("weight_transcripts type = 'counts' returns input unchanged", {
   x <- c(5, 50, 500, 5000)
   expect_equal(weight_transcripts(x, type = "counts"), x)

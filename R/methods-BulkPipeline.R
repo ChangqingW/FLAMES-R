@@ -197,6 +197,14 @@ normalize_controllers <- function(controllers, step_names) {
     # Use the same controller for all steps
     list(default = controllers)
   } else if (is.list(controllers) && all(sapply(controllers, inherits, "crew_class_controller"))) {
+    unknown <- setdiff(names(controllers), c(step_names, "default"))
+    if (length(unknown) > 0) {
+      warning(
+        "The following controller name(s) do not match any pipeline step and will be ignored: ",
+        paste(unknown, collapse = ", "),
+        ". Valid step names are: ", paste(step_names, collapse = ", ")
+      )
+    }
     controllers
   } else {
     stop("`controllers` must be a crew_class_controller or a named list of crew_class_controller objects.")

@@ -7,7 +7,7 @@
 #' Genes with more than 2 isoforms expressing more than \code{min_count} counts
 #' are selected for testing with one of the following methods:
 #' \describe{
-#'  \item{trascript usage permutation}{ Transcript usage are taken as the test statistic, cluster labels are permuted to generate a null distribution.}
+#'  \item{transcript usage permutation}{ Transcript usage are taken as the test statistic, cluster labels are permuted to generate a null distribution.}
 #'  \item{chisq}{ Chi-square test of the transcript count matrix for each gene. }
 #' }
 #' Adjusted P-values were calculated by Benjamini–Hochberg correction.
@@ -29,7 +29,7 @@
 #'  \item{transcript}{ - rowname of \code{sce}, the DTU isoform }
 #'  \item{transcript_usage}{ - the transcript usage of the isoform in the cluster }
 #' }
-#' Additional columns from \code{method = "trascript usage permutation"}:
+#' Additional columns from \code{method = "transcript usage permutation"}:
 #' \describe{
 #'  \item{transcript_usage_elsewhere}{ - transcript usage in other clusters }
 #'  \item{usage_difference}{ - the difference between the two transcript usage }
@@ -75,15 +75,15 @@
 #' group_anno <- data.frame(barcode_seq = colnames(sce), groups = SingleCellExperiment::counts(sce)["ENSMUST00000169826.2", ] > 1)
 #' SingleCellExperiment::colLabels(sce) <- group_anno$groups
 #' # DTU with permutation testing:
-#' sc_DTU_analysis(sce, min_count = 1, method = "trascript usage permutation")
+#' sc_DTU_analysis(sce, min_count = 1, method = "transcript usage permutation")
 #' # now try with chisq:
 #' sc_DTU_analysis(sce, min_count = 1, method = "chisq")
-sc_DTU_analysis <- function(sce, gene_col = "gene_id", min_count = 15, threads = 1, method = "trascript usage permutation", permuations = 1000) {
+sc_DTU_analysis <- function(sce, gene_col = "gene_id", min_count = 15, threads = 1, method = "transcript usage permutation", permuations = 1000) {
 
   stopifnot("sce need to be an SingleCellExperiment Object" = is(sce, "SingleCellExperiment"))
   stopifnot("min_count must be a positive number" = min_count > 0)
   stopifnot("Cluster label (colLabels(sce)) not found" = !is.null(colLabels(sce)))
-  if (method == "trascript usage permutation") {
+  if (method == "transcript usage permutation") {
     return(
       sc_transcript_usage_permutation(
         sce = sce,
@@ -103,7 +103,7 @@ sc_DTU_analysis <- function(sce, gene_col = "gene_id", min_count = 15, threads =
       )
     )
   } else {
-    stop("Unknown method. Currently available methods are: 'trascript usage permutation' and 'chisq'")
+    stop("Unknown method. Currently available methods are: 'transcript usage permutation' and 'chisq'")
   }
 }
 
@@ -116,7 +116,7 @@ sc_DTU_analysis <- function(sce, gene_col = "gene_id", min_count = 15, threads =
 #' @keywords internal
 sc_transcript_usage_chisq <- function(sce, gene_col = "gene_id", min_count = 15, threads = 1) {
 
-  message("Filtering for genes with at least 2 detected isforms ...")
+  message("Filtering for genes with at least 2 detected isoforms ...")
   sce <- sce[rowSums(SingleCellExperiment::counts(sce)) > min_count, ]
   # TODO: preserve correct gene counts after filtering
   # like in sc_transcript_usage_permutation
@@ -192,7 +192,7 @@ chisq_test_by_gene <- function(gene_mtx) {
 sc_transcript_usage_permutation <- function(sce, gene_col = "gene_id", min_count = 50, threads = 1, permuations = 1000) {
   message(
     sprintf(
-      "Filtering for genes with at least 2 isforms expressing more than %d counts ...",
+      "Filtering for genes with at least 2 isoforms expressing more than %d counts ...",
       min_count
     )
   )
@@ -319,7 +319,7 @@ mean_transcript_usage <- function(mtx, cell_labels, genes, gene_counts, diff_onl
   }
 
   if (missing(gene_counts)) {
-    # if trascript counts are filtered, the transcript usage will be wrong!
+    # if transcript counts are filtered, the transcript usage will be wrong!
     gene_counts <- transcript_counts |>
       S4Arrays::rowsum(group = genes, reorder = TRUE) |>
       (\(mtx) mtx[genes, ])() # need same number of rows as transcript count mtx

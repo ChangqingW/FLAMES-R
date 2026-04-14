@@ -5,7 +5,7 @@
 #' coverage plots.
 #'
 #' @importFrom rtracklayer import
-#' @importFrom S4Vectors split
+#' @importFrom S4Vectors split mcols
 #' @importFrom GenomicRanges strand
 #' @importFrom BiocGenerics start end
 #'
@@ -16,7 +16,7 @@
 #' by the transcription start site position), 'tes_differ' (only keep those that
 #' differ by the transcription end site position), 'both' (only keep those that
 #' differ by both the start and end site), or 'single_transcripts' (only keep
-#' genes that contains a sinlge transcript).
+#' genes that contain a single transcript).
 #' @return GenomicRanges of the filtered isoforms
 #' @examples
 #' filtered_annotation <- filter_annotation(
@@ -40,6 +40,15 @@ filter_annotation <- function(annotation, keep = "tss_differ") {
     if (keep == "both") {
       return(unique_fn(x, "tss_differ") & unique_fn(x, "tes_differ"))
     }
+    if (keep == "single_transcripts") {
+      gene_ids <- S4Vectors::mcols(x)$gene_id
+      n_per_gene <- table(gene_ids)
+      return(as.logical(n_per_gene[gene_ids] == 1))
+    }
+    stop(sprintf(
+      "Unknown keep value: '%s'. Must be one of: 'tss_differ', 'tes_differ', 'both', 'single_transcripts'",
+      keep
+    ))
   }
 
   return(annotation[unique_fn(annotation, keep)])

@@ -9,7 +9,7 @@ sc_DTU_analysis(
   gene_col = "gene_id",
   min_count = 15,
   threads = 1,
-  method = "trascript usage permutation",
+  method = "transcript usage permutation",
   permuations = 1000
 )
 }
@@ -37,7 +37,7 @@ a \code{tibble} containing the following columns:
  \item{transcript}{ - rowname of \code{sce}, the DTU isoform }
  \item{transcript_usage}{ - the transcript usage of the isoform in the cluster }
 }
-Additional columns from \code{method = "trascript usage permutation"}:
+Additional columns from \code{method = "transcript usage permutation"}:
 \describe{
  \item{transcript_usage_elsewhere}{ - transcript usage in other clusters }
  \item{usage_difference}{ - the difference between the two transcript usage }
@@ -60,7 +60,7 @@ Differential transcription usage testing for single cell data, using
 Genes with more than 2 isoforms expressing more than \code{min_count} counts
 are selected for testing with one of the following methods:
 \describe{
- \item{trascript usage permutation}{ Transcript usage are taken as the test statistic, cluster labels are permuted to generate a null distribution.}
+ \item{transcript usage permutation}{ Transcript usage are taken as the test statistic, cluster labels are permuted to generate a null distribution.}
  \item{chisq}{ Chi-square test of the transcript count matrix for each gene. }
 }
 Adjusted P-values were calculated by Benjamini–Hochberg correction.
@@ -93,7 +93,7 @@ sce <- FLAMES::sc_long_pipeline(
 group_anno <- data.frame(barcode_seq = colnames(sce), groups = SingleCellExperiment::counts(sce)["ENSMUST00000169826.2", ] > 1)
 SingleCellExperiment::colLabels(sce) <- group_anno$groups
 # DTU with permutation testing:
-sc_DTU_analysis(sce, min_count = 1, method = "trascript usage permutation")
+sc_DTU_analysis(sce, min_count = 1, method = "transcript usage permutation")
 # now try with chisq:
 sc_DTU_analysis(sce, min_count = 1, method = "chisq")
 }
