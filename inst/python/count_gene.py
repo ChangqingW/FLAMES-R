@@ -491,27 +491,23 @@ def quantify_gene(in_bam, in_gtf, n_process, out_count_csv,  random_seed=2024):
     # combine the gene count matrix
     print("Writing the gene count matrix ...")
     all_barcodes = sorted(set().union(*[df.columns for df in gene_count_mat_dfs]))
-    gene_count_mat_dfs = [df.reindex(all_barcodes, axis=1) for df in gene_count_mat_dfs]
 
-
-
-    # Assuming gene_count_mat_dfs is already defined
+    # Write one reindexed DataFrame at a time so only one extra copy lives in
+    # memory at once (previously the list comprehension materialised all copies
+    # before any was written to disk).
     temp_file = out_count_csv + ".tmp"
 
-
     try:
-        # Step 1: Write the first DataFrame to the temp file (with header)
-        gene_count_mat_dfs[0].to_csv(temp_file, mode='w', header=True, index=True)
+        for i, df in enumerate(gene_count_mat_dfs):
+            df.reindex(columns=all_barcodes).to_csv(
+                temp_file, mode='w' if i == 0 else 'a',
+                header=(i == 0), index=True
+            )
+            gene_count_mat_dfs[i] = None  # release per-chunk memory promptly
 
-        # Step 2: Append the rest of the DataFrames to the temp file (without writing headers again)
-        for df in gene_count_mat_dfs[1:]:
-            df.to_csv(temp_file, mode='a', header=False, index=True)
-
-        # Step 3: Rename the temp file to the final file
         os.rename(temp_file, out_count_csv)
 
     except Exception as e:
-        # If anything goes wrong, remove the temporary file
         if os.path.exists(temp_file):
             os.remove(temp_file)
         print(f"An error occurred while writing to {out_count_csv}: {e}")
@@ -569,10 +565,9 @@ def quantify_gene_single_process(in_gtf_df, in_bam, demulti_methods, cluster_3pr
     gene_count_df = \
         read_gene_assign_df.groupby(['bc', 'gene_id'], observed=True)['umi_corrected'].nunique()
     
-    # convert to matrix
-    gene_count_mat = gene_count_df.reset_index().pivot(index='gene_id', 
-                                                       columns='bc', 
-                                                       values='umi_corrected')
+    # convert to matrix — unstack() avoids the intermediate DataFrame that
+    # reset_index().pivot() would create
+    gene_count_mat = gene_count_df.unstack(level='bc')
     gene_count_mat = gene_count_mat.rename_axis(None, axis=0).\
                                     rename_axis(None, axis=1)
 
@@ -580,10 +575,12 @@ def quantify_gene_single_process(in_gtf_df, in_bam, demulti_methods, cluster_3pr
     dedup_read_lst = list_deduplicated_reads(read_gene_assign_df)
 
     # get list of umi (in the form of bc+umi+cluster to avoid collision)
-    umi_lst = read_gene_assign_df.bc.astype(str) +\
-                    read_gene_assign_df.gene_id.astype(str) + \
-                    read_gene_assign_df.umi_corrected.astype(str) + \
-                    read_gene_assign_df.cluster.astype(str)
+    # str.cat avoids the chain of intermediate Series created by repeated '+'
+    umi_lst = read_gene_assign_df['bc'].astype(str).str.cat(
+        [read_gene_assign_df['gene_id'].astype(str),
+         read_gene_assign_df['umi_corrected'].astype(str),
+         read_gene_assign_df['cluster'].astype(str)]
+    )
     
     return gene_count_mat, dedup_read_lst, umi_lst
 
