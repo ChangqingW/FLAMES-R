@@ -174,47 +174,83 @@ plot_demultiplex(mspipeline)
 
 ### Custom barcode designs
 
-For non-standard protocols, `find_barcode()` accepts a `segments` list built with `barcode_segment()` to describe any read structure. Each segment covers one component of the read.
+FLAMES supports arbitrary read structures through the `barcode_parameters.segments` array in the config JSON. Each segment describes one component of the read, listed in 5′ to 3′ order:
 
-| Segment type | Use for |
+| `type` | Use for |
 |---|---|
-| `FIXED` | Known flanking sequences (primers, poly-T tails) |
-| `MATCHED` | Cell barcodes matched against an allow-list |
-| `RANDOM` | Random sequences captured verbatim (UMIs) |
-| `MATCHED_SPLIT` | Barcodes split across multiple positions (combinatorial barcoding) |
+| `FIXED` | Known flanking sequences (primers, poly-T tails) — alignment anchor, no barcode list needed |
+| `MATCHED` | A barcode matched against an allow-list (e.g. cell barcode) |
+| `RANDOM` | A random sequence captured verbatim without matching (e.g. UMI) |
+| `MATCHED_SPLIT` | A barcode split across multiple positions, to be concatenated together before barcode matching — used together with `barcode_groups` |
+
+The recommended workflow is to **create a config file and edit it with a text editor**. Encoding a segments array as `create_config()` arguments is not practical.
 
 ```{r, eval=FALSE, echo=TRUE}
-# Example: custom 10x-like structure called directly (not through the pipeline)
-outdir <- tempfile(); dir.create(outdir)
-bc_allow <- file.path(outdir, "bc_allow.tsv")
-R.utils::gunzip(
-  filename = system.file("extdata", "bc_allow.tsv.gz", package = "FLAMES"),
-  destname = bc_allow, remove = FALSE
-)
-
-result <- find_barcode(
-  fastq = system.file("extdata", "fastq", "musc_rps24.fastq.gz", package = "FLAMES"),
-  segments = list(
-    barcode_segment("FIXED",   "CTACACGACGCTCTTCCGATCT", "primer"),
-    barcode_segment("MATCHED", "NNNNNNNNNNNNNNNN", "CB",
-                    bc_list = "CB", buffer_size = 5, max_edit_distance = 2),
-    barcode_segment("RANDOM",  "NNNNNNNNNNNN", "UB"),
-    barcode_segment("FIXED",   "TTTTTTTTT", "polyT")
-  ),
-  barcode_groups = list(),
-  # barcodes_files: a named vector — the name "CB" matches bc_list = "CB" above
-  barcodes_files = c(CB = bc_allow),
-  stats_out  = file.path(outdir, "bc_stat.tsv.gz"),
-  reads_out  = file.path(outdir, "demultiplexed.fastq.gz"),
-  strand = "-",
-  TSO_seq = "AAGCAGTGGTATCAACGCAGAGTACATGGG", TSO_prime = 5,
-  cutadapt_minimum_length = 10, full_length_only = TRUE
-)
+# Step 1: generate a config file to use as a starting point
+config_file <- create_config(outdir)
 ```
 
-The same segment structure can be stored in the config JSON under `barcode_parameters.segments` (see the default config created by `create_config()`), so that `SingleCellPipeline()` and `MultiSampleSCPipeline()` pick it up automatically without calling `find_barcode()` directly.
+Then open `config_file` in a text editor. The `barcode_parameters` section looks like this (this is also the default 10x 3′ v3 structure):
 
-For protocols with barcodes split across two or more positions (e.g. split-pool combinatorial barcoding), use `MATCHED_SPLIT` segments together with `barcode_group()` so that the combined sequence is jointly matched against a shared allow-list.
+```json
+"barcode_parameters": {
+    "max_flank_editdistance": 8,
+    "segments": [
+        {
+            "type": "FIXED",
+            "pattern": "CTACACGACGCTCTTCCGATCT",
+            "name": "primer"
+        },
+        {
+            "type": "MATCHED",
+            "pattern": "NNNNNNNNNNNNNNNN",
+            "name": "CB",
+            "bc_list_name": "CB",
+            "buffer_size": 5,
+            "max_edit_distance": 2
+        },
+        {
+            "type": "RANDOM",
+            "pattern": "NNNNNNNNNNNN",
+            "name": "UB"
+        },
+        {
+            "type": "FIXED",
+            "pattern": "TTTTTTTTT",
+            "name": "polyT"
+        }
+    ],
+    "barcode_groups": [],
+    "strand": "-",
+    "TSO_seq": "AAGCAGTGGTATCAACGCAGAGTACATGGG",
+    "TSO_prime": 5,
+    "cutadapt_minimum_length": 10,
+    "full_length_only": false
+}
+```
+
+**Key fields to adjust for your protocol:**
+
+- `pattern`: for `FIXED`, the exact known sequence; for `MATCHED`/`RANDOM`, an N-repeat of the expected length (e.g. 16 Ns for a 16-nt barcode).
+- `name`: a label for this segment in output files — use `"CB"` for cell barcodes and `"UB"` for UMIs to match downstream expectations.
+- `strand`: `"-"` if the barcode is on the reverse-complement strand; `"+"` otherwise.
+- `TSO_seq` / `TSO_prime`: set `TSO_seq` to `""` to skip TSO trimming.
+- `bc_list_name`: a label linking this `MATCHED` segment to a barcode allow-list. When running through `SingleCellPipeline()` with a single `barcodes_file`, this label is not used — the single file is applied to all `MATCHED` segments automatically. It is only relevant when calling `find_barcode()` directly with a named `barcodes_files` vector.
+
+```{r, eval=FALSE, echo=TRUE}
+# Step 2: pass the edited config to the pipeline
+pipeline <- SingleCellPipeline(
+  config_file   = config_file,         # your edited config
+  outdir        = outdir,
+  fastq         = "/path/to/reads.fastq.gz",
+  annotation    = "/path/to/annotation.gtf",
+  genome_fa     = "/path/to/genome.fa",
+  barcodes_file = "/path/to/bc_allow.tsv"
+)
+pipeline <- run_FLAMES(pipeline)
+```
+
+For protocols with barcodes split across two positions, add `MATCHED_SPLIT` segments and a corresponding entry in `barcode_groups`. See `?barcode_segment` and `?barcode_group` for details on these types. For programmatic segment construction from R (e.g. in scripts or packages), the `barcode_segment()` and `barcode_group()` constructors can be passed directly to `find_barcode()` via its `segments` argument.
 
 ## FLAMES on Windows
 Due to FLAMES requiring minimap2 and pysam, FLAMES is currently unavaliable on Windows.

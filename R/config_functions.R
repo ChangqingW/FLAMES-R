@@ -183,10 +183,13 @@ set_nested_param <- function(config, param_path, value) {
 #' values from \code{extdata/config_sclr_nanopore_3end.json} will be used for
 #' unprovided parameters.
 #'
-#' Parameters can be specified using dot to indicate nested sections, e.g.,
-#' \code{barcode_parameters.max_bc_editdistance = 3} or
-#' \code{barcode_parameters.pattern.primer = "ATCG"}. Alternatively, you can
-#' open the created config file and edit it manually.
+#' Simple scalar parameters can be set via the \code{...} argument using dot
+#' notation (e.g. \code{barcode_parameters.max_bc_editdistance = 3}). For
+#' complex structured parameters such as \code{barcode_parameters.segments}
+#' (which is a JSON array of objects), it is strongly recommended to call
+#' \code{create_config(outdir)} first to generate the default JSON file, then
+#' open that file in a text editor and modify the \code{segments} array
+#' directly. See the FLAMES vignette for a worked example.
 #'
 #' @param outdir the destination directory for the configuration file
 #' @param type use an example config, available values:
