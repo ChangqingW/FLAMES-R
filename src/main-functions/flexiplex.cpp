@@ -755,16 +755,16 @@ std::string compose_new_id(
   for (const auto &g : group_map) {
     auto it = bc.features.find(g.first);
     if (it != bc.features.end()) {
-      id << delim << g.first << ":" << it->second;
+      id << delim << it->second;
       delim = ",";
     }
   }
   for (const auto &s : segments) {
-    if (s.type != MATCHED) 
+    if (s.type != MATCHED)
       continue;
     auto it = bc.features.find(s.name);
     if (it != bc.features.end()) {
-      id << delim << s.name << (s.name == "" ? "" : ":") << it->second;
+      id << delim << it->second;
       delim = ",";
     }
   }
@@ -1011,6 +1011,20 @@ Rcpp::IntegerVector flexiplex_cpp(
   Rcpp::Rcout << "Search pattern:\n";
   for (auto &s : segments) {
     Rcpp::Rcout << s.name << ": " << s.pattern << "\n";
+  }
+  {
+    std::string cb_delim = "";
+    Rcpp::Rcout << "CB:Z: tag field: ";
+    for (const auto &g : group_map) {
+      Rcpp::Rcout << cb_delim << g.first;
+      cb_delim = ",";
+    }
+    for (const auto &s : segments) {
+      if (s.type != MATCHED) continue;
+      Rcpp::Rcout << cb_delim << s.name;
+      cb_delim = ",";
+    }
+    Rcpp::Rcout << "\n";
   }
 
   for (const auto &file : {reads_out, stats_out}) {
