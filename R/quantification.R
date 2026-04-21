@@ -178,35 +178,40 @@ quantify_gene <- function(
 #' # verify the gene counts are added
 #' SingleCellExperiment::altExps(sce)$gene
 #' @export
-add_gene_counts <- function(sce, gene_count_file) {
-  if (missing(gene_count_file)) {
+add_gene_counts <- function(sce, gene_count_stem) {
+  if (missing(gene_count_stem)) {
     tryCatch(
       {
-        gene_count_file <- file.path(
+        gene_count_stem <- file.path(
           S4Vectors::metadata(sce)$inputs$outdir,
-          "gene_count.csv"
+          "gene_count"
         )
       },
       error = function(e) {
-        stop("Error when finding gene count file:\n", e$message)
+        stop("Error when finding gene count files:\n", e$message)
       }
     )
-    if (!file.exists(gene_count_file)) {
-      stop("Gene count file not found.")
-    }
   }
-  mtx <- read.csv(gene_count_file, row.names = 1)
-  mtx[is.na(mtx)] <- 0
-  mtx <- mtx[, colnames(mtx) %in% colnames(sce)] |>
-    as.matrix()
-  gene_mtx <- matrix(0, nrow = nrow(mtx), ncol = ncol(sce))
-  gene_mtx[, match(colnames(mtx), colnames(sce))] <- mtx
+  mtx_files <- paste0(gene_count_stem, c(".mtx", "_barcodes.tsv", "_features.tsv"))
+  if (!all(file.exists(mtx_files))) {
+    stop("Gene count MTX files not found: ",
+         paste(mtx_files[!file.exists(mtx_files)], collapse = ", "))
+  }
+  mat <- Matrix::readMM(paste0(gene_count_stem, ".mtx"))
+  rownames(mat) <- readLines(paste0(gene_count_stem, "_features.tsv"))
+  colnames(mat) <- readLines(paste0(gene_count_stem, "_barcodes.tsv"))
+  keep <- colnames(mat) %in% colnames(sce)
+  mat  <- mat[, keep, drop = FALSE]
+  gene_mtx <- Matrix::Matrix(0L, nrow = nrow(mat), ncol = ncol(sce), sparse = TRUE)
+  gene_mtx[, match(colnames(mat), colnames(sce))] <- mat
+  colnames(gene_mtx) <- colnames(sce)
+  rownames(gene_mtx) <- rownames(mat)
 
   gene <- SingleCellExperiment::SingleCellExperiment(
     assays = list(counts = as(gene_mtx, "TsparseMatrix"))
   )
   colnames(gene) <- colnames(sce)
-  rownames(gene) <- rownames(mtx)
+  rownames(gene) <- rownames(mat)
 
   SingleCellExperiment::altExps(sce)$gene <- gene
   return(sce)

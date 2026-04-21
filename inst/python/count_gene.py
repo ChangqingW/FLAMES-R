@@ -16,6 +16,9 @@ import matplotlib.pyplot as plt
 import bisect
 from collections import namedtuple
 
+import scipy.io
+from scipy.sparse import coo_matrix
+
 import parse_gene_anno
 import helper
 
@@ -440,8 +443,8 @@ def flames_read_id_parser(read_id, methods = 'flexiplex'):
     else:
         sys.exit("Please specify the correct methods: 'flexiplex' or 'blaze'")
 
-def quantify_gene(in_bam, in_gtf, n_process, out_count_csv,  random_seed=2024):
-    """A multi-process wrapper of quantify_gene_single_process 
+def quantify_gene(in_bam, in_gtf, n_process, out_count_stem, random_seed=2024):
+    """A multi-process wrapper of quantify_gene_single_process
        Processing strategy:
         1. split the gtf file by chromosome
             2. for each chromosome, run quantify_gene_single_process
@@ -450,9 +453,8 @@ def quantify_gene(in_bam, in_gtf, n_process, out_count_csv,  random_seed=2024):
         in_bam: bam file path
         in_gtf: gtf file path
         n_process: number of process to run
-        out_count_csv: output gene count matrix file name
+        out_count_stem: output path stem (no extension); writes .mtx, _barcodes.tsv, _features.tsv
        return:
-        gene_count_mat: pd.DataFrame, a matrix of gene counts
         dedup_read_lst: a list of duplicated read id
         umi_lst: a list of umi
     """
@@ -471,50 +473,52 @@ def quantify_gene(in_bam, in_gtf, n_process, out_count_csv,  random_seed=2024):
 
     # run quantify_gene_single_process for each chromosome
     print("Assigning reads to genes...")
-    gene_count_mat_dfs, dedup_read_lst, umi_lst = [], [], []
+    triplet_chunks, dedup_read_lst, umi_lst = [], [], []
     for future in helper.multiprocessing_submit(
-                            quantify_gene_single_process, 
+                            quantify_gene_single_process,
                             in_gtf_list,
                             pbar=True,
                             pbar_unit = "gene_group",
                             preserve_order = False,
-                            n_process=n_process, 
-                            in_bam=in_bam, 
+                            n_process=n_process,
+                            in_bam=in_bam,
                             demulti_methods=demulti_methods,
                             random_seed=random_seed):
-        
-        gene_count_mat, dedup_read_lst_sub, umi_list_sub = future.result()
-        gene_count_mat_dfs.append(gene_count_mat)
+
+        triplet, dedup_read_lst_sub, umi_list_sub = future.result()
+        triplet_chunks.append(triplet)
         dedup_read_lst.extend(dedup_read_lst_sub)
         umi_lst.extend(umi_list_sub)
 
-    # combine the gene count matrix
+    # build sparse COO matrix from triplets — O(nnz) memory, no dense materialisation
     print("Writing the gene count matrix ...")
-    all_barcodes = sorted(set().union(*[df.columns for df in gene_count_mat_dfs]))
+    all_genes    = sorted({g for genes, _, _ in triplet_chunks for g in genes})
+    all_barcodes = sorted({b for _, bcs, _ in triplet_chunks for b in bcs})
+    gene_idx = {g: i for i, g in enumerate(all_genes)}
+    bc_idx   = {b: i for i, b in enumerate(all_barcodes)}
 
-    # Write one reindexed DataFrame at a time so only one extra copy lives in
-    # memory at once (previously the list comprehension materialised all copies
-    # before any was written to disk).
-    temp_file = out_count_csv + ".tmp"
+    row_idx, col_idx, data = [], [], []
+    for genes, bcs, vals in triplet_chunks:
+        row_idx.extend(gene_idx[g] for g in genes)
+        col_idx.extend(bc_idx[b]   for b in bcs)
+        data.extend(vals)
+
+    mat = coo_matrix(
+        (np.array(data, dtype=np.int32),
+         (np.array(row_idx), np.array(col_idx))),
+        shape=(len(all_genes), len(all_barcodes))
+    )
 
     try:
-        for i, df in enumerate(gene_count_mat_dfs):
-            df.reindex(columns=all_barcodes).to_csv(
-                temp_file, mode='w' if i == 0 else 'a',
-                header=(i == 0), index=True
-            )
-            gene_count_mat_dfs[i] = None  # release per-chunk memory promptly
-
-        os.rename(temp_file, out_count_csv)
-
+        scipy.io.mmwrite(out_count_stem + ".mtx", mat)
+        with open(out_count_stem + "_barcodes.tsv", "w") as f:
+            f.write("\n".join(all_barcodes) + "\n")
+        with open(out_count_stem + "_features.tsv", "w") as f:
+            f.write("\n".join(all_genes) + "\n")
     except Exception as e:
-        if os.path.exists(temp_file):
-            os.remove(temp_file)
-        print(f"An error occurred while writing to {out_count_csv}: {e}")
+        print(f"An error occurred while writing to {out_count_stem}: {e}")
+        raise
 
-    # gene_count_mat = pd.concat(gene_count_mat_dfs, 
-    #                             copy=False).fillna(0)
-    
     return dedup_read_lst, umi_lst
 
 def quantify_gene_single_process(in_gtf_df, in_bam, demulti_methods, cluster_3prim = False, verbose=False, random_seed=2024):
@@ -559,17 +563,15 @@ def quantify_gene_single_process(in_gtf_df, in_bam, demulti_methods, cluster_3pr
         read_gene_assign_df.groupby(['bc','gene_id','cluster'], observed=True)['umi']\
                            .transform(_umi_correction)
 
-    # get gene count
+    # get gene count as sparse triplets — skip unstack() to avoid dense materialisation
     if verbose:
         print("Generating per-gene UMI counts ...")
-    gene_count_df = \
+    gene_count_series = \
         read_gene_assign_df.groupby(['bc', 'gene_id'], observed=True)['umi_corrected'].nunique()
-    
-    # convert to matrix — unstack() avoids the intermediate DataFrame that
-    # reset_index().pivot() would create
-    gene_count_mat = gene_count_df.unstack(level='bc')
-    gene_count_mat = gene_count_mat.rename_axis(None, axis=0).\
-                                    rename_axis(None, axis=1)
+
+    genes_arr = gene_count_series.index.get_level_values('gene_id')
+    bcs_arr   = gene_count_series.index.get_level_values('bc')
+    vals_arr  = gene_count_series.values
 
     # get list of read_id to keep
     dedup_read_lst = list_deduplicated_reads(read_gene_assign_df)
@@ -581,8 +583,8 @@ def quantify_gene_single_process(in_gtf_df, in_bam, demulti_methods, cluster_3pr
          read_gene_assign_df['umi_corrected'].astype(str),
          read_gene_assign_df['cluster'].astype(str)]
     )
-    
-    return gene_count_mat, dedup_read_lst, umi_lst
+
+    return (genes_arr, bcs_arr, vals_arr), dedup_read_lst, umi_lst
 
 def _map_pos_grouping(mappos, min_dist=50):
     """
@@ -778,12 +780,12 @@ def quantification(annotation, outdir, pipeline, infq, in_bam,
         #     in_bam = os.path.join(outdir, "align2genome.bam")
         # if not out_fastq:
         #     out_fastq = os.path.join(outdir, "matched_reads_dedup.fastq.gz")
-        out_csv = os.path.join(outdir, "gene_count.csv")
+        out_stem = os.path.join(outdir, "gene_count")
         out_fig = os.path.join(outdir, "saturation_curve.png") if saturation_curve else None
 
         dedup_read_lst, umi_lst = \
-                        quantify_gene(in_bam, annotation, n_process, 
-                                        out_count_csv=out_csv,
+                        quantify_gene(in_bam, annotation, n_process,
+                                        out_count_stem=out_stem,
                                         random_seed=random_seed)
 
         #gene_count_mat.to_csv(out_csv)
@@ -819,12 +821,12 @@ def quantification(annotation, outdir, pipeline, infq, in_bam,
             # else:
             sample_out = out_fastq[idx]
             sys.stderr.write("parsing " + sample_bam + "...\n")
-            out_csv = os.path.join(outdir, f"{sample}_gene_count.csv")
+            out_stem = os.path.join(outdir, f"{sample}_gene_count")
             out_fig = os.path.join(outdir, f"{sample}_saturation_curve.png") if saturation_curve else None
-            
+
             dedup_read_lst, umi_lst = \
-                            quantify_gene(sample_bam, annotation, n_process, 
-                                            out_count_csv=out_csv,
+                            quantify_gene(sample_bam, annotation, n_process,
+                                            out_count_stem=out_stem,
                                             random_seed=random_seed)
 
             #pd.DataFrame({'umi':umi_lst}).to_csv(f"{outdir}/{sample}_umi_lst.csv")

@@ -233,7 +233,7 @@ example_pipeline <- function(type = "SingleCellPipeline", outdir) {
       SingleCellPipeline(
         config_file = create_config(
           outdir,
-          pipeline_parameters.do_gene_quantification = FALSE,
+          pipeline_parameters.do_gene_quantification = TRUE,
           pipeline_parameters.demultiplexer = "flexiplex"
         ),
         outdir = outdir,
@@ -770,7 +770,7 @@ create_sce_from_dir <- function(outdir, annotation, quantification = "FLAMES") {
 
   if (length(sce_list) == 1) {
     tryCatch({
-      sce_list[[1]] <- add_gene_counts(sce_list[[1]], file.path(outdir, "gene_count.csv"))
+      sce_list[[1]] <- add_gene_counts(sce_list[[1]], file.path(outdir, "gene_count"))
     }, error = function(e) {
       message(sprintf("Gene counts not added to SingleCellExperiment object: %s", e$message))
     })
@@ -778,7 +778,7 @@ create_sce_from_dir <- function(outdir, annotation, quantification = "FLAMES") {
   } else {
     sce_list <- sapply(names(sce_list), \(x) {
       tryCatch({
-        sce_list[[x]] <- add_gene_counts(sce_list[[x]], paste(x, "gene_count.csv", sep = "_"))
+        sce_list[[x]] <- add_gene_counts(sce_list[[x]], paste0(x, "_gene_count"))
       }, error = function(e) {
         message(sprintf("Gene counts not added to sample %s: %s", x, e$message))
       })
