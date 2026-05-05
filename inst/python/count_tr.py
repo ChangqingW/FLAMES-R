@@ -382,73 +382,62 @@ def parse_realigned_bam_bulk(bam_in, fa_idx_f, known_transcripts, min_sup_reads,
             tr = rec.reference_name
             tr_cov = float(map_en-map_st)/fa_idx[tr]
             tr_cov_dict.setdefault(tr, []).append(tr_cov)
-            if sample_name + "_" + rec.query_name not in read_dict:
-                read_dict.setdefault(sample_name + "_" + rec.query_name, []).append((tr, rec.get_tag("AS"), tr_cov, float(
+            read_key = (sample_name, rec.query_name)
+            if read_key not in read_dict:
+                read_dict.setdefault(read_key, []).append((tr, rec.get_tag("AS"), tr_cov, float(
                     rec.query_alignment_length)/rec.infer_read_length(), rec.mapping_quality))
             else:
-                if rec.get_tag("AS") > read_dict[sample_name + "_" + rec.query_name][0][1]:
-                    read_dict[sample_name + "_" + rec.query_name].insert(0, (tr, rec.get_tag("AS"), tr_cov, float(
+                if rec.get_tag("AS") > read_dict[read_key][0][1]:
+                    read_dict[read_key].insert(0, (tr, rec.get_tag("AS"), tr_cov, float(
                         rec.query_alignment_length)/rec.infer_read_length(), rec.mapping_quality))
                 # same aligned sequence
-                elif rec.get_tag("AS") == read_dict[sample_name + "_" + rec.query_name][0][1] and float(rec.query_alignment_length)/rec.infer_read_length() == read_dict[sample_name + "_" + rec.query_name][0][3]:
+                elif rec.get_tag("AS") == read_dict[read_key][0][1] and float(rec.query_alignment_length)/rec.infer_read_length() == read_dict[read_key][0][3]:
                     # choose the one with higher transcript coverage, might be internal TSS
-                    if tr_cov > read_dict[sample_name + "_" + rec.query_name][0][2]:
-                        read_dict[sample_name + "_" + rec.query_name].insert(0, (tr, rec.get_tag("AS"), tr_cov, float(
+                    if tr_cov > read_dict[read_key][0][2]:
+                        read_dict[read_key].insert(0, (tr, rec.get_tag("AS"), tr_cov, float(
                             rec.query_alignment_length)/rec.infer_read_length(), rec.mapping_quality))
                 else:
-                    read_dict[sample_name + "_" + rec.query_name].append((tr, rec.get_tag("AS"), tr_cov, float(
+                    read_dict[read_key].append((tr, rec.get_tag("AS"), tr_cov, float(
                         rec.query_alignment_length)/rec.infer_read_length(), rec.mapping_quality))
             if tr not in fa_idx:
                 cnt_stat["not_in_annotation"] += 1
                 print("\t" + str(tr), "not in annotation ???")
-    tr_kept = set(tr for tr in tr_cov_dict if 
+    tr_kept = set(tr for tr in tr_cov_dict if
         (len([it for it in tr_cov_dict[tr] if it > 0.9]) >= min_sup_reads) or tr in known_transcripts)
-    #unique_tr_count = Counter(read_dict[r][0][0]
-    #                          for r in read_dict if read_dict[r][0][2] > 0.9)
-    for r, v in read_dict.items():
+    for (bc, read_name), v in read_dict.items():
         tmp = [it for it in v if it[0] in tr_kept]
         if len(tmp) > 0:
             hit = tmp[0]  # transcript_id, pct_ref, pct_reads
         else:
             cnt_stat["no_good_match"] += 1
             continue
-        # below line creates issue when header line has more than one _.
-        # in this case, umi is assumed to be delimited from the barcode by the last _
-        # bc, umi = r.split("#")[0].split("_")  # assume cleaned barcode
-        r_split = r.split("#")[0].split("_")
-        if len(r_split) == 2:
-            bc, umi = r_split
-        elif len(r_split) > 2: # when '_' in file names
-            umi = r_split[-1]
-            bc = "_".join(r_split[:-1])
-        else:
-            raise ValueError("Please check if barcode and UMI are delimited by \"_\":\n" + r_split)
+        # TODO: use UB:Z: tag per HTSlib convention when bulk samples carry UMIs
 
         if len(tmp) == 1 and tmp[0][4] > 0:
             if bc not in bc_tr_count_dict:
                 bc_tr_count_dict[bc] = {}
-            bc_tr_count_dict[bc].setdefault(hit[0], []).append(umi)
+            bc_tr_count_dict[bc].setdefault(hit[0], []).append(read_name)
             cnt_stat["counted_reads"] += 1
         elif len(tmp) > 1 and tmp[0][1] == tmp[1][1] and tmp[0][3] == tmp[1][3]:
             if hit[1] > 0.8:
                 if bc not in bc_tr_count_dict:
                     bc_tr_count_dict[bc] = {}
-                bc_tr_count_dict[bc].setdefault(hit[0], []).append(umi)
+                bc_tr_count_dict[bc].setdefault(hit[0], []).append(read_name)
                 cnt_stat["counted_reads"] += 1
             else:
                 cnt_stat["ambigious_reads"] += 1
                 if bc not in bc_tr_badcov_count_dict:
                     bc_tr_badcov_count_dict[bc] = {}
-                bc_tr_badcov_count_dict[bc].setdefault(hit[0], []).append(umi)
+                bc_tr_badcov_count_dict[bc].setdefault(hit[0], []).append(read_name)
         elif hit[2] < min_tr_coverage or hit[3] < min_read_coverage:
             cnt_stat["not_enough_coverage"] += 1
             if bc not in bc_tr_badcov_count_dict:
                 bc_tr_badcov_count_dict[bc] = {}
-            bc_tr_badcov_count_dict[bc].setdefault(hit[0], []).append(umi)
+            bc_tr_badcov_count_dict[bc].setdefault(hit[0], []).append(read_name)
         else:
             if bc not in bc_tr_count_dict:
                 bc_tr_count_dict[bc] = {}
-            bc_tr_count_dict[bc].setdefault(hit[0], []).append(umi)
+            bc_tr_count_dict[bc].setdefault(hit[0], []).append(read_name)
             cnt_stat["counted_reads"] += 1
     print(("\t" + str(cnt_stat)))
     return bc_tr_count_dict, bc_tr_badcov_count_dict, tr_kept
