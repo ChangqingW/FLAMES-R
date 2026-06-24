@@ -22,6 +22,7 @@ find_isoform <- function(annotation, genome_fa, genome_bam, outdir, config) {
 #' @importFrom bambu writeToGTF prepareAnnotations bambu
 #' @importFrom withr with_package
 #' @importFrom SummarizedExperiment assays rowRanges
+#' @importFrom Rsamtools FaFile
 find_isoform_bambu <- function(annotation, genome_fa, genome_bam, outdir, config) {
   # if annotation is .gtf.gz, unzip as a temp file
   useTempAnnot <- FALSE
@@ -38,6 +39,17 @@ find_isoform_bambu <- function(annotation, genome_fa, genome_bam, outdir, config
     annotation <- bambuTempAnnot # override using zipped annotation file
   }
   bambuAnnotations <- bambu::prepareAnnotations(annotation)
+
+  # https://github.com/GoekeLab/bambu/issues/581
+  if (file.exists(genome_fa)) {
+    genome_fa <- tryCatch(
+      Rsamtools::FaFile(genome_fa),
+      error = function(e) {
+        warning(sprintf("Could not create FaFile from %s: %s", genome_fa, conditionMessage(e)))
+        genome_fa
+      }
+    )
+  }
 
   # Tmp fix: remove withr if bambu imports seqlengths properly
   # https://github.com/GoekeLab/bambu/issues/255
