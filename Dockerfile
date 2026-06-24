@@ -1,6 +1,6 @@
 # Multi-stage build for better caching
 # Stage 1: Build base with all dependencies
-FROM rocker/r-ver:4.5.1 AS deps-builder
+FROM rocker/r-ver:4.6.0 AS deps-builder
 
 WORKDIR /tmp/build
 
@@ -29,7 +29,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Set Bioconductor version for devel
-ENV BIOCONDUCTOR_VERSION=3.22
+ENV BIOCONDUCTOR_VERSION=3.23
 ENV BASILISK_USE_SYSTEM_DIR=1
 
 # Install BiocManager and set to devel version
@@ -44,7 +44,7 @@ COPY DESCRIPTION .
 RUN Rscript -e "remotes::install_deps('.', dependencies=TRUE, repos=BiocManager::repositories())"
 
 # Stage 2: Final image
-FROM rocker/r-ver:4.5.1
+FROM rocker/r-ver:4.6.0
 
 WORKDIR /home/flames
 
@@ -73,7 +73,7 @@ RUN apt-get update && \
 COPY --from=deps-builder /usr/local/lib/R/site-library /usr/local/lib/R/site-library
 
 # Set environment variables
-ENV BIOCONDUCTOR_VERSION=3.22
+ENV BIOCONDUCTOR_VERSION=3.23
 ENV BASILISK_USE_SYSTEM_DIR=1
 
 # Copy project files
@@ -92,7 +92,7 @@ RUN Rscript -e "library(FLAMES)" && \
 # Initialize basilisk environment
 RUN Rscript -e 'basilisk::basiliskRun(env = FLAMES:::flames_env, fun = function(){})'
 
-# Re-install xgboost version 1.7.11.1
-RUN Rscript -e "remove.packages('xgboost'); remotes::install_version('xgboost', version = '1.7.11.1', repos = 'http://cran.us.r-project.org')"
+# Pin xgboost version for bambu
+RUN Rscript -e "remove.packages('xgboost'); remotes::install_version('xgboost', version = '3.2.1.1', repos = 'http://cran.us.r-project.org')"
 
 CMD ["R", "--no-save"]
