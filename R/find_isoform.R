@@ -22,7 +22,7 @@ find_isoform <- function(annotation, genome_fa, genome_bam, outdir, config) {
 #' @importFrom bambu writeToGTF prepareAnnotations bambu
 #' @importFrom withr with_package
 #' @importFrom SummarizedExperiment assays rowRanges
-#' @importFrom Rsamtools FaFile
+#' @importFrom Rsamtools FaFile indexFa
 find_isoform_bambu <- function(annotation, genome_fa, genome_bam, outdir, config) {
   # if annotation is .gtf.gz, unzip as a temp file
   useTempAnnot <- FALSE
@@ -43,7 +43,14 @@ find_isoform_bambu <- function(annotation, genome_fa, genome_bam, outdir, config
   # https://github.com/GoekeLab/bambu/issues/581
   if (file.exists(genome_fa)) {
     genome_fa <- tryCatch(
-      Rsamtools::FaFile(genome_fa),
+      {
+        # FaFile is lazy and does not build the .fai index; bambu reads
+        # seqlevels via scanFaIndex(), so the index must exist on disk.
+        if (!file.exists(paste0(genome_fa, ".fai"))) {
+          Rsamtools::indexFa(genome_fa)
+        }
+        Rsamtools::FaFile(genome_fa)
+      },
       error = function(e) {
         warning(sprintf("Could not create FaFile from %s: %s", genome_fa, conditionMessage(e)))
         genome_fa
