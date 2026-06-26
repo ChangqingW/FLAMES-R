@@ -36,6 +36,8 @@ reference:
   - title: Barcode demultiplexing
     contents:
       - find_barcode
+      - barcode_segment
+      - barcode_group
       - blaze
       - flexiplex
       - cutadapt
