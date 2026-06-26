@@ -722,7 +722,7 @@ void Isoforms::match_known_annotation
 					} else {
 						new_exons[i] = a_site;
 					}
-				} else if (0 < i < raw_iso_key.size() - 1) { // a site from the middle somewhere
+				} else if (0 < i && i < (int)raw_iso_key.size() - 1) { // a site from the middle somewhere
 					std::vector<int> splice_site_vec (splice_site.begin(), splice_site.end());
 					
 					int closest = take_closest(splice_site_vec, a_site);

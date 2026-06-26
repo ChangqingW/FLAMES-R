@@ -62,6 +62,7 @@ RUN apt-get update && \
         liblzma-dev \
         libncurses5-dev \
         zlib1g-dev \
+        libuv1 \
         wget \
         git \
         ca-certificates && \

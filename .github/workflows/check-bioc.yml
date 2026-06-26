@@ -470,8 +470,9 @@ jobs:
       - name: Start persistent test container
         run: |
           echo "Starting persistent container: ${{ env.TEST_IMAGE }}"
-          # Start container in background with sleep to keep it running
-          docker run -d --name test-container ${{ env.TEST_IMAGE }} sleep infinity
+          # seccomp=unconfined required due to R CMD check reinstalls FLAMES,
+          # which rebuilds the basilisk/reticulate Python (pyenv).
+          docker run -d --name test-container --security-opt seccomp=unconfined ${{ env.TEST_IMAGE }} sleep infinity
 
       - name: Install test dependencies in container
         run: |

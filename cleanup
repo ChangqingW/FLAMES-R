@@ -1,0 +1,3 @@
+#!/bin/sh
+rm -f inst/bin/minimap2 inst/bin/oarfish
+rmdir inst/bin 2>/dev/null || true
