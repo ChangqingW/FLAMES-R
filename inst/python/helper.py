@@ -52,7 +52,7 @@ class param:
         for key in kwargs.keys():
             self.__dict__[key] = kwargs[key]
     def add(self, attr_name, attr_val, overwrite = True):
-        if attr_name in __dict__.keys() and not overwrite:
+        if attr_name in self.__dict__ and not overwrite:
             pass
         else:    
             self.__dict__[attr_name] = attr_val

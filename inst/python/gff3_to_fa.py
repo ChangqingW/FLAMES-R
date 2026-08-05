@@ -48,10 +48,8 @@ def get_transcript_seq(fa_file, fa_out_f, chr_to_gene, transcript_dict,
     fa_dict = {}
     fa_out = open(fa_out_f, "w")
     for ch, seq in get_fa(fa_file):
-        # print(ch)
         if ch not in chr_to_gene:
             continue
-        # print("start to process chromosome", ch)
         if (not isinstance(chr_to_gene[ch], list)):
             chr_to_gene[ch] = [chr_to_gene[ch]]
         for gene in chr_to_gene[ch]:
@@ -112,37 +110,8 @@ def get_transcript_seq(fa_file, fa_out_f, chr_to_gene, transcript_dict,
                                 global_seq_dict[tr_seq] = tr
                             else:
                                 global_seq_dict[tr_seq] = tr
-                                #write_fa(fa_out, tr, tr_seq)
-    # so basicially, after this entire funciton, global_seq_dict is empty!
-        # print(len(chr_to_gene))
-    # print(len(transcript_dict))
-    # print(len(gene_to_transcript))
-    # print(len(transcript_to_exon))
-    # with open("/Users/voogd.o/Documents/FlamesNew/FLAMESsc_output/get_tran_seq_logfile.txt", "w") as f:
-    #    f.write("Hello this is the start of the file\n")
-    #    f.write("chr_to_gene: "
-    #        + str(len(chr_to_gene))
-    #        + "\ntranscript_dict: "
-    #        + str(len(transcript_dict))
-    #        + "\ngene_to_transcript: "
-    #        + str(len(gene_to_transcript))
-    #        + "\ntranscript_to_exon: "
-    #        + str(len(transcript_to_exon))
-    #        + "\n")
-    #    f.write(str(len(global_seq_dict)))
-    #    f.write("\n")
-    #    f.write(str(global_seq_dict))
 
     for tr_seq in global_seq_dict:
         write_fa(fa_out, global_seq_dict[tr_seq], tr_seq)
     fa_out.close()
     # indexing is now handled with Rsamtools back in find_isoform.R
-    # print subprocess.check_output(["samtools faidx {}".format(fa_out_f)], shell=True, stderr=subprocess.STDOUT)
-
-
-# if __name__ == '__main__':
-#    gff_f = "/stornext/General/data/user_managed/grpu_mritchie_1/SCmixology/PromethION/isoforms/isoform_annotated.sample.nofilter.gff3"
-#    fa_file = "/stornext/General/data/user_managed/grpu_mritchie_1/LuyiTian/Index/Homo_sapiens.GRCh38.dna.primary_assembly.fa"
-#    fa_out_f = "/stornext/General/data/user_managed/grpu_mritchie_1/SCmixology/PromethION/isoforms/human_GRCh38_transcript.sample.fa"
-#    chr_to_gene, transcript_dict, gene_to_transcript, transcript_to_exon = parse_gff_tree(gff_f)
-#    get_transcript_seq(fa_file, fa_out_f, chr_to_gene, transcript_dict, gene_to_transcript, transcript_to_exon)

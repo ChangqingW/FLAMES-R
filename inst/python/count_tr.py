@@ -66,8 +66,7 @@ def umi_dedup(l, has_UMI, max_ed=1):
 
 
 def wrt_tr_to_csv(bc_tr_count_dict, transcript_dict, csv_f, 
-                    transcript_dict_ref=None, has_UMI=False,
-                    print_saturation=False):
+                    transcript_dict_ref=None, has_UMI=False):
     """
     Write transcript count to csv file
     """
@@ -84,7 +83,6 @@ def wrt_tr_to_csv(bc_tr_count_dict, transcript_dict, csv_f,
         if v is None:
             print (k,v)
     tr_cnt = {}
-    dup_count = ()
     for tr in all_tr:
         read_counts, dup_counts = zip(
             *[umi_dedup(bc_tr_count_dict[bc][tr], has_UMI)
@@ -105,10 +103,6 @@ def wrt_tr_to_csv(bc_tr_count_dict, transcript_dict, csv_f,
         f.write(",".join([str(x) for x in dup_counts])+"\n")
     f.close()
     
-    # print saturation if requested
-    if print_saturation and has_UMI and sum(dup_counts):
-        helper.green_msg(f"The estimated saturation is {1-len(dup_count)/sum(dup_count)}")
-
     return tr_cnt
 
 
@@ -558,8 +552,7 @@ def quantification(config_dict, annotation, known_transcripts, outdir, pipeline)
         tr_cnt = wrt_tr_to_csv(bc_tr_count_dict, transcript_dict_i, tr_cnt_csv,
                             transcript_dict, bam_has_UB_tag(realign_bam))
         wrt_tr_to_csv(bc_tr_badcov_count_dict, transcript_dict_i, tr_badcov_cnt_csv,
-                    transcript_dict, bam_has_UB_tag(realign_bam),
-                    print_saturation = False)
+                    transcript_dict, bam_has_UB_tag(realign_bam))
         annotate_filter_gff(isoform_gff3, annotation, isoform_gff3_f, FSM_anno_out,
                         tr_cnt, config_dict["isoform_parameters"]["min_sup_cnt"], verbose=False)
         return
@@ -585,10 +578,10 @@ def quantification(config_dict, annotation, known_transcripts, outdir, pipeline)
             
         tr_cnt = wrt_tr_to_csv(
             bc_tr_count_dict, transcript_dict_i, tr_cnt_csv,
-                transcript_dict, has_UMI=False, print_saturation = False)
+                transcript_dict, has_UMI=False)
         wrt_tr_to_csv(
             bc_tr_badcov_count_dict, transcript_dict_i, tr_badcov_cnt_csv,
-                      transcript_dict, has_UMI=False, print_saturation = False)
+                      transcript_dict, has_UMI=False)
         annotate_filter_gff(
             isoform_gff3, annotation, isoform_gff3_f, FSM_anno_out, tr_cnt, 
                 config_dict["isoform_parameters"]["min_sup_cnt"], verbose=False)
@@ -620,8 +613,7 @@ def quantification(config_dict, annotation, known_transcripts, outdir, pipeline)
                                    transcript_dict, bam_has_UB_tag(sample_bam))
             sys.stderr.write("wrt_tr_to_csv for" + sample_bam + "done\n")
             wrt_tr_to_csv(bc_tr_badcov_count_dict, transcript_dict_i, tr_badcov_cnt_csv,
-                          transcript_dict, bam_has_UB_tag(sample_bam),
-                          print_saturation = False)
+                          transcript_dict, bam_has_UB_tag(sample_bam))
             del bc_tr_count_dict, bc_tr_badcov_count_dict, tr_cnt
             ##gc.collect()
 
