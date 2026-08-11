@@ -80,6 +80,9 @@ ENV BASILISK_USE_SYSTEM_DIR=1
 # Copy project files
 COPY . .
 
+# Pre-build a portable python
+RUN Rscript -e 'reticulate::install_python(version = "3.11.9", optimized = FALSE)'
+
 # Install only FLAMES package (dependencies already installed)
 RUN Rscript -e "BiocManager::install('basilisk', type = 'source', force = TRUE); install.packages('.', repos = NULL, type = 'source')"
 
