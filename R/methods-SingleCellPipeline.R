@@ -30,16 +30,20 @@
 #'
 #' @return A \code{FLAMES.SingleCellPipeline} object. The pipeline can be run using
 #' \code{run_FLAMES(pipeline)}. The results can be accessed with \code{experiment(pipeline)}.
-#' The pipeline also outputs a number of output files into the given \code{outdir} directory.
-#' Some of these output files include:
+#' The pipeline also writes a number of files into the given \code{outdir} directory,
+#' for example:
 #' \describe{
-#'  \item{matched_reads.fastq}{ - fastq file with reads demultiplexed}
-#'  \item{align2genome.bam}{ - sorted BAM file with reads aligned to genome}
-#'  \item{matched_reads_dedup.fastq}{ - demultiplexed and UMI-deduplicated fastq file}
-#'  \item{transcript_assembly.fa}{ - transcript sequence from the isoforms}
-#'  \item{isoform_annotated.filtered.gff3}{ - isoforms in gff3 format (also contained in the SingleCellExperiment)}
-#'  \item{realign2transcript.bam}{ - sorted realigned BAM file using the transcript_assembly.fa as reference}
+#'  \item{matched_reads.fastq.gz}{ - demultiplexed reads (barcode/UMI in the read header)}
+#'  \item{align2genome.bam}{ - sorted BAM file with reads aligned to the genome}
+#'  \item{gene_count.mtx, gene_count_features.tsv, gene_count_barcodes.tsv}{ - gene count matrix (Matrix Market format)}
+#'  \item{isoform_annotated.gtf}{ - updated annotation with novel isoforms (\code{.gff3} when not using bambu)}
+#'  \item{transcript_assembly.fa}{ - transcript sequences from the isoforms}
+#'  \item{realign2transcript.bam}{ - sorted realigned BAM file using transcript_assembly.fa as reference}
+#'  \item{experiment.rds}{ - the serialised SingleCellExperiment returned by \code{experiment(pipeline)}}
 #' }
+#' See the \emph{Expected output files} section of the FLAMES vignette
+#' (\code{vignette("FLAMES_vignette")}) for the complete, per-step list
+#' (including the Oarfish and multi-sample variants).
 #'
 #' @seealso
 #' \code{\link{create_config}} for creating a configuration file,

@@ -12,7 +12,7 @@ A \code{SingleCellExperiment} with 7,240 rows and 60 columns:
 <https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE154869>
 }
 \usage{
-scmixology_lib10
+data(scmixology_lib10)
 }
 \value{
 A \code{SingleCellExperiment} object

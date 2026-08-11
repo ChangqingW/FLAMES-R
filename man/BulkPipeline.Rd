@@ -40,6 +40,11 @@ use a copy from bioconda via \code{basilisk}.}
 }
 \value{
 A \code{FLAMES.Pipeline} object. The pipeline could be run using \code{\link{run_FLAMES}}, and / or resumed using \code{\link{resume_FLAMES}}.
+The results are accessed with \code{experiment(pipeline)}; the pipeline also
+writes its intermediate and final files into \code{outdir}. Bulk pipelines skip
+the barcode-demultiplexing and gene-quantification steps. See the
+\emph{Expected output files} section of the FLAMES vignette
+(\code{vignette("FLAMES_vignette")}) for the full list.
 }
 \description{
 Semi-supervised isofrom detection and annotation for long read data.

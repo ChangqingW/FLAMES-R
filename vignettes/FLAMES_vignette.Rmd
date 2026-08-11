@@ -252,6 +252,34 @@ pipeline <- run_FLAMES(pipeline)
 
 For protocols with barcodes split across two positions, add `MATCHED_SPLIT` segments and a corresponding entry in `barcode_groups`. See `?barcode_segment` and `?barcode_group` for details on these types. For programmatic segment construction from R (e.g. in scripts or packages), the `barcode_segment()` and `barcode_group()` constructors can be passed directly to `find_barcode()` via its `segments` argument.
 
+## Expected output files
+
+Besides the returned `SingleCellExperiment` / `SummarizedExperiment` object, FLAMES writes intermediate and final files into the `outdir` directory.
+
+The table below lists the files a **single-cell** pipeline (`SingleCellPipeline` / `sc_long_pipeline`) produces, grouped by the step that writes them. A step only runs (and only writes its files) when enabled by the corresponding `do_*` flag in the configuration, and the exact file sometimes depends on other config choices, as noted.
+
+| Step (config flag) | File(s) in `outdir` | Contents |
+|---|---|---|
+| Barcode demultiplexing (`do_barcode_demultiplex`) | `matched_reads.fastq.gz` | Reads with the cell barcode and UMI identified and trimmed into the read header. |
+| Genome alignment (`do_genome_alignment`) | `align2genome.bam` (+ `.bai`) | Reads aligned to the reference genome, sorted and indexed. |
+| | `reference.bed` | Annotation converted to BED for splice-aware alignment (written when `alignment_parameters.use_junctions` is `true`). |
+| Gene quantification (`do_gene_quantification`) | `gene_count.mtx`, `gene_count_features.tsv`, `gene_count_barcodes.tsv` | Gene-by-cell count matrix in Matrix Market format, with row (gene ID) and column (cell barcode) labels. **This replaces the single dense CSV produced by older versions.** |
+| | `matched_reads_dedup.fastq.gz` | Demultiplexed reads after UMI deduplication. |
+| | `saturation_curve.png` | Sequencing-saturation plot. |
+| Isoform identification (`do_isoform_identification`) | `isoform_annotated.gtf` (bambu) or `isoform_annotated.gff3` (FLAMES) | Updated annotation including novel isoforms. bambu is used when `bambu_isoform_identification` is `true`; otherwise FLAMES' own detection is used, which additionally writes `tss_tes.bedgraph` and, if `generate_raw_isoform` is `true`, `splice_raw.gff3`. |
+| | `isoform_annotated_unfiltered.gtf` | bambu only - isoforms before count filtering. |
+| | `transcript_assembly.fa` (+ `.fai`) | Transcript sequences extracted from the updated annotation; used as the realignment reference. |
+| Read realignment (`do_read_realignment`) | `realign2transcript.bam` | Reads realigned to `transcript_assembly.fa`. Sorted by coordinate for FLAMES quantification, or by cell-barcode (`CB`) tag for Oarfish. |
+| Transcript quantification (`do_transcript_quantification`) | FLAMES: `transcript_count.csv.gz`, `isoform_FSM_annotation.csv` | Transcript-by-cell count matrix and its full-splice-match annotation. |
+| | Oarfish (`oarfish_quantification: true`): `oarfish.count.mtx`, `oarfish.features.txt`, `oarfish.barcodes.txt` | Transcript-by-cell count matrix (Matrix Market) with row/column labels. |
+| | `experiment.rds` | Serialised `SingleCellExperiment` - the object returned by `experiment(pipeline)`. |
+
+When run through `sc_long_pipeline()`, the whole pipeline object is additionally saved as `pipeline.rds`, which can be reloaded and continued with `resume_FLAMES(readRDS(file.path(outdir, "pipeline.rds")))`.
+
+**Multi-sample** pipelines (`MultiSampleSCPipeline`) write per-sample files prefixed with the sample name - e.g. `<sample>_matched_reads.fastq.gz`, `<sample>_gene_count.mtx`, `<sample>_realign2transcript.bam`, `<sample>_transcript_count.csv.gz` - while shared reference outputs (`isoform_annotated.*`, `transcript_assembly.fa`) are written once, unprefixed.
+
+**Bulk** pipelines (`BulkPipeline`) skip the barcode-demultiplexing and gene-quantification steps, so they do not produce the `matched_reads*` or `gene_count*` files, and return a `SummarizedExperiment`.
+
 ## FLAMES on Windows
 Due to FLAMES requiring minimap2 and pysam, FLAMES is currently unavaliable on Windows.
 

@@ -12,7 +12,7 @@ A \code{SingleCellExperiment}
 <https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE126906>
 }
 \usage{
-scmixology_lib90
+data(scmixology_lib90)
 }
 \value{
 A \code{SingleCellExperiment} object

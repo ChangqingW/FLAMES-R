@@ -16,7 +16,10 @@
 #'
 #' @return A \code{FLAMES.MultiSampleSCPipeline} object. The pipeline can be run using
 #'   the \code{\link{run_FLAMES}} function. The resulting list of SingleCellExperiment
-#'   objects can be accessed using the \code{experiment} method.
+#'   objects can be accessed using the \code{experiment} method. Per-sample output
+#'   files in \code{outdir} are prefixed with the sample name (e.g.
+#'   \code{<sample>_gene_count.mtx}); see the \emph{Expected output files} section
+#'   of the FLAMES vignette (\code{vignette("FLAMES_vignette")}) for the full list.
 #'
 #' @seealso
 #' \code{\link{SingleCellPipeline}} for single-sample long data and more details on the
