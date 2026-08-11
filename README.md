@@ -35,17 +35,22 @@ Please consider using Docker or Singularity instead if you cannot install FLAMES
 ### Docker
 
 ```
-docker pull ghcr.io/mritchielab/flames:20af1ce
+# Latest build that passed CI checks:
+docker pull ghcr.io/mritchielab/flames:devel-latest
 # To start an R session:
-docker run -it ghcr.io/mritchielab/flames:20af1ce
+docker run -it ghcr.io/mritchielab/flames:devel-latest
 # Or a bash session:
-docker run -it ghcr.io/mritchielab/flames:20af1ce /bin/bash
+docker run -it ghcr.io/mritchielab/flames:devel-latest /bin/bash
+```
+
+For a reproducible pin, use a specific `devel-<short-sha>` tag from the
+[list of available tags](https://github.com/mritchielab/FLAMES/pkgs/container/flames).
 ```
 
 ### Singularity
 
 ```
-singularity pull flames.sif docker://ghcr.io/mritchielab/flames:20af1ce
+singularity pull flames.sif docker://ghcr.io/mritchielab/flames:devel-latest # or devel-<short-sha>
 singularity shell -e --writable-tmpfs flames.sif
 ```
 

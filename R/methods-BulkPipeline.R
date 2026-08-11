@@ -366,6 +366,7 @@ setGeneric("run_FLAMES", function(pipeline, overwrite = FALSE) {
 #' @rdname run_FLAMES
 #' @export
 setMethod("run_FLAMES", "FLAMES.Pipeline", function(pipeline, overwrite = FALSE) {
+  flames_log_revision()
   if (!prerun_check(pipeline, overwrite)) {
     return(pipeline)
   }
@@ -411,6 +412,7 @@ setGeneric("resume_FLAMES", function(pipeline) {
 #' @rdname resume_FLAMES
 #' @export
 setMethod("resume_FLAMES", "FLAMES.Pipeline", function(pipeline) {
+  flames_log_revision()
   configured_steps <- pipeline@completed_steps[pipeline@steps]
   unfinished_steps <- names(which(!configured_steps))
   if (length(unfinished_steps) == 0) {

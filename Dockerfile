@@ -96,4 +96,11 @@ RUN Rscript -e 'basilisk::basiliskRun(env = FLAMES:::flames_env, fun = function(
 # Pin xgboost version for bambu
 RUN Rscript -e "remove.packages('xgboost'); remotes::install_version('xgboost', version = '3.2.1.1', repos = 'http://cran.us.r-project.org')"
 
+# Record the git commit the image was built from so it can be recovered from
+# any pulled image regardless of the (possibly moving) tag used. Passed by CI
+# as a build-arg; empty for local builds. Placed last so it never busts the
+# cache of the expensive layers above. FLAMES prints it on startup (see zzz.R).
+ARG GIT_SHA=
+ENV FLAMES_IMAGE_REVISION=${GIT_SHA}
+
 CMD ["R", "--no-save"]

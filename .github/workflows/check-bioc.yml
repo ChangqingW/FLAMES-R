@@ -407,6 +407,10 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          # Baked into the image as FLAMES_IMAGE_REVISION so the exact commit is
+          # recoverable even when users pull a moving tag (e.g. devel-latest).
+          build-args: |
+            GIT_SHA=${{ github.sha }}
           cache-from: |
             type=gha,scope=final
             type=registry,ref=${{ env.DEPS_IMAGE }}:${{ github.ref_name }}
