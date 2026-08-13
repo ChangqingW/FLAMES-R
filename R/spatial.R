@@ -207,9 +207,9 @@ plot_spatial_feature <- function(
       ),
       ggplot2::aes(x = x, y = y, col = feature), alpha = 0
     ) +
-    guides(alpha = "none") +
-    scale_alpha_continuous(range = c(0, 1)) +
-    scale_colour_gradient(low = "white", high = color)
+    ggplot2::guides(alpha = "none") +
+    ggplot2::scale_alpha_continuous(range = c(0, 1)) +
+    ggplot2::scale_colour_gradient(low = "white", high = color)
 }
 
 plot_spatial <- function(

@@ -4,6 +4,11 @@
 # and readID represents the specific read identifier. The barcode and UMI are
 # written into the read header as SAM tags (CB:Z:/UB:Z:) in the comment field,
 # so tools such as minimap2 -y can propagate them to the resulting BAM.
+#
+# Equivalent awk one-liner:
+#   zcat in.fq.gz | awk 'NR%4==1{split(substr($1,2),a,"#"); split(a[1],b,"_"); \
+#     print $1"\tCB:Z:"b[1]"\tUB:Z:"b[2]; next}1' | gzip > out.fq.gz
+# Using mawk and pigz  (pigz -dc / pigz) could be faster than the python script
 
 import sys
 import gzip

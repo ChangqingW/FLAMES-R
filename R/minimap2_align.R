@@ -26,7 +26,8 @@ check_status_code <- function(status_code, command, command_name = "Process") {
         status_code,
         ifelse(
           status_code == 137,
-          "This is likely due to running out of memory."
+          "This is likely due to running out of memory.",
+          ""
         )
       )
     )
