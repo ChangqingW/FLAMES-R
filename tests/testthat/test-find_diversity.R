@@ -1,9 +1,5 @@
 test_that("find_diversity returns a numeric matrix with correct shape", {
-  set.seed(42)
-  sce <- scuttle::mockSCE(ncells = 50, ngenes = 30)
-  SummarizedExperiment::rowData(sce)$gene_id <- sort(
-    paste0("gene", sample(1:9, nrow(sce), replace = TRUE))
-  )
+  sce <- make_diversity_sce(ncells = 50, ngenes = 30)
 
   res <- find_diversity(sce, threads = 1, show_progress = FALSE)
 

@@ -1,11 +1,7 @@
 test_that("barcode_output_file_identical", {
   outdir <- tempfile()
   dir.create(outdir)
-  bc_allow <- file.path(outdir, "bc_allow.tsv")
-  R.utils::gunzip(
-    filename = system.file("extdata/bc_allow.tsv.gz", package = "FLAMES"),
-    destname = bc_allow, remove = FALSE, overwrite = TRUE
-  )
+  bc_allow <- local_bc_allow()
 
   find_barcode(
     max_bc_editdistance = 2, max_flank_editdistance = 8,
@@ -13,12 +9,7 @@ test_that("barcode_output_file_identical", {
     barcodes_file = bc_allow,
     reads_out = file.path(outdir, "out.fq"),
     stats_out = file.path(outdir, "stats.tsv"),
-    threads = 1, pattern = c(
-      primer = "CTACACGACGCTCTTCCGATCT",
-      BC = paste0(rep("N", 16), collapse = ""),
-      UMI = paste0(rep("N", 12), collapse = ""),
-      polyT = paste0(rep("T", 9), collapse = "")
-    ), TSO_seq = "", TSO_prime = 3, full_length_only = FALSE, strand = "+"
+    threads = 1, pattern = barcode_pattern(), TSO_seq = "", TSO_prime = 3, full_length_only = FALSE, strand = "+"
   )
 
   expect_identical(
@@ -37,11 +28,7 @@ test_that("multiple fastq files as one sample", {
   c(outdirx, outdiry, fastq_dir) |>
     sapply(dir.create)
 
-  bc_allow <- file.path(outdirx, "bc_allow.tsv")
-  R.utils::gunzip(
-    filename = system.file("extdata/bc_allow.tsv.gz", package = "FLAMES"),
-    destname = bc_allow, remove = FALSE, overwrite = TRUE
-  )
+  bc_allow <- local_bc_allow()
   # split the fastq file
   lines <- readLines(system.file("extdata", "fastq", "musc_rps24.fastq.gz", package = "FLAMES"))
   i <- 1
@@ -57,12 +44,7 @@ test_that("multiple fastq files as one sample", {
     barcodes_file = bc_allow,
     reads_out = file.path(outdirx, "out.fq"),
     stats_out = file.path(outdirx, "stats.tsv"),
-    threads = 1, pattern = c(
-      primer = "CTACACGACGCTCTTCCGATCT",
-      BC = paste0(rep("N", 16), collapse = ""),
-      UMI = paste0(rep("N", 12), collapse = ""),
-      polyT = paste0(rep("T", 9), collapse = "")
-    ), TSO_seq = "", TSO_prime = 3, full_length_only = FALSE
+    threads = 1, pattern = barcode_pattern(), TSO_seq = "", TSO_prime = 3, full_length_only = FALSE
   )
 
   y <- find_barcode(
@@ -71,12 +53,7 @@ test_that("multiple fastq files as one sample", {
     barcodes_file = bc_allow,
     reads_out = file.path(outdiry, "out.fq"),
     stats_out = file.path(outdiry, "stats.tsv"),
-    threads = 1, pattern = c(
-      primer = "CTACACGACGCTCTTCCGATCT",
-      BC = paste0(rep("N", 16), collapse = ""),
-      UMI = paste0(rep("N", 12), collapse = ""),
-      polyT = paste0(rep("T", 9), collapse = "")
-    ), TSO_seq = "", TSO_prime = 3, full_length_only = FALSE
+    threads = 1, pattern = barcode_pattern(), TSO_seq = "", TSO_prime = 3, full_length_only = FALSE
   )
 
   expect_identical(
@@ -92,11 +69,7 @@ test_that("multiple fastq files as one sample", {
 test_that("reverse complement with strand = '-'", {
   outdir <- tempfile()
   dir.create(outdir)
-  bc_allow <- file.path(outdir, "bc_allow.tsv")
-  R.utils::gunzip(
-    filename = system.file("extdata/bc_allow.tsv.gz", package = "FLAMES"),
-    destname = bc_allow, remove = FALSE, overwrite = TRUE
-  )
+  bc_allow <- local_bc_allow()
 
   find_barcode(
     max_bc_editdistance = 2, max_flank_editdistance = 8,
@@ -104,12 +77,7 @@ test_that("reverse complement with strand = '-'", {
     barcodes_file = bc_allow,
     reads_out = file.path(outdir, "out.fq"),
     stats_out = file.path(outdir, "stats.tsv"),
-    threads = 1, pattern = c(
-      primer = "CTACACGACGCTCTTCCGATCT",
-      BC = paste0(rep("N", 16), collapse = ""),
-      UMI = paste0(rep("N", 12), collapse = ""),
-      polyT = paste0(rep("T", 9), collapse = "")
-    ), TSO_seq = "", TSO_prime = 3, full_length_only = FALSE, strand = "-"
+    threads = 1, pattern = barcode_pattern(), TSO_seq = "", TSO_prime = 3, full_length_only = FALSE, strand = "-"
   )
 
   expect_identical(

@@ -2,6 +2,7 @@
 # FLAMES
 
 [![R build status](https://github.com/mritchielab/FLAMES/actions/workflows/check-bioc.yml/badge.svg)](https://github.com/mritchielab/FLAMES/actions)
+[![codecov](https://codecov.io/gh/mritchielab/FLAMES/branch/devel/graph/badge.svg)](https://codecov.io/gh/mritchielab/FLAMES)
 
 The FLAMES package provides a framework for performing single-cell and bulk read full-length analysis of mutations and splicing. FLAMES performs cell barcode and UMI assignment from nanopore reads as well as semi-supervised isoform detection and quantification. FLAMES is designed to be an easy and quick to use, powerful workflow for isoform detection and quantification, splicing analysis and mutation detection.
 

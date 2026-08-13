@@ -139,7 +139,7 @@ homopolymer_pct <- function(ref, seqname, pos, include_alt = FALSE, n = 3, threa
     BiocParallel::bpmapply(
       function(seqname, pos, include_alt) {
         if (pos == 1 | pos == length(ref[[seqname]])) {
-          return(TRUE) # variant at the ends should not be considered
+          return(1) # variant at the ends should not be considered
         }
         start <- max(1, pos - n)
         end <- min(length(ref[[seqname]]), pos + n)
@@ -456,7 +456,7 @@ mutation_positions_single <- function(mutations, annotation_grange, type, verbos
   # verify that all mutations are within the gene region
   mutations_ok <- GenomicRanges::findOverlaps(
     mutations,
-    subset(annotation_grange, type == "gene")
+    annotation_grange[which(S4Vectors::mcols(annotation_grange)$type == "gene")]
   ) |>
     S4Vectors::queryHits() |>
     length() |>
@@ -466,8 +466,7 @@ mutation_positions_single <- function(mutations, annotation_grange, type, verbos
   }
 
   # merge overlapping exons
-  merged_exons <- annotation_grange |>
-    subset(type == "exon") |>
+  merged_exons <- annotation_grange[which(S4Vectors::mcols(annotation_grange)$type == "exon")] |>
     GenomicRanges::reduce()
 
   overlaps <- GenomicRanges::findOverlaps(
@@ -510,7 +509,7 @@ mutation_positions_single <- function(mutations, annotation_grange, type, verbos
     )
 
   # flip the positions if the gene is on the negative strand
-  neg_strand <- subset(annotation_grange, type == "gene") |>
+  neg_strand <- annotation_grange[which(S4Vectors::mcols(annotation_grange)$type == "gene")] |>
     BiocGenerics::strand() |>
     as.character() |>
     magrittr::equals("-")
@@ -607,7 +606,7 @@ mutation_positions <- function(mutations, annotation, type = "relative", bin = F
     BiocParallel::bplapply(
       names(mutations_split),
       function(x) {
-        annot_i <- subset(annotation_grange, S4Vectors::mcols(annotation_grange)[, by] == x)
+        annot_i <- annotation_grange[which(S4Vectors::mcols(annotation_grange)[, by] == x)]
         pos <- mutation_positions_single(mutations_split[[x]], annot_i, type = type, verbose = FALSE)
         if (!bin || type != "relative") {
           return(pos)
