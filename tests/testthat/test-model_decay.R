@@ -1,3 +1,20 @@
+test_that("get_coverage returns per-transcript binned coverage from a BAM", {
+  bam <- local_bam()
+  cov <- get_coverage(bam, min_counts = 1)
+  expect_s3_class(cov, "tbl_df")
+  expect_true(all(c("transcript", "read_counts", "tr_length") %in% names(cov)))
+  expect_true(any(grepl("^coverage_", names(cov))))
+  expect_gte(nrow(cov), 1)
+  # chr1 carried 4 reads (>= min_counts)
+  expect_true("chr1" %in% cov$transcript)
+})
+
+test_that("plot_coverage returns a ggplot for a coverage table", {
+  bam <- local_bam()
+  cov <- get_coverage(bam, min_counts = 1)
+  expect_s3_class(suppressWarnings(plot_coverage(cov)), "ggplot")
+})
+
 test_that("filter_annotation returns a GRanges and reduces transcript count", {
   gtf <- system.file("extdata", "rps24.gtf.gz", package = "FLAMES")
   for (keep_val in c("tss_differ", "tes_differ", "both")) {
