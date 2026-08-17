@@ -35,7 +35,7 @@ name: R-CMD-check-bioc
 ## "/nocache" in the commit message.
 env:
   has_testthat: 'true'
-  run_covr: 'true'
+  # run_covr: 'true'
   run_pkgdown: 'true'
   has_RUnit: 'false'
   cache-version: 'cache-v1'
@@ -220,12 +220,6 @@ jobs:
           BiocManager::install("BiocGenerics")
         shell: Rscript {0}
 
-      - name: Install covr
-        if: (github.ref == 'refs/heads/devel' || github.ref == 'refs/heads/main') && env.run_covr == 'true' && runner.os == 'Linux'
-        run: |
-          remotes::install_cran("covr")
-        shell: Rscript {0}
-
       - name: Install pkgdown
         if: github.ref == 'refs/heads/devel' && env.run_pkgdown == 'true' && runner.os == 'Linux'
         run: |
@@ -277,27 +271,6 @@ jobs:
           )
         shell: Rscript {0}
 
-      - name: Install FLAMES and deps for coverage
-        if: (github.ref == 'refs/heads/devel' || github.ref == 'refs/heads/main') && env.run_covr == 'true' && runner.os == 'Linux'
-        env:
-          BASILISK_USE_SYSTEM_DIR: 1
-        run: |
-          # Without this, run_FLAMES fails at the first basilisk step
-          # under covr and silently truncates coverage of the pipeline/C++ engine.
-          remotes::install_local(".", force = TRUE, upgrade = "never")
-          reticulate::install_python(version = "3.11.9", optimized = FALSE)
-          basilisk::basiliskRun(env = FLAMES:::flames_env, fun = function() NULL)
-        shell: Rscript {0}
-
-      - name: Test coverage
-        if: (github.ref == 'refs/heads/devel' || github.ref == 'refs/heads/main') && env.run_covr == 'true' && runner.os == 'Linux'
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-          BASILISK_USE_SYSTEM_DIR: 1
-        run: |
-          covr::codecov()
-        shell: Rscript {0}
-
       - name: Install package
         if: github.ref == 'refs/heads/devel' && env.run_pkgdown == 'true' && runner.os == 'Linux'
         run: R CMD INSTALL .
@@ -330,6 +303,107 @@ jobs:
         with:
           name: ${{ runner.os }}-biocversion-devel-r-devel-results
           path: check
+
+  ## Test coverage with covr
+  ## Shares the Linux R-package cache with build-check.
+  coverage:
+    if: github.ref == 'refs/heads/devel' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    name: coverage (devel)
+    container: bioconductor/bioconductor_docker:devel
+    continue-on-error: true
+    env:
+      R_REMOTES_NO_ERRORS_FROM_WARNINGS: true
+      RSPM: "https://packagemanager.rstudio.com/cran/__linux__/jammy/latest"
+      NOT_CRAN: true
+      TZ: UTC
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      BASILISK_USE_SYSTEM_DIR: 1
+
+    steps:
+      - name: Set R Library home on Linux
+        run: |
+          mkdir /__w/_temp/Library
+          echo ".libPaths('/__w/_temp/Library')" > ~/.Rprofile
+
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Query dependencies
+        run: |
+          install.packages('remotes')
+          saveRDS(remotes::dev_package_deps(dependencies = TRUE), ".github/depends.Rds", version = 2)
+        shell: Rscript {0}
+
+      ## Same cache key as build-check's Linux leg, so the two jobs share the
+      ## restored R-package cache.
+      - name: Cache R packages on Linux
+        if: "!contains(github.event.head_commit.message, '/nocache')"
+        uses: actions/cache@v3
+        with:
+          path: /home/runner/work/_temp/Library
+          key: ${{ env.cache-version }}-${{ runner.os }}-biocversion-devel-r-devel-${{ hashFiles('.github/depends.Rds') }}
+          restore-keys: ${{ env.cache-version }}-${{ runner.os }}-biocversion-devel-r-devel-
+
+      - name: Install Linux system dependencies
+        run: |
+          sysreqs=$(Rscript -e 'cat("apt-get update -y && apt-get install -y", paste(gsub("apt-get install -y ", "", remotes::system_requirements("ubuntu", "20.04")), collapse = " "))')
+          echo $sysreqs
+          sudo -s eval "$sysreqs"
+
+      - name: Install BiocManager
+        run: |
+          remotes::install_cran(c("BiocManager", "desc", "dplyr"))
+        shell: Rscript {0}
+
+      - name: Set BiocVersion
+        run: |
+          BiocManager::install(version = "3.23", ask = FALSE, force = TRUE)
+        shell: Rscript {0}
+
+      - name: Install dependencies pass 1
+        continue-on-error: true
+        run: |
+          remotes::install_local(dependencies = TRUE, repos = BiocManager::repositories(), build_vignettes = FALSE, upgrade = TRUE)
+        shell: Rscript {0}
+
+      - name: Install dependencies pass 2
+        continue-on-error: true
+        run: |
+          desc::desc_get_deps() |>
+            dplyr::filter(package != "R" & !package %in% installed.packages()[, "Package"]) |>
+            dplyr::pull(package) |>
+            BiocManager::install(update = FALSE, ask = FALSE, force = FALSE)
+        shell: Rscript {0}
+
+      - name: Install dependencies pass 3
+        run: |
+          remotes::install_local(dependencies = TRUE, repos = BiocManager::repositories(), build_vignettes = FALSE, upgrade = TRUE, force = TRUE)
+        shell: Rscript {0}
+
+      - name: Install covr
+        run: |
+          remotes::install_cran("covr")
+        shell: Rscript {0}
+
+      - name: Provision python / basilisk for coverage
+        run: |
+          # FLAMES is already installed by the dependency passes above, so
+          # flames_env is available. Build a portable python and pre-build the
+          # basilisk conda env into the shared system dir (BASILISK_USE_SYSTEM_DIR=1)
+          # so run_FLAMES completes under covr instead of failing at the first
+          # basilisk step and silently truncating coverage of the pipeline/C++ engine.
+          reticulate::install_python(version = "3.11.9", optimized = FALSE)
+          basilisk::basiliskRun(env = FLAMES:::flames_env, fun = function() NULL)
+        shell: Rscript {0}
+
+      - name: Test coverage
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        run: |
+          covr::codecov()
+        shell: Rscript {0}
 
   docker-build-and-push:
     runs-on: ubuntu-latest

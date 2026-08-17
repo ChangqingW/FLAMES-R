@@ -1,12 +1,12 @@
 #include "htslib/sam.h"
 #include <Rcpp.h>
 #include <array>
-#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string>
 #include <unistd.h>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 // [[Rcpp::plugins(cpp17)]]
 
@@ -174,6 +174,22 @@ inline int plpdestructor(void *data, const bam1_t *b, bam_pileup_cd *cd) {
   return 0;
 }
 
+// Extract (barcode, UMI) from  CB:Z: / UB:Z aux tags
+static std::pair<std::string, std::string> bc_umi_of(const bam1_t *b) {
+  std::string barcode, umi;
+  if (uint8_t *cb = bam_aux_get(b, "CB")) {
+    if (const char *s = bam_aux2Z(cb)) {
+      barcode = s;
+    }
+  }
+  if (uint8_t *ub = bam_aux_get(b, "UB")) {
+    if (const char *s = bam_aux2Z(ub)) {
+      umi = s;
+    }
+  }
+  return {barcode, umi};
+}
+
 int readdata(void *data, bam1_t *b) {
   plpconf *conf = (plpconf *)data;
   if (!conf || !conf->infile) {
@@ -247,18 +263,17 @@ Rcpp::NumericMatrix variant_count_matrix_cpp(Rcpp::String bam_path,
                    bam_tmp) < 0) {
     Rcpp::stop("Failed to fetch an alignment");
   }
-  std::string read_id = bam_get_qname(bam_tmp);
-  const std::size_t umi_idx = read_id.find("#");
-  const std::size_t id_idx = read_id.find("_");
-  if (umi_idx == std::string::npos || id_idx == std::string::npos) {
-    Rcpp::stop("Unexpected read id format: %s", read_id);
+  if (bam_aux_get(bam_tmp, "CB") == NULL || bam_aux_get(bam_tmp, "UB") == NULL) {
+    Rcpp::stop("Read %s is missing CB/UB tags; expected reads demultiplexed with "
+               "CB:Z: (barcode) and UB:Z: (UMI) tags.",
+               bam_get_qname(bam_tmp));
   }
   if (verbose) {
-    Rcpp::Rcout << "Checking read ID format:\n"
-                << "ReadID: " << read_id << "\n"
-                << "barcode: " << read_id.substr(0, id_idx) << "\n"
-                << "UMI: " << read_id.substr(id_idx + 1, umi_idx - id_idx - 1)
-                << "\n";
+    const std::pair<std::string, std::string> bc_umi = bc_umi_of(bam_tmp);
+    Rcpp::Rcout << "Reading barcodes/UMIs from CB/UB tags\n"
+                << "ReadID: " << bam_get_qname(bam_tmp) << "\n"
+                << "barcode: " << bc_umi.first << "\n"
+                << "UMI: " << bc_umi.second << "\n";
   }
   bam_destroy1(bam_tmp);
 
@@ -293,9 +308,9 @@ Rcpp::NumericMatrix variant_count_matrix_cpp(Rcpp::String bam_path,
         continue;
       }
 
-      const std::string read_id = bam_get_qname(plp[j].b);
-      const std::string barcode = read_id.substr(0, id_idx);
-      const std::string umi = read_id.substr(id_idx + 1, umi_idx - id_idx - 1);
+      const std::pair<std::string, std::string> bc_umi = bc_umi_of(plp[j].b);
+      const std::string &barcode = bc_umi.first;
+      const std::string &umi = bc_umi.second;
       barcodes.insert(barcode);
 
       if (!indel) { // count SNV

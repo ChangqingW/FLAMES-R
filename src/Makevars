@@ -41,8 +41,39 @@ RUST_VERSION := $(shell rustc --version | sed -E 's/rustc ([0-9]+\.[0-9]+\.[0-9]
 RUST_OK := $(shell [ "$(RUST_VERSION)" != "" ] && \
                    [ "$$(printf '%s\n' 1.85.0 $(RUST_VERSION) | sort -V | head -n1)" = "1.85.0" ] && echo "yes" || echo "no")
 
+# Which bundled command-line tools to build at install time (env-controlled):
+#   all      build both minimap2 and oarfish (DEFAULT; required so FLAMES's
+#            runnable man-page examples work on the Bioconductor build machines)
+#   none     build neither  -- rely entirely on system-provided tools
+#   missing  build only the tools NOT already found on PATH
+# Distributions that ship minimap2/oarfish separately (e.g. conda/bioconda) can
+# set this to `none` or `missing`; FLAMES resolves system tools from PATH at
+# runtime via find_bin() (R/binaries.R). Unset behaves as `all`.
+FLAMES_BUILD_TOOLS ?= all
+
+# Per-tool PATH probes (empty string when the tool is absent)
+MINIMAP2_ON_PATH := $(shell command -v minimap2 2>/dev/null)
+OARFISH_ON_PATH  := $(shell command -v oarfish 2>/dev/null)
+
+BUNDLED_BINS =
+ifeq ($(FLAMES_BUILD_TOOLS),all)
+  BUNDLED_BINS = ../inst/bin/minimap2 ../inst/bin/oarfish
+else ifeq ($(FLAMES_BUILD_TOOLS),none)
+  # build neither
+else ifeq ($(FLAMES_BUILD_TOOLS),missing)
+  ifeq ($(MINIMAP2_ON_PATH),)
+    BUNDLED_BINS += ../inst/bin/minimap2
+  endif
+  ifeq ($(OARFISH_ON_PATH),)
+    BUNDLED_BINS += ../inst/bin/oarfish
+  endif
+else
+  $(warning FLAMES_BUILD_TOOLS='$(FLAMES_BUILD_TOOLS)' unrecognised; expected all|none|missing. Defaulting to 'all'.)
+  BUNDLED_BINS = ../inst/bin/minimap2 ../inst/bin/oarfish
+endif
+
 # Targets
-all: strippedLib ../inst/bin/minimap2 ../inst/bin/oarfish
+all: strippedLib $(BUNDLED_BINS)
 
 strippedLib: $(SHLIB)
 	if test -e "/usr/bin/strip" & test -e "/bin/uname" & [[ `uname` == "Linux" ]] ; then /usr/bin/strip --strip-debug $(SHLIB); fi
@@ -72,6 +103,9 @@ else
 	@echo "Building oarfish with cargo"
 	mkdir -p ../inst/bin
 	mkdir cargo_temp
+	# crates.io has no 0.8.1 (it skips from 0.8.0 to 0.9.0). The v0.8.1 that
+	# download_oarfish() in R/binaries.R fetches is a GitHub *release binary*, not a
+	# published crate, so this cargo build must stay on a crates.io version (0.8.0).
 	(cargo install oarfish --root cargo_temp --bin oarfish --vers 0.8.0)
 	cp cargo_temp/bin/oarfish ../inst/bin/
 	cargo uninstall oarfish --root cargo_temp
@@ -80,6 +114,6 @@ endif
 
 clean:
 	rm $(OBJECTS)
-	cd submodule/minimap2 && $(MAKE) clean
+	cd submodule/minimap2 2>/dev/null && $(MAKE) clean || true
 
 .PHONY: strippedLib clean

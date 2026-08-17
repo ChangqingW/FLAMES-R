@@ -89,10 +89,9 @@ Suggests:
     uwot,
     testthat (>= 3.0.0),
     xml2
-LinkingTo: Rcpp, Rhtslib, testthat
+LinkingTo: Rcpp, Rhtslib
 SystemRequirements: GNU make, C++17
 Config/Bioconductor/UnsupportedPlatforms: windows
-RoxygenNote: 7.3.3
 VignetteBuilder: knitr
 URL: https://mritchielab.github.io/FLAMES
 Config/testthat/edition: 3
@@ -100,3 +99,4 @@ Depends:
     R (>= 4.2.0)
 LazyLoad: yes
 StagedInstall: no
+Config/roxygen2/version: 8.0.0

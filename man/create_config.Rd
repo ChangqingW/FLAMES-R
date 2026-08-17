@@ -30,8 +30,6 @@ create_config(outdir, type = "sc_3end", ...)
  isoform identification step. \code{TRUE} is recommended}
  \item{bambu_isoform_identification}{ - Boolean. Whether to use Bambu for
  isoform identification.}
- \item{multithread_isoform_identification}{ - Boolean. Whether to use FLAMES'
- new multithreaded Cpp implementation for isoform identification.}
  \item{do_read_realignment}{ - Boolean. Specifies whether to run the read
  realignment step. \code{TRUE} is recommended}
  \item{do_transcript_quantification}{ - Boolean. Specifies whether to run the
