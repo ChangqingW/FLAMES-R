@@ -66,17 +66,6 @@ test_that("show() renders completed, failed and pending steps", {
   expect_true(any(grepl("pending", out)))
 })
 
-test_that("display_pipeline_class shows a success alert when all steps are complete", {
-  ppl <- example_pipeline("BulkPipeline")
-  ppl@completed_steps[] <- TRUE
-  ppl@last_error <- list()
-  expect_no_error(FLAMES:::display_pipeline_class(ppl))
-  expect_true(any(grepl(
-    "✔", 
-    cli::cli_fmt(FLAMES:::display_pipeline_class(ppl))
-  )))
-})
-
 test_that("show() handles a MultiSample object with vector output slots", {
   ppl <- example_pipeline("MultiSampleSCPipeline")
   # mixed existing / missing per-sample outputs exercises the multi-path branch

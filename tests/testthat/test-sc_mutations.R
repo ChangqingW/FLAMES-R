@@ -165,3 +165,69 @@ test_that("sc_plot_genotype returns a ggplot on a reduced-dim embedding", {
   p <- sc_plot_genotype(sce, genotype_tb)
   expect_s3_class(p, "ggplot")
 })
+
+
+test_that("variant_count_tb counts alleles per barcode at a position", {
+  bam <- local_bam()
+  tb <- FLAMES:::variant_count_tb(bam, "chr1", 10L, indel = FALSE, verbose = FALSE)
+
+  expect_s3_class(tb, "tbl_df")
+  expect_true(all(c("allele", "barcode", "allele_count", "cell_total_reads",
+                    "pct", "pos", "seqname") %in% names(tb)))
+  expect_setequal(unique(tb$barcode), c("AAACCCAAGAAACGGT", "TTTGGGCCAAAACCCA"))
+  # bcA carries A, bcB carries T at chr1:10
+  expect_equal(tb$allele_count[tb$allele == "A" & tb$barcode == "AAACCCAAGAAACGGT"], 1)
+  expect_equal(tb$allele_count[tb$allele == "T" & tb$barcode == "TTTGGGCCAAAACCCA"], 1)
+})
+
+test_that("variant_count_tb returns an empty tibble when no reads cover the position", {
+  bam <- local_bam()
+  expect_message(
+    tb <- FLAMES:::variant_count_tb(bam, "chr1", 90L, indel = FALSE, verbose = FALSE),
+    "No reads found"
+  )
+  expect_equal(nrow(tb), 0L)
+})
+
+test_that("sc_mutations aggregates over positions for a single bam", {
+  bam <- local_bam()
+  res <- sc_mutations(bam, seqnames = c("chr1", "chr1"), positions = c(10L, 5L),
+                      indel = FALSE, threads = 1)
+  expect_s3_class(res, "tbl_df")
+  expect_true(all(c("allele", "barcode", "allele_count", "pos", "seqname") %in% names(res)))
+  expect_setequal(unique(res$pos), c(10, 5))
+})
+
+test_that("sc_mutations tags results with the source bam for multiple bam files", {
+  bam1 <- local_bam()
+  bam2 <- local_bam()
+  res <- sc_mutations(c(bam1, bam2), seqnames = "chr1", positions = 10L,
+                      indel = FALSE, threads = 1)
+  expect_s3_class(res, "tbl_df")
+  expect_true("bam_file" %in% names(res))
+  expect_setequal(unique(res$bam_file), c(bam1, bam2))
+})
+
+test_that("find_variants_grange pileups non-reference alleles", {
+  bam <- local_bam()
+  res <- FLAMES:::find_variants_grange(
+    bam, bam_reference(), bam_gene_annotation(),
+    min_nucleotide_depth = 1, names_from = "gene_name"
+  )
+  expect_true(is.data.frame(res))
+  expect_true(all(c("seqnames", "pos", "nucleotide", "count", "sum", "freq", "ref") %in% names(res)))
+  expect_gt(nrow(res), 0)
+  # reference is all-A, so every reported variant nucleotide is non-A
+  expect_false(any(as.character(res$nucleotide) == "A"))
+})
+
+test_that("find_variants returns a variant tibble against an in-memory reference", {
+  bam <- local_bam()
+  res <- find_variants(
+    bam, bam_reference(), bam_gene_annotation(),
+    min_nucleotide_depth = 1, homopolymer_window = 0, threads = 1
+  )
+  expect_true(is.data.frame(res))
+  expect_true(all(c("seqnames", "pos", "nucleotide", "count", "freq", "ref") %in% names(res)))
+  expect_gt(nrow(res), 0)
+})

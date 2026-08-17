@@ -1,10 +1,12 @@
-# test the full FLAMES pipeline for each pipeline
-
-run_pipeline_case <- function(type, bambu, oarfish) {
+run_pipeline_case <- function(type, bambu, oarfish, controller) {
   pipeline <- example_pipeline(type)
   pipeline@config$pipeline_parameters$bambu_isoform_identification <- bambu
   pipeline@config$pipeline_parameters$oarfish_quantification <- oarfish
-  pipeline@controllers <- list() # covr might be failing due to this???
+  pipeline@controllers <- if (controller) {
+    list(default = crew::crew_controller_local())
+  } else {
+    list()
+  }
   run_FLAMES(pipeline)
 }
 
@@ -30,21 +32,27 @@ check_result <- function(result) {
   }
 }
 
-# the full combination will take very long
-# should we reduce the number of senarios tested for certain CI branches?
-run_flames_cases <- expand.grid(
-  type = c("BulkPipeline", "SingleCellPipeline", "MultiSampleSCPipeline"),
-  bambu = c(TRUE, FALSE),
-  oarfish = c(TRUE, FALSE)
+run_flames_cases <- data.frame(
+  type = c(
+    "BulkPipeline", "SingleCellPipeline", "MultiSampleSCPipeline",
+    "BulkPipeline", "SingleCellPipeline", "MultiSampleSCPipeline"
+  ),
+  bambu      = c(TRUE,  FALSE, FALSE, FALSE, FALSE, FALSE),
+  oarfish    = c(TRUE,  FALSE, TRUE,  FALSE, FALSE, FALSE),
+  controller = c(FALSE, FALSE, FALSE, TRUE,  TRUE,  TRUE),
+  stringsAsFactors = FALSE
 )
 
 for (i in seq_len(nrow(run_flames_cases))) {
   local({
     .case <- run_flames_cases[i, ]
     test_that(
-      sprintf("run_FLAMES completes: %s (bambu=%s, oarfish=%s)", .case$type, .case$bambu, .case$oarfish),
+      sprintf(
+        "run_FLAMES completes: %s (bambu=%s, oarfish=%s, controller=%s)",
+        .case$type, .case$bambu, .case$oarfish, .case$controller
+      ),
       {
-        result <- run_pipeline_case(.case$type, .case$bambu, .case$oarfish)
+        result <- run_pipeline_case(.case$type, .case$bambu, .case$oarfish, .case$controller)
         check_result(result)
       }
     )

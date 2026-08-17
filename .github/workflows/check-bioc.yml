@@ -402,7 +402,7 @@ jobs:
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         run: |
-          covr::codecov()
+          covr::codecov(quiet = FALSE)
         shell: Rscript {0}
 
   docker-build-and-push:

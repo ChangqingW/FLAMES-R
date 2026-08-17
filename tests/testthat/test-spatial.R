@@ -38,3 +38,50 @@ test_that("create_spe builds a SpatialExperiment from an SCE + barcode file + ma
   expect_true("in_tissue" %in% names(SummarizedExperiment::colData(spe)))
   expect_setequal(colnames(spe), barcodes)
 })
+
+# A minimal SpatialExperiment carrying a 2x2 fake tissue image + imageX/imageY
+# coords + a counts assay, enough to exercise the plotting engine (magick etc.).
+make_image_spe <- function() {
+  counts <- matrix(c(5, 1, 0, 2, 3, 4), nrow = 2, byrow = TRUE,
+                   dimnames = list(c("f1", "f2"), paste0("spot", 1:3)))
+  coords <- matrix(c(1, 1, 2, 1, 1, 2), ncol = 2, byrow = TRUE,
+                   dimnames = list(NULL, c("imageX", "imageY")))
+  spe <- SpatialExperiment::SpatialExperiment(
+    assays = list(counts = counts), spatialCoords = coords
+  )
+  ras <- grDevices::as.raster(matrix(c("#FF0000", "#00FF00", "#0000FF", "#FFFFFF"), 2, 2))
+  spi <- SpatialExperiment::SpatialImage(ras)
+  SpatialExperiment::imgData(spe) <- S4Vectors::DataFrame(
+    sample_id = "sample01", image_id = "hires", data = I(list(spi)), scaleFactor = 1
+  )
+  spe
+}
+
+test_that("plot_spatial_feature returns a ggplot over the tissue image", {
+  spe <- make_image_spe()
+  expect_s3_class(plot_spatial_feature(spe, "f1"), "ggplot")
+  # grayscale = FALSE path + numeric-vector feature of length ncol(spe)
+  expect_s3_class(
+    plot_spatial_feature(spe, feature = c(1, 2, 3), grayscale = FALSE),
+    "ggplot"
+  )
+})
+
+test_that("plot_spatial_feature rejects a wrongly-sized feature", {
+  spe <- make_image_spe()
+  expect_error(plot_spatial_feature(spe, feature = c(1, 2)), "length 1 or ncol")
+})
+
+test_that("plot_spatial_pie returns a ggplot for multiple features", {
+  spe <- make_image_spe()
+  expect_s3_class(plot_spatial_pie(spe, c("f1", "f2")), "ggplot")
+})
+
+test_that("plot_spatial errors when the SpatialExperiment has no image data", {
+  spe <- SpatialExperiment::SpatialExperiment(
+    assays = list(counts = matrix(1, 1, 3, dimnames = list("f1", paste0("s", 1:3)))),
+    spatialCoords = matrix(c(1, 1, 2, 1, 1, 2), ncol = 2, byrow = TRUE,
+                           dimnames = list(NULL, c("imageX", "imageY")))
+  )
+  expect_error(FLAMES:::plot_spatial(spe, opacity = 50, feature = 1:3), "No image data")
+})
