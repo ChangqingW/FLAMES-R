@@ -23,3 +23,6 @@ ignore:
   - "R/sc_annotate_plots.R"
   - "R/basilisk.R"
   - "R/binaries.R"
+  # not our code
+  - "src/utility/edlib-1.2.7/**"
+  - "src/submodule/**"
