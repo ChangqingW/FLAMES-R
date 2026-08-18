@@ -85,3 +85,52 @@ test_that("plot_spatial errors when the SpatialExperiment has no image data", {
   )
   expect_error(FLAMES:::plot_spatial(spe, opacity = 50, feature = 1:3), "No image data")
 })
+
+test_that("plot_spatial_feature rejects a non-character/numeric feature", {
+  expect_error(plot_spatial_feature(make_image_spe(), feature = TRUE), "Invalid feature type")
+})
+
+# helper: SCE + whitespace barcode file for create_spe; json oligo columns vary
+.make_spe_inputs <- function(dir) {
+  barcodes <- c("AAAC", "AAAG", "AAAT")
+  sce <- SingleCellExperiment::SingleCellExperiment(
+    assays = list(counts = matrix(0L, nrow = 2, ncol = 3,
+                                  dimnames = list(c("g1", "g2"), barcodes)))
+  )
+  bc_file <- file.path(dir, "barcodes.txt")
+  writeLines(c("AAAC 1 1", "AAAG 2 1", "AAAT 1 2"), bc_file)
+  list(sce = sce, bc_file = bc_file)
+}
+
+test_that("create_spe warns when no tissue column is present", {
+  dir <- withr::local_tempdir()
+  io <- .make_spe_inputs(dir)
+  json <- file.path(dir, "align.json")
+  writeLines(jsonlite::toJSON(list(oligo = data.frame(
+    row = c(0L, 0L, 1L), col = c(0L, 1L, 0L),
+    imageX = c(10, 30, 50), imageY = c(20, 40, 60) # no tissue column
+  )), auto_unbox = TRUE), json)
+  expect_warning(
+    spe <- create_spe(io$sce, spatial_barcode_file = io$bc_file, mannual_align_json = json),
+    "No tissue column"
+  )
+  expect_s4_class(spe, "SpatialExperiment")
+})
+
+test_that("create_spe accepts a pre-built image DataFrame", {
+  dir <- withr::local_tempdir()
+  io <- .make_spe_inputs(dir)
+  json <- file.path(dir, "align.json")
+  writeLines(jsonlite::toJSON(list(oligo = data.frame(
+    row = c(0L, 0L, 1L), col = c(0L, 1L, 0L),
+    imageX = c(10, 30, 50), imageY = c(20, 40, 60), tissue = c(1L, 1L, 0L)
+  )), auto_unbox = TRUE), json)
+  ras <- grDevices::as.raster(matrix(c("#FF0000", "#00FF00", "#0000FF", "#FFFFFF"), 2, 2))
+  img <- S4Vectors::DataFrame(
+    sample_id = "sample01", image_id = "hires",
+    data = I(list(SpatialExperiment::SpatialImage(ras))), scaleFactor = 1
+  )
+  spe <- create_spe(io$sce, spatial_barcode_file = io$bc_file,
+                    mannual_align_json = json, image = img)
+  expect_gt(nrow(SpatialExperiment::imgData(spe)), 0)
+})

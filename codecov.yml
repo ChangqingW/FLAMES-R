@@ -26,3 +26,5 @@ ignore:
   # not our code
   - "src/utility/edlib-1.2.7/**"
   - "src/submodule/**"
+  - "R/sc_longread.R" # deprecated
+  - "R/demultiplex_sockey.R" # thin basilisk/python passthrough wrappers

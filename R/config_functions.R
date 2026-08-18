@@ -302,7 +302,7 @@ create_config <- function(outdir, type = "sc_3end", ...) {
             "  - For 'max_bc_editdistance' use:",
             " barcode_parameters.max_bc_editdistance\n",
             "Alternatively, you can open the created config file ",
-            "and edit it manually.\n",
+            "and edit it manually.\n"
           )
         }
       }

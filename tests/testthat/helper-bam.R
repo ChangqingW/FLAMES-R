@@ -26,6 +26,21 @@ local_bam <- function(envir = parent.frame()) {
   )
 }
 
+# A coordinate-sorted, indexed BAM with many reads on one transcript-like
+# reference ("tx1"), enough to clear get_coverage()'s default min_counts = 10.
+local_coverage_bam <- function(envir = parent.frame(), n = 15) {
+  dir <- withr::local_tempdir(.local_envir = envir)
+  sam <- file.path(dir, "cov.sam")
+  seq <- paste(rep("A", 30), collapse = "")
+  qual <- paste(rep("I", 30), collapse = "")
+  reads <- vapply(seq_len(n), function(i) {
+    pos <- ((i - 1) %% 40) + 1
+    sprintf("r%d\t0\ttx1\t%d\t60\t30M\t*\t0\t0\t%s\t%s", i, pos, seq, qual)
+  }, character(1))
+  writeLines(c("@HD\tVN:1.6\tSO:coordinate", "@SQ\tSN:tx1\tLN:120", reads), sam)
+  Rsamtools::asBam(sam, sub("\\.sam$", "", sam), indexDestination = TRUE, overwrite = TRUE)
+}
+
 # A single-gene annotation GRanges spanning chr1:1-100 (matches local_bam()),
 # with the type/gene_id/gene_name mcols that find_variants* expect.
 bam_gene_annotation <- function() {
