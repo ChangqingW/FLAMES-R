@@ -86,3 +86,27 @@ test_that("filter_coverage retains passing transcripts and removes failing ones"
   expect_equal(nrow(result), 1L)
   expect_equal(result$transcript, "pass_t")
 })
+
+test_that("plot_coverage(detailed = TRUE) returns a composite plot", {
+  cov <- get_coverage(local_bam(), min_counts = 1)
+  p <- suppressWarnings(plot_coverage(cov, detailed = TRUE))
+  expect_true(inherits(p, c("ggplot", "gg", "gtable"))) # cowplot::plot_grid result
+})
+
+test_that("plot_coverage supports fixed length bins", {
+  cov <- get_coverage(local_bam(), min_counts = 1)
+  p <- suppressWarnings(plot_coverage(cov, length_bins = c(0, 1, 2, 5, 10, Inf)))
+  expect_s3_class(p, "ggplot")
+})
+
+test_that("plot_coverage and filter_coverage accept a BAM path", {
+  bam <- local_coverage_bam()
+  expect_s3_class(suppressWarnings(plot_coverage(bam, filter_fn = convolution_filter)), "ggplot")
+  expect_true(is.data.frame(filter_coverage(bam)))
+})
+
+test_that("weight_transcripts sigmoid caps the inflection index for large inputs", {
+  w <- weight_transcripts(1:2000, type = "sigmoid")
+  expect_length(w, 2000)
+  expect_true(all(w >= 0 & w <= 1))
+})

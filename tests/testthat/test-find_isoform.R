@@ -69,3 +69,15 @@ test_that("annotation_to_fasta writes a transcriptome FASTA and its .fai index",
   expect_gt(length(seqs), 0)
   expect_true(all(Biostrings::width(seqs) > 0))
 })
+
+test_that("get_GRangesList rejects unsupported input types", {
+  expect_error(FLAMES:::get_GRangesList(42), "Unsupported input type")
+})
+
+test_that("annotation_to_fasta accepts an extract_fn", {
+  gtf <- system.file("extdata", "rps24.gtf.gz", package = "FLAMES")
+  fa <- system.file("extdata", "rps24.fa.gz", package = "FLAMES")
+  out <- file.path(withr::local_tempdir(), "tx.fa")
+  annotation_to_fasta(gtf, fa, out, extract_fn = function(grl) grl)
+  expect_true(file.exists(out))
+})

@@ -169,3 +169,96 @@ test_that("check_arguments enforces GTF for bambu and warns on oarfish without g
     "oarfish"
   )
 })
+
+multi_inputs <- function(dir, n = 3) {
+  fq_dir <- file.path(dir, "fastq")
+  dir.create(fq_dir, showWarnings = FALSE)
+  src <- system.file("extdata", "fastq", "musc_rps24.fastq.gz", package = "FLAMES")
+  fqs <- file.path(fq_dir, paste0("sample", seq_len(n), ".fastq.gz"))
+  for (f in fqs) file.copy(src, f, overwrite = TRUE)
+  genome_fa <- file.path(dir, "rps24.fa")
+  R.utils::gunzip(system.file("extdata", "rps24.fa.gz", package = "FLAMES"),
+                  destname = genome_fa, remove = FALSE, overwrite = TRUE)
+  list(
+    fastq = fqs, genome_fa = genome_fa,
+    annotation = system.file("extdata", "rps24.gtf.gz", package = "FLAMES"),
+    config = create_config(dir), outdir = dir
+  )
+}
+
+build_multi <- function(io, ...) {
+  MultiSampleSCPipeline(
+    config_file = io$config, outdir = io$outdir, fastq = io$fastq,
+    annotation = io$annotation, genome_fa = io$genome_fa,
+    minimap2 = "minimap2", samtools = "samtools", ...
+  )
+}
+
+test_that("MultiSampleSCPipeline errors on barcodes_file / expect_cell_number length mismatch", {
+  io <- multi_inputs(withr::local_tempdir(), 3)
+  expect_error(build_multi(io, barcodes_file = c("a", "b")), "does not match number of fastq")
+  expect_error(build_multi(io, expect_cell_number = c(100, 200)), "does not match number of fastq")
+})
+
+test_that("MultiSampleSCPipeline rejects a single fastq file", {
+  io <- multi_inputs(withr::local_tempdir(), 1)
+  expect_error(build_multi(io), "single-sample")
+})
+
+test_that("MultiSampleSCPipeline errors when the fastq folder has too few files", {
+  dir <- withr::local_tempdir()
+  fq_dir <- file.path(dir, "fq")
+  dir.create(fq_dir)
+  file.copy(system.file("extdata", "fastq", "musc_rps24.fastq.gz", package = "FLAMES"),
+            file.path(fq_dir, "only.fastq.gz"))
+  genome_fa <- file.path(dir, "rps24.fa")
+  R.utils::gunzip(system.file("extdata", "rps24.fa.gz", package = "FLAMES"),
+                  destname = genome_fa, remove = FALSE, overwrite = TRUE)
+  expect_error(
+    MultiSampleSCPipeline(
+      config_file = create_config(dir), outdir = dir, fastq = fq_dir,
+      annotation = system.file("extdata", "rps24.gtf.gz", package = "FLAMES"),
+      genome_fa = genome_fa, minimap2 = "minimap2", samtools = "samtools"
+    ),
+    "file\\(s\\) found"
+  )
+})
+
+test_that("MultiSampleSCPipeline requires expect_cell_number when demultiplexer is BLAZE", {
+  dir <- withr::local_tempdir()
+  io <- multi_inputs(dir, 3)
+  cfg <- create_config(dir, pipeline_parameters.demultiplexer = "BLAZE")
+  expect_error(
+    MultiSampleSCPipeline(
+      config_file = cfg, outdir = io$outdir, fastq = io$fastq,
+      annotation = io$annotation, genome_fa = io$genome_fa,
+      minimap2 = "minimap2", samtools = "samtools"
+    ),
+    "expect_cell_number"
+  )
+})
+
+test_that("example_pipeline rejects an unknown pipeline type", {
+  expect_error(example_pipeline("not_a_pipeline"), "Invalid pipeline type")
+})
+
+# -- step-method demultiplex parameter validation (errors before any tool runs)
+
+test_that("barcode_demultiplex errors on an unknown demultiplexer", {
+  for (type in c("SingleCellPipeline", "MultiSampleSCPipeline")) {
+    ppl <- example_pipeline(type)
+    ppl@config$pipeline_parameters$demultiplexer <- "nonsense"
+    ppl@controllers <- list()
+    expect_error(run_step(ppl, "barcode_demultiplex"), "[Uu]nknown demultiplexer")
+  }
+})
+
+test_that("barcode_demultiplex requires expect_cell_number for BLAZE", {
+  for (type in c("SingleCellPipeline", "MultiSampleSCPipeline")) {
+    ppl <- example_pipeline(type)
+    ppl@config$pipeline_parameters$demultiplexer <- "BLAZE"
+    ppl@expect_cell_number <- NA_real_
+    ppl@controllers <- list()
+    expect_error(run_step(ppl, "barcode_demultiplex"), "expect_cell_number")
+  }
+})

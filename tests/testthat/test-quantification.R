@@ -95,3 +95,47 @@ test_that("parse_oarfish_sc_output builds an SCE with populated rowRanges", {
   expect_true("transcript_id" %in% colnames(SummarizedExperiment::rowData(sce)))
   expect_equal(length(SummarizedExperiment::rowRanges(sce)), 3L)
 })
+
+test_that("quantify_transcript_oarfish errors on an unknown pipeline", {
+  gtf <- system.file("extdata", "rps24.gtf.gz", package = "FLAMES")
+  expect_error(
+    FLAMES:::quantify_transcript_oarfish(
+      gtf, withr::local_tempdir(), config = list(), pipeline = "nope", samples = "s"
+    ),
+    "Unknown pipeline"
+  )
+})
+
+test_that("add_gene_counts derives the count stem from metadata outdir", {
+  dir <- withr::local_tempdir()
+  gm <- Matrix::Matrix(1:10, nrow = 2, ncol = 5, sparse = TRUE)
+  colnames(gm) <- paste0("cell", 1:5)
+  rownames(gm) <- c("g1", "g2")
+  Matrix::writeMM(gm, file.path(dir, "gene_count.mtx"))
+  writeLines(rownames(gm), file.path(dir, "gene_count_features.tsv"))
+  writeLines(colnames(gm), file.path(dir, "gene_count_barcodes.tsv"))
+
+  sce <- SingleCellExperiment::SingleCellExperiment(
+    assays = list(counts = matrix(0, nrow = 2, ncol = 10))
+  )
+  colnames(sce) <- paste0("cell", 1:10)
+  S4Vectors::metadata(sce)$inputs$outdir <- dir
+
+  res <- add_gene_counts(sce)
+  expect_true("gene" %in% SingleCellExperiment::altExpNames(res))
+})
+
+test_that("parse_oarfish_sc_output warns for transcripts absent from the annotation", {
+  dir <- withr::local_tempdir()
+  stem <- file.path(dir, "oarfish")
+  m <- Matrix::Matrix(c(3, 0, 5, 2), nrow = 2, ncol = 2, sparse = TRUE)
+  Matrix::writeMM(m, paste0(stem, ".count.mtx"))
+  writeLines(c("ENSMUST00000169826.2", "FAKE_TX"), paste0(stem, ".features.txt"))
+  writeLines(c("bc1", "bc2"), paste0(stem, ".barcodes.txt"))
+  gtf <- system.file("extdata", "rps24.gtf.gz", package = "FLAMES")
+
+  expect_warning(
+    suppressMessages(FLAMES:::parse_oarfish_sc_output(stem, gtf, dir)),
+    "not found in the annotation"
+  )
+})
